@@ -1,0 +1,22 @@
+{
+  "name": "freebus-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repo-level tooling only. Each project under api/, gtfs/ and app/ manages its own dependencies; this is deliberately NOT an npm workspace, because hoisting node_modules breaks Metro's resolution for the Expo app.",
+  "scripts": {
+    "commit": "cz",
+    "prepare": "husky"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^9.1.7"
+  }
+}

@@ -1,0 +1,93 @@
+name: Deploy to production
+
+# Runs deploy.sh on the box -- which pulls main itself (`git pull --ff-only`),
+# rebuilds only what changed, reclaims the orphaned images, and waits for
+# /ready. Nothing is built or copied here: the box is the build machine, the
+# same way a manual `./deploy.sh` is.
+#
+# One-time setup on the box: create an unprivileged user that owns
+# /opt/freebus and belongs to the `docker` group, generate a deploy key, add
+# its public half to THAT USER's `authorized_keys` restricted to
+# `cd /opt/freebus && ./deploy.sh`, and make sure the key is not also in
+# root's. Then set DEPLOY_USER, DEPLOY_HOST, DEPLOY_SSH_KEY and
+# DEPLOY_KNOWN_HOSTS as repository secrets.
+#
+# deploy.sh needs exactly two privileges and no more: write access to
+# /opt/freebus so `git pull` works, and the docker socket. Everything else it
+# does -- curl, df, python3 -- is unprivileged. Note that `docker` group
+# membership is equivalent to root on the host, since it can mount any path
+# into a container; this removes root LOGIN, not the ability to escalate.
+on:
+  push:
+    branches: [main]
+    # Only what the box actually runs. An app-only push (app/**) or a
+    # docs-only change touches nothing on the server, and a deploy there
+    # would still rebuild-check and prune for no reason.
+    paths:
+      - "api/**"
+      - "!api/**/*.md"
+      - "gtfs/**"
+      - "!gtfs/**/*.md"
+      - docker-compose.yml
+      - Caddyfile
+      - deploy.sh
+      - .github/workflows/deploy.yml
+  workflow_dispatch: {}
+
+# One deploy at a time, and a second push QUEUES rather than cancels: killing
+# the runner mid `compose up` would leave the box half-restarted, and the
+# queued run pulls the newer main anyway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # An api rebuild plus deploy.sh's own 5-minute /ready wait; the
+    # cap only catches a hung SSH session.
+    timeout-minutes: 30
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      # No default, deliberately. A fallback here would silently send the
+      # deploy somewhere nobody chose -- and the obvious fallback, root, is
+      # the thing this is moving away from.
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: Load the deploy key and the box's pinned host key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ] || [ -z "$HOST" ] || [ -z "$DEPLOY_USER" ]; then
+            echo "::error::DEPLOY_USER, DEPLOY_HOST, DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS must all be set."
+            exit 1
+          fi
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          # Pinned, not `ssh-keyscan`ed here: a scan at deploy time trusts
+          # whatever answers on that IP, which is exactly what host-key
+          # checking exists to refuse.
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Pull and deploy on the box
+        # The key is restricted on the box to a forced `cd /opt/freebus &&
+        # ./deploy.sh`, so the command sent here is ignored there; it is
+        # spelled out anyway so the step says what runs. deploy.sh exits
+        # non-zero if the pull, the build or /ready fails, which fails this
+        # run.
+        #
+        # A "Permission denied (publickey)" here after a user change means the
+        # key is still only in the old account's authorized_keys.
+        run: |
+          ssh -i "$HOME/.ssh/deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            "$DEPLOY_USER@$HOST" 'cd /opt/freebus && ./deploy.sh'

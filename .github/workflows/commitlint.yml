@@ -1,0 +1,21 @@
+name: Commit messages
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # commitlint needs the range, not just the tip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # The local hook is bypassable with --no-verify and absent until
+      # someone runs `npm install`, so the server-side check is the real one.
+      - run: npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose

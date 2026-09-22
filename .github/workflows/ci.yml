@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm --prefix api ci
+      - run: npm --prefix api run typecheck
+      # `test`, not `test:live` -- the live suites need network and real
+      # upstreams, and a CI run that depends on a third party is a CI run
+      # that fails for reasons the contributor cannot fix.
+      - run: npm --prefix api test
+
+  gtfs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gtfs/package-lock.json
+      - run: npm --prefix gtfs ci
+      - run: npm --prefix gtfs run typecheck
+      - run: npm --prefix gtfs test
+
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm --prefix app ci
+      - run: npm --prefix app run typecheck
+      - run: npm --prefix app run lint
+      - run: npm --prefix app test

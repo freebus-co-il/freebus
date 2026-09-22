@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# The database now lives at <repo-root>/data (see README), not here — this
+# just guards against one reappearing under gtfs/ by accident (e.g.
+# a stray GTFS_DATA_DIR=data override, which resolves relative to the repo
+# root but a local misconfiguration could still land it here).
+data/

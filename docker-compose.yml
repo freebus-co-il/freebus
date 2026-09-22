@@ -1,0 +1,189 @@
+# The whole stack, as it runs on the production box (ARM, 2 vCPU, 4 GB, 40 GB).
+#
+# `api/docker-compose.yml` is the DEV counterpart to this file: it
+# brings up only Valhalla and Photon, because in development the two Node
+# services run from source with `npm run dev`. This one runs all four.
+#
+# Memory is the binding constraint, not disk or CPU. Measured steady state is
+# ~1.7 GB (api ~600 MB, Valhalla capped at 512 MB, Photon ~550 MB),
+# and gtfs spikes to ~1 GB for the ~53 s its daily import runs --
+# roughly 2.7 GB peak against 4 GB. The limits below are what keeps that spike
+# from taking the API down with it; the box also carries a swap file sized to
+# absorb the rest of that peak.
+
+name: freebus
+
+services:
+  api:
+    build:
+      context: ./api
+    image: freebus/api:latest
+    container_name: api
+    depends_on:
+      valhalla:
+        condition: service_started
+      photon:
+        # Always present now, whichever GEOCODER is set: Photon answers
+        # /geocode/reverse in both modes (see `geocode/composite.ts`), so it is
+        # no longer optional. `service_started`, not `service_healthy`: a cold
+        # Photon can spend minutes fetching its index, and the API must come up
+        # and serve journeys meanwhile -- reverse lookups simply return null
+        # until it is ready.
+        condition: service_started
+    ports:
+      # Bound to loopback: Caddy is the only thing that should reach this, and
+      # the box's firewall should not be the only thing saying so.
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - transit-data:/data
+      - transit-cache:/cache
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Jerusalem
+      - PORT=3100
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      # Service names, NOT localhost -- each container has its own loopback.
+      - VALHALLA_URL=http://valhalla:8002
+      - PHOTON_URL=http://photon:2322
+      # Who answers address SEARCH: `google` (metered, has the businesses) or
+      # `photon` (self-hosted OSM, free). Reverse geocoding is always Photon,
+      # whichever this is -- see `geocode/composite.ts`.
+      - GEOCODER=${GEOCODER:-photon}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - GOOGLE_MAPS_DAILY_REQUEST_LIMIT=${GOOGLE_MAPS_DAILY_REQUEST_LIMIT:-3000}
+      # Required for POST /admin/reload. Leaving it unset does NOT disable
+      # auth, it makes the route refuse every request. Set in .env.
+      - TRANSIT_ADMIN_TOKEN=${TRANSIT_ADMIN_TOKEN:?set TRANSIT_ADMIN_TOKEN in .env}
+      # How often the API notices gtfs has swapped the feed underneath it.
+      - TRANSIT_RELOAD_POLL_MS=60000
+      # Per-client-IP requests/minute GET /plan (the RAPTOR search endpoint)
+      # answers before 429ing -- separate from, and tighter than, the global
+      # 300/min limit. See api/src/config.ts for why 60 is the default.
+      - PLAN_RATE_LIMIT_PER_MINUTE=${PLAN_RATE_LIMIT_PER_MINUTE:-60}
+      # Same per-client-IP idea, for the other three RAPTOR-backed
+      # endpoints -- each serves a rider mid-journey, so their defaults are
+      # generous. See `routeRateLimits` in api/src/config.ts.
+      - JOURNEY_CHECK_RATE_LIMIT_PER_MINUTE=${JOURNEY_CHECK_RATE_LIMIT_PER_MINUTE:-120}
+      - PLAN_ONBOARD_RATE_LIMIT_PER_MINUTE=${PLAN_ONBOARD_RATE_LIMIT_PER_MINUTE:-60}
+      - SEGMENTS_RATE_LIMIT_PER_MINUTE=${SEGMENTS_RATE_LIMIT_PER_MINUTE:-120}
+    mem_limit: 1200m
+    restart: unless-stopped
+
+  gtfs:
+    build:
+      context: ./gtfs
+    image: freebus/gtfs:latest
+    container_name: gtfs
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # The SAME volume api reads. This service writes the new SQLite
+      # and moves the `gtfs.sqlite` symlink; the API picks it up on its poll.
+      - transit-data:/data
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Jerusalem
+      - GTFS_TZ=Asia/Jerusalem
+      - PORT=3000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      # ONE spare version, not two. Each is ~1 GB, and the only reason to keep
+      # a previous one is to roll back a bad feed -- one is enough for that,
+      # and two is 2 GB of a 40 GB disk spent on it.
+      - GTFS_KEEP_VERSIONS=1
+      - GTFS_CRON=0 3 * * *
+    # The import is the memory spike on this box. Capped so it can fail on its
+    # own rather than pushing the API into the OOM killer; it retries on the
+    # next cron tick either way.
+    mem_limit: 1200m
+    restart: unless-stopped
+
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: transit-valhalla
+    expose:
+      - "8002"
+    volumes:
+      - ./api/valhalla-data:/custom_files
+    environment:
+      # Geofabrik's Israel and Palestine extract, ~90 MB. Tile building runs
+      # once on first start and takes roughly 10-20 minutes; subsequent starts
+      # reuse the tiles in ./valhalla-data.
+      - tile_urls=https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+      - use_tiles_ignore_pbf=True
+      - force_rebuild=False
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=False
+    # Measured: 512 MB is plenty in STEADY STATE (25 ms routes, 45 ms
+    # 50-target matrices) -- its usual 1.6 GB RSS is mmap'd tiles the kernel
+    # keeps only while RAM is spare. The one-off TILE BUILD needs more than
+    # this, so raise it (or build the tiles elsewhere) for a first boot.
+    mem_limit: 512m
+    restart: unless-stopped
+
+  photon:
+    # Custom build, not a prebuilt community image -- see photon/entrypoint.sh
+    # for why: the obvious route (GraphHopper's prebuilt Israel dump via
+    # rtuszik/photon-docker) turned out to be built for Photon's old,
+    # now-removed Elasticsearch backend, and that wrapper's jsonl mode
+    # doesn't support Israel or any custom extract either.
+    #
+    # Always built and started, whichever GEOCODER is set. It used to sit
+    # behind a `photon` profile that .env switched off under GEOCODER=google;
+    # it no longer does, because reverse geocoding (coordinates -> a label)
+    # runs on Photon in BOTH modes. Google's Geocoding API bills $5 per 1,000
+    # for that lookup and its extra quality buys nothing when all that is
+    # wanted is the name of the street a rider is standing on -- see
+    # `api/src/geocode/composite.ts`.
+    #
+    # The ~550 MB steady-state JVM is therefore always resident. That is the
+    # footprint this box was sized for: the 2.7 GB peak / 1.7 GB steady in the
+    # deployment plan was measured on the stack WITH Photon running, before
+    # Google was introduced, so this restores the measured shape rather than
+    # adding to it.
+    build:
+      context: ./api/photon
+    image: freebus/photon:latest
+    container_name: transit-photon
+    expose:
+      - "2322"
+    volumes:
+      - ./api/photon-data:/photon/data
+    environment:
+      - PHOTON_COUNTRY_CODES=IL,PS
+      - PHOTON_LANGUAGES=en
+      - PHOTON_JAVA_OPTS=-Xmx768m
+      # Served from the `photon-index-latest` GitHub release that
+      # .github/workflows/build-photon-index.yml publishes. The entrypoint
+      # fetches it with a plain unauthenticated `curl -fL`; the `.sha256`
+      # the entrypoint checks is alongside it in the same release.
+      - PHOTON_PREBUILT_URL=${PHOTON_PREBUILT_URL:-https://github.com/freebus-co-il/freebus/releases/download/photon-index-latest/photon-index-il-ps.tar.zst}
+    mem_limit: 900m
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - API_DOMAIN=${API_DOMAIN:?set API_DOMAIN in .env}
+    depends_on:
+      - api
+    mem_limit: 128m
+    restart: unless-stopped
+
+volumes:
+  # Named volumes, not bind mounts, for the two the app OWNS -- nothing on the
+  # host should be editing a live SQLite file or the footpath cache.
+  transit-data:
+  transit-cache:
+  caddy-data:
+  caddy-config:

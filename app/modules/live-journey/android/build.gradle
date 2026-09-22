@@ -1,0 +1,37 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'il.co.freebus.livejourney'
+version = '1.0.0'
+
+android {
+  namespace 'il.co.freebus.livejourney'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // Pinned rather than inherited: `NotificationCompat.ProgressStyle`,
+  // `setShortCriticalText` and `setRequestPromotedOngoing` are the whole
+  // Android half of this feature and they only exist from androidx.core 1.16.
+  // Letting the version float would mean the module silently loses the rail
+  // and the status-bar chip the day another dependency pins core lower.
+  implementation 'androidx.core:core-ktx:1.17.0'
+
+  // The PiP mode listener (`addOnPictureInPictureModeChangedListener`) lives
+  // on `ComponentActivity`, not on the plain `Activity` this module otherwise
+  // depends on.
+  implementation 'androidx.activity:activity:1.10.1'
+
+  // `HeadlessJsTaskContext`, which keeps JS timers alive while the paused PiP
+  // activity is on screen (see JourneyPipKeepAlive.kt). Versioned by the app,
+  // like every other Expo module that touches React Native directly.
+  implementation 'com.facebook.react:react-android'
+
+  // The fused provider, asked directly while in PiP because expo-location
+  // stops its own watches when the activity pauses (see JourneyPipLocation.kt).
+  // Matched to expo-location's version so the app resolves one copy.
+  implementation 'com.google.android.gms:play-services-location:21.0.1'
+}

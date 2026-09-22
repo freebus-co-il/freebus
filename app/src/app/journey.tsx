@@ -1,0 +1,473 @@
+import { IconCurrentLocation } from '@tabler/icons-react-native';
+import { router } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useRouteShapes } from '@/api/lines';
+import type { TransitLeg } from '@/api/types';
+import { useVehicles } from '@/api/vehicles';
+import { IconBack } from '@/components/directional-icon';
+import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carousel';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { useJourney } from '@/features/journey/journey-context';
+import { JourneyHero } from '@/features/journey/journey-hero';
+import { JourneyRailView } from '@/features/journey/journey-rail-view';
+import { LiveBusCard } from '@/features/journey/live-bus-card';
+import { NavigationBanner } from '@/features/journey/navigation/navigation-banner';
+import { navigationCamera } from '@/features/journey/navigation/navigation-camera';
+import { useCompassHeading } from '@/features/journey/navigation/use-compass-heading';
+import { useNavigationFix } from '@/features/journey/navigation/use-navigation-fix';
+import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
+import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
+import { OffPlanCard } from '@/features/journey/off-plan-card';
+import { TripMap, type LineShape } from '@/features/results/trip-map';
+import { LegStepCard, StepCardFrame } from '@/features/trip/step-card';
+import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from '@/features/trip/step-cards';
+import { useAppActive } from '@/hooks/use-app-active';
+import { useNow } from '@/hooks/use-now';
+import { useTheme } from '@/hooks/use-theme';
+import { routeColor } from '@/lib/route-color';
+
+/** The back chip's height below the safe area, plus breathing room: the part
+ *  of the map's top it covers. */
+const BACK_CHIP_CLEARANCE = 64;
+/** `TripMap`'s own default for the edges nothing floats over. */
+const MAP_EDGE_PADDING = 50;
+
+/** How long a swipe of the rider's own holds the carousel where they put it.
+ *  A rider reading ahead to their transfer should not have the card pulled
+ *  out from under them the moment the walk to the stop ends. */
+const MANUAL_BROWSE_HOLD_MS = 20_000;
+
+/**
+ * The running journey, full screen.
+ *
+ * The trip screen's twin -- the same map, the same cards -- so committing to
+ * a journey changes what the screen says without changing where the rider has
+ * to look for it. The first card is what is happening now across the whole
+ * journey; the carousel opens on, and follows, the leg the rider is on.
+ *
+ * The itinerary comes from the journey context rather than the plan cache: a
+ * running journey outlives the query that found it, and re-deriving it from a
+ * cache that may have been refetched is exactly the failure `trip.tsx` renders
+ * "this trip isn't available any more" for.
+ */
+export default function JourneyScreen() {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const now = useNow();
+  const insets = useSafeAreaInsets();
+  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end } = useJourney();
+
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  // The header grows with the navigation banner, so its real height -- not a
+  // fixed allowance for the back chip -- is what the map keeps clear.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  // The back chip floats over the map's top edge and the cards over its
+  // bottom, so the route frames between them. Memoized: the map re-fits
+  // whenever this changes identity.
+  const mapEdgePadding = useMemo(
+    () => ({
+      top: headerHeight > 0 ? headerHeight + Spacing.three : insets.top + BACK_CHIP_CLEARANCE,
+      right: MAP_EDGE_PADDING,
+      bottom: bottomBarHeight + Spacing.three,
+      left: MAP_EDGE_PADDING,
+    }),
+    [headerHeight, insets.top, bottomBarHeight],
+  );
+
+  const cards = useMemo(() => (journey ? buildStepCards(journey.itinerary) : []), [journey]);
+  const followIndex = state ? journeyCardIndex(cards, state) : 0;
+  const [activeIndex, setActiveIndex] = useState(followIndex);
+  const carouselRef = useRef<SnapCarouselHandle>(null);
+  const alighting = state?.phase === 'alight-soon';
+  const lastSwipeAt = useRef(0);
+  // Bumped by each swipe of the rider's own, so the follow effect below
+  // re-arms its hold from the latest one.
+  const [swipeCount, setSwipeCount] = useState(0);
+
+  // Follow the journey onto its next leg -- unless the rider is browsing, in
+  // which case they keep the card they chose until the hold since their last
+  // swipe is up, and are then brought back to the leg they are on. A leg that
+  // changed during the hold is caught up with when it ends, not skipped. The
+  // get-off moment overrides the hold: it is the one card that must be on
+  // screen when the alarm sounds.
+  useEffect(() => {
+    const wait = alighting ? 0 : Math.max(0, MANUAL_BROWSE_HOLD_MS - (Date.now() - lastSwipeAt.current));
+    if (wait === 0) {
+      carouselRef.current?.scrollToIndex(followIndex);
+      return;
+    }
+    const timer = setTimeout(() => carouselRef.current?.scrollToIndex(followIndex), wait);
+    return () => clearTimeout(timer);
+  }, [followIndex, alighting, swipeCount]);
+
+  // Every transit leg, not just the one being ridden: the rider watching for
+  // their connection is watching this map too, and the whole chain is well
+  // inside the endpoint's own 12-trip bound (`/plan` caps a journey at 7
+  // legs). Declared here, above the early return below, because the poll it
+  // feeds is a hook and hooks cannot be conditional.
+  const transitLegs = useMemo(
+    () => (journey?.itinerary.legs ?? []).filter((leg): leg is TransitLeg => leg.type === 'transit'),
+    [journey],
+  );
+  const tripIds = useMemo(() => transitLegs.map((leg) => leg.tripId), [transitLegs]);
+  // A bus is listed only while its own report is fresh: on a keyless feed the
+  // server drops any over five minutes old, so a lagging operator's buses are
+  // simply absent rather than drawn where they were a quarter of an hour ago.
+  const { data: live } = useVehicles(tripIds);
+  // Each bus counts down to the rider's stop on it by the journey's own live
+  // check -- fresher than anything the itinerary was planned with.
+  const vehiclePredictions = useMemo(
+    () => new Map((liveJourney?.legs ?? []).map((leg) => [
+      leg.legIndex, { departure: leg.predictedDeparture, arrival: leg.predictedArrival },
+    ] as const)),
+    [liveJourney],
+  );
+
+  // --- Navigation ---------------------------------------------------------
+  // The map behaves as navigation while the card on screen is the step the
+  // rider is on: it follows them, turned to where they are headed, under a
+  // banner saying what to do next. Any other card frames its own leg, as the
+  // trip screen does, and a finger on the map pauses following until the rider
+  // asks for it back.
+  const guiding = state !== null && state.phase !== 'off-plan' && state.phase !== 'arrived';
+  const currentLeg = journey && state ? journey.itinerary.legs[state.legIndex] : undefined;
+  const walkLeg = guiding && currentLeg?.type === 'walk' ? currentLeg : null;
+  const onCurrentCard = activeIndex === followIndex;
+  const appActive = useAppActive();
+  const [cameraPaused, setCameraPaused] = useState(false);
+  const walkFix = useNavigationFix(walkLeg !== null && appActive);
+  const riderFix = walkFix ?? position;
+  const compassHeading = useCompassHeading(walkLeg !== null && onCurrentCard && !cameraPaused && appActive);
+  const walkRoute = useWalkReroute({ legIndex: state?.legIndex ?? -1, leg: walkLeg, fix: riderFix });
+  const guidance = walkRoute ? walkGuidance(walkRoute.path, walkRoute.steps, riderFix) : null;
+  const currentVehicle = currentLeg?.type === 'transit'
+    ? live?.vehicles.find((vehicle) => vehicle.tripId === currentLeg.tripId) ?? null
+    : null;
+  const camera = journey && state && guiding && onCurrentCard
+    ? navigationCamera({
+        itinerary: journey.itinerary,
+        state,
+        fix: riderFix,
+        now,
+        compassHeading,
+        bus: currentVehicle ? { lat: currentVehicle.lat, lon: currentVehicle.lon } : null,
+        walkGeometry: walkRoute?.reroutedGeometry ?? null,
+      })
+    : null;
+
+  // Each line's whole path, faded under the legs, so the rider can see where
+  // their bus is coming from and where it carries on to. Once per line and
+  // direction; an onboard plan's leg can carry no route id to ask about.
+  const shapeLegs = useMemo(() => {
+    const seen = new Set<string>();
+    return transitLegs.filter((leg) => {
+      const key = `${leg.route.id}:${leg.directionId}`;
+      if (leg.route.id === '' || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [transitLegs]);
+  const shapeRequests = useMemo(
+    () => shapeLegs.map((leg) => ({ routeId: leg.route.id, directionId: leg.directionId })),
+    [shapeLegs],
+  );
+  const shapes = useRouteShapes(shapeRequests);
+  const lineShapes = useMemo<LineShape[]>(() => shapeLegs.flatMap((leg, index) => {
+    const shape = shapes[index];
+    // A path the feed never published is a straight line between stops; as a
+    // backdrop it would claim roads the bus never drives.
+    if (!shape || shape.geometryFallback || shape.geometry.coordinates.length < 2) return [];
+    return [{
+      key: `${leg.route.id}:${leg.directionId}`,
+      color: routeColor(leg.route),
+      coordinates: shape.geometry.coordinates.map(([lon, lat]) => ({ latitude: lat, longitude: lon })),
+    }];
+  }), [shapeLegs, shapes]);
+
+  // The bus the rider tapped. Kept by trip id rather than by vehicle, so the
+  // card stays open -- and says so -- when that bus drops out of the feed.
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const selectedLeg = transitLegs.find((leg) => leg.tripId === selectedTripId) ?? null;
+
+  function dismiss() {
+    // A cold launch straight into a running journey has no history to pop --
+    // the spec's "the app launches into it" -- so the chevron would be a dead
+    // control on the one launch this screen was designed for.
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  }
+
+  const back = (
+    <Pressable accessibilityRole="button" onPress={dismiss} style={styles.backButton} hitSlop={Spacing.three}>
+      <IconBack size={24} color={theme.text} />
+    </Pressable>
+  );
+
+  if (!journey || !state || !rail) {
+    // Reached by ending a journey, by arriving (the context ends it for the
+    // rider), and by deep-linking here with nothing running. Says so rather
+    // than rendering a journey-shaped screen with nothing in it.
+    return (
+      <ThemedView type="background" style={styles.container}>
+        <SafeAreaView style={styles.empty}>
+          {back}
+          {/* Nothing at all until the stored journey has been read back: a
+              "no journey" line that flashes and is then replaced is a lie the
+              rider has time to believe. */}
+          {hydrated && <ThemedText type="default">{t('journey.none')}</ThemedText>}
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  function confirmEnd() {
+    // Ending is deliberate, never a stray tap -- so the button itself does
+    // nothing but ask. Dismissing alongside `end` puts the rider back where
+    // they expanded this from; the provider lives above the navigator, so the
+    // teardown finishes whether or not this screen is still mounted.
+    Alert.alert(t('journey.endConfirm'), undefined, [
+      { text: t('journey.keepGoing'), style: 'cancel' },
+      {
+        text: t('journey.end'),
+        style: 'destructive',
+        onPress: () => {
+          void end();
+          dismiss();
+        },
+      },
+    ]);
+  }
+
+  const offPlan = state.phase === 'off-plan';
+
+  const renderCard = (card: StepCard) => {
+    if (card.kind === 'overview') {
+      // The off-plan card stands IN PLACE OF the hero rather than under it:
+      // the spec gives `off-plan` a reason line and a single
+      // `[Find another way →]`, and the card owns both -- rendering the hero
+      // as well would print the same sentence twice.
+      if (offPlan) return <OffPlanCard state={state} />;
+      return (
+        <StepCardFrame>
+          <JourneyHero state={state} itinerary={journey.itinerary} destinationLabel={journey.destinationLabel} />
+          <JourneyRailView rail={rail} progress={state.progress} />
+        </StepCardFrame>
+      );
+    }
+    return (
+      <LegStepCard
+        card={card}
+        itinerary={journey.itinerary}
+        // Faded rather than dropped: a rider three legs in still looks back to
+        // check they did the earlier part right.
+        done={card.legIndex < state.legIndex}
+        current={!offPlan && card.legIndex === state.legIndex}
+        // The ride in play and the ones still ahead, never one already behind
+        // the rider: that bus has gone, whichever line it was.
+        onChooseLine={
+          card.kind === 'ride' && !offPlan && card.legIndex >= state.legIndex
+            ? (tripId) => void chooseLine(card.legIndex, tripId)
+            : undefined
+        }
+      />
+    );
+  };
+
+  return (
+    <ThemedView type="background" style={styles.container}>
+      <TripMap
+        itinerary={journey.itinerary}
+        focusLegIndex={cardFocusLegIndex(cards[activeIndex])}
+        vehicles={live?.vehicles}
+        vehiclePredictions={vehiclePredictions}
+        vehiclesTowardsAlighting
+        lineShapes={lineShapes}
+        onVehiclePress={(tripId) => setSelectedTripId((current) => (current === tripId ? null : tripId))}
+        onMapPress={() => setSelectedTripId(null)}
+        selectedVehicleTripId={selectedLeg?.tripId ?? null}
+        vehicleCard={selectedLeg && (
+          <LiveBusCard
+            leg={selectedLeg}
+            vehicle={live?.vehicles.find((vehicle) => vehicle.tripId === selectedLeg.tripId) ?? null}
+            now={now}
+            onClose={() => setSelectedTripId(null)}
+            onOpenRoute={() => router.push({
+              pathname: '/run/[tripId]',
+              params: selectedLeg.from.stop.stopId
+                ? { tripId: selectedLeg.tripId, fromStopId: selectedLeg.from.stop.stopId }
+                : { tripId: selectedLeg.tripId },
+            })}
+          />
+        )}
+        edgePadding={mapEdgePadding}
+        navigationCamera={camera}
+        cameraPaused={cameraPaused}
+        onUserGesture={() => {
+          if (camera !== null) setCameraPaused(true);
+        }}
+        walkOverride={walkRoute?.reroutedGeometry
+          ? { legIndex: state.legIndex, geometry: walkRoute.reroutedGeometry }
+          : null}
+      />
+
+      <SafeAreaView
+        style={styles.header}
+        edges={['top']}
+        pointerEvents="box-none"
+        onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
+      >
+        <View style={styles.headerRow} pointerEvents="box-none">
+          <ThemedView type="background" style={styles.backChip}>
+            {back}
+          </ThemedView>
+          <View style={styles.bannerSlot} pointerEvents="box-none">
+            <NavigationBanner
+              itinerary={journey.itinerary}
+              state={state}
+              guidance={guidance}
+              rerouting={walkRoute?.rerouting ?? false}
+              destinationLabel={journey.destinationLabel}
+              now={now}
+            />
+          </View>
+        </View>
+        {camera !== null && cameraPaused && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setCameraPaused(false)}
+            style={[styles.recenter, { backgroundColor: theme.background, borderColor: theme.borderMuted }]}
+          >
+            <IconCurrentLocation size={20} color={theme.text} />
+            <ThemedText type="smallBold">{t('journey.nav.recenter')}</ThemedText>
+          </Pressable>
+        )}
+      </SafeAreaView>
+
+      <SafeAreaView
+        style={styles.bottomBar}
+        edges={['bottom']}
+        pointerEvents="box-none"
+        onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
+      >
+        <SnapCarousel
+          ref={carouselRef}
+          data={cards}
+          keyExtractor={(card) => (card.kind === 'overview' ? 'overview' : `leg-${card.legIndex}`)}
+          initialIndex={followIndex}
+          onActiveIndexChange={setActiveIndex}
+          onUserSwipe={() => {
+            lastSwipeAt.current = Date.now();
+            setSwipeCount((count) => count + 1);
+          }}
+          renderItem={renderCard}
+        />
+
+        <View style={styles.footer}>
+          {/* One button at a time, and the phase picks it. While the alarm is
+              sounding the only thing a rider wants is to silence it, and asking
+              them to pick their action out of two -- one of which throws the
+              journey away -- is how that goes wrong at the exact moment it must
+              not. Ending stays one phase away, and this window is ~90 seconds. */}
+          {alighting ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={acknowledgeAlight}
+              style={[styles.ackButton, { backgroundColor: theme.text }]}
+            >
+              <ThemedText type="defaultBold" themeColor="background">
+                {t('journey.alert.gotIt')}
+              </ThemedText>
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={confirmEnd}
+              style={[styles.endButton, { borderColor: theme.borderMuted, backgroundColor: theme.background }]}
+            >
+              <ThemedText type="defaultBold" themeColor="danger">
+                {t('journey.end')}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  ackButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderRadius: 999,
+  },
+  container: {
+    flex: 1,
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    gap: Spacing.two,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  bannerSlot: {
+    flex: 1,
+  },
+  // Only while the rider has moved the map off where following would put it.
+  recenter: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  backChip: {
+    borderRadius: 999,
+    padding: Spacing.one,
+  },
+  backButton: {
+    padding: Spacing.one,
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingBottom: Spacing.three,
+    gap: Spacing.two,
+  },
+  footer: {
+    paddingHorizontal: Spacing.three,
+  },
+  // Outlined rather than filled. Ending is the destructive option, not the
+  // thing the rider came here to do. Filled with the card surface all the
+  // same, since it floats over the map.
+  endButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  empty: {
+    flex: 1,
+    padding: Spacing.three,
+    gap: Spacing.four,
+  },
+});

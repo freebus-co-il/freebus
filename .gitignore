@@ -1,0 +1,19 @@
+data/
+cache/
+api/valhalla-data/
+api/photon-data/
+.worktrees/
+.DS_Store
+node_modules/
+
+# The box's real secrets (TRANSIT_ADMIN_TOKEN). Only .env.example is tracked.
+.env
+
+# A local record of what is configured on the box and in CI. Anchored to the
+# root on purpose: `app/.env.production` is a different, tracked file holding
+# only the public API URL, and an unanchored rule would swallow it too.
+/.env.production
+
+# Local-only notes and throwaway spikes. The directory name is deliberately
+# generic: an ignore rule is public, so it should not describe what it hides.
+docs/private/

@@ -1,0 +1,57 @@
+services:
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: transit-valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./valhalla-data:/custom_files
+    environment:
+      # Geofabrik's Israel and Palestine extract, ~90 MB. Tile building runs
+      # once on first start and takes roughly 10-20 minutes; subsequent starts
+      # reuse the tiles in ./valhalla-data.
+      - tile_urls=https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+      - use_tiles_ignore_pbf=True
+      - force_rebuild=False
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=False
+    restart: unless-stopped
+
+  photon:
+    # Custom build, not a prebuilt community image -- see photon/entrypoint.sh
+    # for why: the obvious route (GraphHopper's prebuilt Israel dump via
+    # rtuszik/photon-docker) turned out to be built for Photon's old,
+    # now-removed Elasticsearch backend, and that wrapper's jsonl mode
+    # doesn't support Israel or any custom extract either. This image
+    # instead builds its own index from Photon's own official Asia jsonl
+    # dump, filtered to Israel and Palestine -- matching the `valhalla`
+    # service above, which already routes against the same
+    # israel-and-palestine OSM extract. See photon/entrypoint.sh for the
+    # full reasoning and current verification status.
+    build:
+      context: ./photon
+    container_name: transit-photon
+    ports:
+      - "2322:2322"
+    volumes:
+      - ./photon-data:/photon/data
+    environment:
+      - PHOTON_COUNTRY_CODES=IL,PS
+      - PHOTON_LANGUAGES=en
+      - PHOTON_JAVA_OPTS=-Xmx768m
+      # The heavy import (~12.5 min, ~1 GB peak RSS -- measured) runs ONCE,
+      # in CI (.github/workflows/build-photon-index.yml), not on this box.
+      # This points at that workflow's published result instead: a plain
+      # download + checksum + extract, seconds not minutes, no RAM spike
+      # competing with api/Valhalla/gtfs for this box's
+      # 4 GB. Unset this (or point ./photon-data at an empty dir with it
+      # unset) to fall back to running the full import locally instead --
+      # useful for testing entrypoint.sh changes, or if the release is ever
+      # unavailable.
+      #
+      # The `photon-index-latest` GitHub release the same workflow
+      # publishes. entrypoint.sh fetches it with a plain unauthenticated
+      # `curl -fL`; the `.sha256` it checks is alongside it in the release.
+      - PHOTON_PREBUILT_URL=https://github.com/freebus-co-il/freebus/releases/download/photon-index-latest/photon-index-il-ps.tar.zst
+    restart: unless-stopped

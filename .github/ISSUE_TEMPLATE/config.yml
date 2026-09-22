@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/freebus-co-il/freebus/security
+    about: Please report security vulnerabilities privately (see SECURITY.md) rather than opening a public issue.

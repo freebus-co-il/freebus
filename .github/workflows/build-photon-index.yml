@@ -1,0 +1,73 @@
+name: Build Photon index
+
+# Manual only, deliberately -- the same "refresh on purpose, not on a
+# schedule" philosophy the rest of the Photon setup already follows (see
+# api/photon/entrypoint.sh). OSM address data doesn't change fast
+# enough to justify an automatic cadence, and re-running this always
+# re-publishes to the SAME `photon-index-latest` release, so production's
+# PHOTON_PREBUILT_URL never needs to change to pick up a refresh -- just
+# re-run this workflow, then restart the photon container with an empty
+# ./photon-data volume.
+#
+# It publishes to a single target: a GitHub release, which is what the box
+# fetches with an unauthenticated `curl -fL` (see api/photon/entrypoint.sh).
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Measured on a dev machine under a 2 vCPU / 2 GB cap (Photon's
+    # realistic share of the target box): ~12.5 minutes, ~1 GB peak RSS.
+    # GitHub-hosted runners have more headroom than that already; this
+    # ceiling is just a backstop against a genuinely stuck run.
+    timeout-minutes: 60
+    permissions:
+      contents: write # to publish the release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the photon image
+        run: docker compose -f api/docker-compose.yml build photon
+
+      - name: Run the import (no PREBUILT_URL set -- this IS the build)
+        run: |
+          mkdir -p /tmp/photon-data
+          docker run --name photon-build \
+            -v /tmp/photon-data:/photon/data \
+            -e PHOTON_COUNTRY_CODES=IL,PS \
+            -e PHOTON_LANGUAGES=en \
+            -e PHOTON_JAVA_OPTS=-Xmx768m \
+            -e PHOTON_IMPORT_ONLY=1 \
+            api-photon:latest
+          docker logs photon-build
+
+      - name: Package the result
+        run: |
+          tar --zstd -cf photon-index-il-ps.tar.zst -C /tmp/photon-data .
+          sha256sum photon-index-il-ps.tar.zst | cut -d' ' -f1 > photon-index-il-ps.tar.zst.sha256
+          ls -la photon-index-il-ps.tar.zst photon-index-il-ps.tar.zst.sha256
+
+      - name: Publish as the photon-index-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete photon-index-latest --yes --cleanup-tag || true
+          gh release create photon-index-latest \
+            photon-index-il-ps.tar.zst photon-index-il-ps.tar.zst.sha256 \
+            --title "Photon index (Israel + Palestine)" \
+            --notes "Built $(date -u +%Y-%m-%dT%H:%M:%SZ) from Photon's official Asia jsonl dump, filtered to IL,PS during import. See api/photon/entrypoint.sh for how this is consumed."
+
+      - name: Verify the published index is actually fetchable
+        # The box downloads over this exact URL with an unauthenticated
+        # `curl -fL`. A release that exists but does not serve is still a
+        # box that cannot boot, so check the thing production checks.
+        run: |
+          base=https://github.com/freebus-co-il/freebus/releases/download/photon-index-latest
+          published=$(curl -fsSL "$base/photon-index-il-ps.tar.zst.sha256")
+          local=$(cut -d' ' -f1 photon-index-il-ps.tar.zst.sha256)
+          if [ "$published" != "$local" ]; then
+            echo "::error::published checksum ($published) does not match what was just built ($local)"
+            exit 1
+          fi
+          echo "Public URL serves the index just built ($local)."

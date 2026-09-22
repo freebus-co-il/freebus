@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Declared here rather than only in app.json because the module cannot
+       function without them: a location-typed foreground service is what
+       legitimises background location to the OS and to the rider, and the
+       promoted-ongoing permission is what earns the status-bar chip. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.VIBRATE" />
+
+  <application>
+    <service
+      android:name=".JourneyService"
+      android:exported="false"
+      android:foregroundServiceType="location" />
+
+    <!-- The ongoing notification's delete intent. Declared rather than
+         registered at runtime because it has to survive the degraded path in
+         JourneyService.adopt, where the notification is posted but no service
+         of ours is alive to have registered anything. -->
+    <receiver
+      android:name=".JourneyDismissReceiver"
+      android:exported="false" />
+  </application>
+</manifest>
