@@ -28,12 +28,11 @@ set -euo pipefail
 # So this builds the index itself, straight from Photon's own tooling:
 # stream Photon's official Asia-continent jsonl dump (published by the
 # Photon project itself, not a third party -- 2.79 GB compressed) through
-# `photon.jar import -country-codes IL,PS`, which filters to Israel AND
-# Palestine DURING import -- matching this stack's Valhalla service, which
-# already routes against the same israel-and-palestine OSM extract (see the
-# `valhalla` service above). Filtering to `IL` alone would silently drop
-# addresses in East Jerusalem and the West Bank that OSM tags `PS` and that
-# Valhalla will still happily walk-route to. The result is a small on-disk
+# `photon.jar import -country-codes IL,PS`, which filters DURING import
+# to the same area this stack's Valhalla service routes against (see the
+# `valhalla` service above -- both read the same regional OSM extract).
+# Narrowing `-country-codes` to a single code would silently drop addresses
+# carrying the other one, which Valhalla will still happily walk-route to. The result is a small on-disk
 # index, even though the download that produces it is continent-wide --
 # Photon has no narrower official dump than "continent".
 #
@@ -76,8 +75,8 @@ COUNTRY_CODES="${PHOTON_COUNTRY_CODES:-IL,PS}"
 LANGUAGES="${PHOTON_LANGUAGES:-en}"
 JAVA_OPTS="${PHOTON_JAVA_OPTS:--Xmx768m}"
 MARKER="$DATA_DIR/.import-complete"
-# Coarse floor, not a precise expectation: a genuinely populated Israel+
-# Palestine index is on the order of hundreds of MB (measured: 205 MB).
+# Coarse floor, not a precise expectation: a genuinely populated index is
+# on the order of hundreds of MB (measured: 205 MB).
 # A wrong/typo'd -country-codes, or a corrupt prebuilt tarball, that still
 # "succeeds" with near-nothing on disk would otherwise write $MARKER over a
 # near-empty index that then serves silent, permanent empty results forever

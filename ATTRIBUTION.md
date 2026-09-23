@@ -24,13 +24,12 @@ time and never enter the tree.**
   repository. It carries its own `attribution` and `osmTimestamp` fields, so
   the notice travels with the data rather than depending on this document.
 - **Valhalla's routing tiles.** `docker-compose.yml` builds the `valhalla`
-  service's tiles from
-  `tile_urls=https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf`
-  — Geofabrik's Israel-and-Palestine extract of OpenStreetMap, rebuilt into
-  Valhalla's own tile format on first container start.
+  service's tiles from a Geofabrik regional extract of OpenStreetMap (see the
+  `valhalla` service's `tile_urls`), rebuilt into Valhalla's own tile format
+  on first container start.
 - **Photon's geocoding index.** `api/photon/entrypoint.sh` builds Photon's
   search index from Photon's own official Asia-continent OSM jsonl dump,
-  filtered at import time to country codes `IL,PS`. This is still
+  filtered at import time to the configured country codes. This is still
   OpenStreetMap data, redistributed by the Photon project in a different
   file format, not an independently sourced address database.
 
@@ -90,7 +89,7 @@ HTTP:
 | --- | --- | --- | --- |
 | This repository's code | — | MIT | Copyright notice (see `LICENSE`) |
 | `api/assets/rail-geometry.json` (committed) | OpenStreetMap via Overpass | ODbL 1.0 | "© OpenStreetMap contributors" — carried in the file's own `attribution` field |
-| Valhalla routing tiles | Geofabrik `israel-and-palestine-latest.osm.pbf` (OpenStreetMap) | ODbL 1.0 | "© OpenStreetMap contributors" |
+| Valhalla routing tiles | Geofabrik regional extract (OpenStreetMap) | ODbL 1.0 | "© OpenStreetMap contributors" |
 | Photon geocoding index | Photon's Asia-continent OSM jsonl dump | ODbL 1.0 | "© OpenStreetMap contributors" |
 | GTFS schedule data | `gtfs.mot.gov.il` (Israel Ministry of Transport) | **Unconfirmed — see above** | **Unconfirmed — see above** |
 | Valhalla (engine) | `ghcr.io/gis-ops/docker-valhalla/valhalla` | MIT | Licence file retained upstream |

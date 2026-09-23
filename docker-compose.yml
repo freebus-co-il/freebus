@@ -107,7 +107,7 @@ services:
     volumes:
       - ./api/valhalla-data:/custom_files
     environment:
-      # Geofabrik's Israel and Palestine extract, ~90 MB. Tile building runs
+      # Geofabrik's regional OSM extract, ~90 MB. Tile building runs
       # once on first start and takes roughly 10-20 minutes; subsequent starts
       # reuse the tiles in ./valhalla-data.
       - tile_urls=https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf

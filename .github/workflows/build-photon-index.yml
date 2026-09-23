@@ -55,8 +55,8 @@ jobs:
           gh release delete photon-index-latest --yes --cleanup-tag || true
           gh release create photon-index-latest \
             photon-index-il-ps.tar.zst photon-index-il-ps.tar.zst.sha256 \
-            --title "Photon index (Israel + Palestine)" \
-            --notes "Built $(date -u +%Y-%m-%dT%H:%M:%SZ) from Photon's official Asia jsonl dump, filtered to IL,PS during import. See api/photon/entrypoint.sh for how this is consumed."
+            --title "Photon geocoding index" \
+            --notes "Built $(date -u +%Y-%m-%dT%H:%M:%SZ) from Photon's official Asia jsonl dump, filtered to the configured country codes during import. See api/photon/entrypoint.sh for how this is consumed."
 
       - name: Verify the published index is actually fetchable
         # The box downloads over this exact URL with an unauthenticated

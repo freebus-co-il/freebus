@@ -7,7 +7,7 @@ services:
     volumes:
       - ./valhalla-data:/custom_files
     environment:
-      # Geofabrik's Israel and Palestine extract, ~90 MB. Tile building runs
+      # Geofabrik's regional OSM extract, ~90 MB. Tile building runs
       # once on first start and takes roughly 10-20 minutes; subsequent starts
       # reuse the tiles in ./valhalla-data.
       - tile_urls=https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
@@ -25,10 +25,10 @@ services:
     # now-removed Elasticsearch backend, and that wrapper's jsonl mode
     # doesn't support Israel or any custom extract either. This image
     # instead builds its own index from Photon's own official Asia jsonl
-    # dump, filtered to Israel and Palestine -- matching the `valhalla`
-    # service above, which already routes against the same
-    # israel-and-palestine OSM extract. See photon/entrypoint.sh for the
-    # full reasoning and current verification status.
+    # dump, filtered to the same area the `valhalla` service above routes
+    # against -- both read the same regional OSM extract. See
+    # photon/entrypoint.sh for the full reasoning and current verification
+    # status.
     build:
       context: ./photon
     container_name: transit-photon
