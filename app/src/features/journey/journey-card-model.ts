@@ -13,9 +13,11 @@ export type JourneyCardTone = 'normal' | 'alert';
 /** The three formatters this model needs, injected rather than imported.
  *
  *  `@/lib/format` reads the i18n singleton, which pulls in `react-native` and
- *  `expo-localization` -- neither of which `node --test` can load. Threading
- *  them in is the same move `journeyCopy` makes with `t`, and for the same
- *  reason: it keeps the module with the rules in it testable. */
+ *  `expo-localization` -- neither of which `node --test` can load. Without
+ *  injection, importing `@/lib/format` would make this module untestable.
+ *  `journeyCopy` does import `@/lib/format` directly (and thus has no test
+ *  file) -- it's a counter-example, not a precedent. Here, threading the
+ *  formatters in keeps the module with the rules in it testable. */
 export type JourneyCardFormat = {
   clock: (iso: string) => string;
   distance: (meters: number) => string;
