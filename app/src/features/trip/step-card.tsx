@@ -73,7 +73,7 @@ export function StepCardFrame({ children, done = false }: { children: ReactNode;
   );
 }
 
-function NowTag() {
+export function NowTag() {
   const { t } = useTranslation();
   const theme = useTheme();
   return (
