@@ -3,13 +3,24 @@ import type { TFunction } from 'i18next';
 import type { Itinerary, TransitLeg } from '@/api/types';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
 import type { LegCard } from '@/features/trip/step-cards';
-import { formatClockTime, formatDistanceMeters, formatDurationMinutes } from '@/lib/format';
 
 import { lineLabel, minutesLeft, stopName, vehicleInPlay } from './journey-labels';
 import type { JourneyState } from './types';
 
 /** `alert` is the get-off moment, and only that. */
 export type JourneyCardTone = 'normal' | 'alert';
+
+/** The three formatters this model needs, injected rather than imported.
+ *
+ *  `@/lib/format` reads the i18n singleton, which pulls in `react-native` and
+ *  `expo-localization` -- neither of which `node --test` can load. Threading
+ *  them in is the same move `journeyCopy` makes with `t`, and for the same
+ *  reason: it keeps the module with the rules in it testable. */
+export type JourneyCardFormat = {
+  clock: (iso: string) => string;
+  distance: (meters: number) => string;
+  duration: (seconds: number) => string;
+};
 
 /**
  * One journey card, as facts rather than as views: a badge, a headline, one
@@ -43,6 +54,7 @@ export function journeyCardModel(
   itinerary: Itinerary,
   destinationLabel: string,
   t: TFunction,
+  format: JourneyCardFormat,
 ): JourneyCardModel {
   // Off plan, no card is "in play": the legs after the one the rider fell off
   // are no longer the journey, and the screen replaces the card with the
@@ -53,8 +65,8 @@ export function journeyCardModel(
   if (card.kind === 'walk') {
     const { leg } = card;
     const facts = t('journey.card.walkFacts', {
-      duration: formatDurationMinutes(leg.durationSeconds),
-      distance: formatDistanceMeters(leg.distanceMeters),
+      duration: format.duration(leg.durationSeconds),
+      distance: format.distance(leg.distanceMeters),
     });
 
     if (!inPlay) {
@@ -76,7 +88,7 @@ export function journeyCardModel(
             ? t('journey.phase.arrived')
             // Minutes LEFT, not the walk's full length: a rider three minutes
             // into a five-minute walk is not still five minutes out.
-            : t('journey.phase.arriving', { duration: formatDurationMinutes(minutesLeft(state.timer) * 60) }),
+            : t('journey.phase.arriving', { duration: format.duration(minutesLeft(state.timer) * 60) }),
         tone: 'normal',
         canSwitchLine: false,
       };
@@ -105,11 +117,11 @@ export function journeyCardModel(
       route: leg.route,
       headline: t('journey.card.boardAt', {
         name: stopName(leg.from.stop, t),
-        time: formatClockTime(leg.from.departureTime),
+        time: format.clock(leg.from.departureTime),
       }),
       supporting: t('journey.card.offAt', {
         name: stopName(leg.to.stop, t),
-        time: formatClockTime(leg.to.arrivalTime),
+        time: format.clock(leg.to.arrivalTime),
       }),
       tone: 'normal',
       // The rides still ahead, never one already behind: that bus has gone,
@@ -140,7 +152,7 @@ export function journeyCardModel(
       supporting:
         state.stopsRemaining !== null
           ? t('journey.phase.riding', { count: state.stopsRemaining })
-          : t('journey.phase.ridingUntil', { time: formatClockTime(leg.to.arrivalTime) }),
+          : t('journey.phase.ridingUntil', { time: format.clock(leg.to.arrivalTime) }),
       tone: 'normal',
       canSwitchLine: true,
     };

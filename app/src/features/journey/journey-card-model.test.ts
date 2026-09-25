@@ -3,12 +3,18 @@ import { test } from 'node:test';
 import type { TFunction } from 'i18next';
 
 import { at, sampleJourney } from './journey-fixtures';
-import { journeyCardModel } from './journey-card-model';
+import { journeyCardModel, type JourneyCardFormat } from './journey-card-model';
 import { resolveJourneyState } from './journey-machine';
 import { buildStepCards, type LegCard } from '@/features/trip/step-cards';
 import { DEFAULT_ALERT_SETTINGS } from './types';
 
 const t = ((key: string) => key) as unknown as TFunction;
+
+const format: JourneyCardFormat = {
+  clock: (iso: string) => new Date(iso).toISOString().slice(11, 16),
+  distance: (meters: number) => `${meters} m`,
+  duration: (seconds: number) => `${Math.round(seconds / 60)} min`,
+};
 
 /** The leg cards of the sample journey: walk(0), ride(1), walk(2). */
 function cardFor(legIndex: number): LegCard {
@@ -32,7 +38,7 @@ test('riding with a fix counts stops and never names the stop boarded at', () =>
   assert.equal(state.phase, 'riding');
   assert.notEqual(state.stopsRemaining, null);
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'Allenby');
   assert.equal(model.supporting, 'journey.phase.riding');
   assert.equal(model.tone, 'normal');
@@ -46,7 +52,7 @@ test('riding with no fix falls back to the clock rather than inventing a count',
   assert.equal(state.phase, 'riding');
   assert.equal(state.stopsRemaining, null);
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'Allenby');
   assert.equal(model.supporting, 'journey.phase.ridingUntil');
   assert.ok(!JSON.stringify(model).includes('Rothschild'));
@@ -57,7 +63,7 @@ test('waiting leads with the departure and says which way the bus is headed', ()
   const state = resolveJourneyState(journey, null, at('2026-08-31T10:07:00.000Z'));
   assert.equal(state.phase, 'waiting');
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'journey.nav.leavesIn');
   assert.equal(model.supporting, 'results.towards');
   assert.equal(model.canSwitchLine, true);
@@ -73,7 +79,7 @@ test('the get-off moment is an alert and offers no line switch', () => {
   );
   assert.equal(state.phase, 'alight-soon');
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'journey.phase.alightSoon');
   assert.equal(model.supporting, 'Allenby');
   assert.equal(model.tone, 'alert');
@@ -85,7 +91,7 @@ test('a walk to a stop names the stop and the departure it is racing', () => {
   const state = resolveJourneyState(journey, null, at('2026-08-31T10:02:00.000Z'));
   assert.equal(state.phase, 'walking-to-stop');
 
-  const model = journeyCardModel(cardFor(0), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(0), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'Rothschild');
   assert.equal(model.supporting, 'journey.card.catch');
   assert.equal(model.route, null);
@@ -97,7 +103,7 @@ test('the last walk names the destination the rider typed', () => {
   const state = resolveJourneyState(journey, null, at('2026-08-31T10:32:00.000Z'));
   assert.equal(state.phase, 'arriving');
 
-  const model = journeyCardModel(cardFor(2), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(2), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'Home');
   assert.equal(model.supporting, 'journey.phase.arriving');
 });
@@ -106,7 +112,7 @@ test('a leg the rider is not on shows where to board and where to get off', () =
   const journey = sampleJourney();
   const state = resolveJourneyState(journey, null, at('2026-08-31T10:02:00.000Z'));
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.headline, 'journey.card.boardAt');
   assert.equal(model.supporting, 'journey.card.offAt');
   assert.equal(model.canSwitchLine, true);
@@ -116,6 +122,6 @@ test('a leg already behind the rider offers no line switch', () => {
   const journey = sampleJourney();
   const state = resolveJourneyState(journey, null, at('2026-08-31T10:32:00.000Z'));
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t);
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.canSwitchLine, false);
 });
