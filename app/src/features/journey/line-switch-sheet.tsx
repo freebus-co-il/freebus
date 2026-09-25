@@ -1,5 +1,5 @@
 import { IconCheck } from '@tabler/icons-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -37,19 +37,19 @@ export function LineSwitchSheet({
   onChoose: (tripId: string) => void;
   onClose: () => void;
 }) {
-  // Remember the leg this sheet last opened on. The caller's `leg` prop becomes
-  // null the instant the rider picks a run, but the Modal is still animating
-  // down. If we render null when leg goes null, the rows vanish mid-animation
-  // and the rider sees a glitch. Instead, we hold the remembered leg through
-  // the close so the content stays visible while the sheet slides out.
-  const [rememberedLeg, setRememberedLeg] = useState<TransitLeg | null>(null);
-
-  useEffect(() => {
-    if (leg) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setRememberedLeg(leg);
-    }
-  }, [leg]);
+  // Remember the leg this sheet last opened on, on BOTH edges of the open/close
+  // cycle. The caller's `leg` prop becomes null the instant the rider picks a
+  // run, but the Modal is still animating down -- so on the closing edge we
+  // hold the remembered leg through the close instead of rendering null and
+  // letting the rows vanish mid-animation. Symmetrically, on the OPENING edge,
+  // seeding `useState(leg)` and then adjusting during render (rather than in a
+  // passive `useEffect`) means the very first committed frame already has
+  // content: an effect-based copy runs one tick after that first frame, which
+  // opens the Modal over an empty sheet until it flushes. React's own docs
+  // endorse this render-time pattern for exactly this "adjust state from a
+  // prop change" case.
+  const [rememberedLeg, setRememberedLeg] = useState<TransitLeg | null>(leg);
+  if (leg !== null && leg !== rememberedLeg) setRememberedLeg(leg);
 
   return (
     <Modal transparent animationType="slide" visible={leg !== null} onRequestClose={onClose}>
@@ -97,21 +97,39 @@ function LineSwitchSheetContent({
         {options.map((option) => {
           const mine = option.tripId === leg.tripId;
           const note = mine ? null : noteFor(lineVerdict(option, current));
+          const time = formatClockTime(option.from.departureTime);
+          // The line falls back to the mode name, same as the old chip did
+          // (`features/trip/line-option-chips.tsx`, before this branch): a
+          // rail route's `shortName` is empty on every one of this feed's
+          // trips, and `LineBadge` draws a bare glyph for it with no label of
+          // its own, so without this fallback a train row reads as nothing
+          // but a time to a screen reader.
+          const lineName = option.route.shortName?.trim() || t(`results.modeType.${option.route.type}`, { defaultValue: '' });
+          const label = [
+            t('trip.lineOption', { line: lineName, time }),
+            note?.text,
+            mine ? t('journey.switchLine.current') : null,
+          ].filter(Boolean).join(', ');
           return (
             <Pressable
               key={option.tripId}
               accessibilityRole="button"
               accessibilityState={{ selected: mine }}
+              accessibilityLabel={label}
               onPress={() => {
-                hapticSelected();
+                // Only when the tap actually changes anything: re-picking the
+                // run already chosen is a no-op (`withLineChosen` returns
+                // null), and buzzing there teaches that the tap means nothing
+                // (`app/AGENTS.md`, haptics).
+                if (!mine) hapticSelected();
                 onChoose(option.tripId);
                 onClose();
               }}
-              style={[styles.row, { borderBottomColor: theme.borderMuted }]}
+              style={styles.row}
             >
               <LineBadge route={option.route} />
               <ThemedText type="default" style={styles.time}>
-                {formatClockTime(option.from.departureTime)}
+                {time}
               </ThemedText>
               {note && (
                 <ThemedText type="smallBold" themeColor={note.color}>
@@ -155,12 +173,14 @@ const styles = StyleSheet.create({
   list: {
     maxHeight: 320,
   },
+  // No separator between rows, matching the sibling sheet
+  // (`features/results/mode-filter-chip.tsx`): a per-row bottom border also
+  // draws a line under the LAST row, which nothing else in the sheet does.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     paddingVertical: Spacing.three,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   time: {
     flex: 1,

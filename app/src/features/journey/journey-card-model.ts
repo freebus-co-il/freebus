@@ -132,6 +132,26 @@ export function journeyCardModel(
     };
   }
 
+  // A journey can end ON a ride: the API omits a zero-second egress walk, so
+  // the machine sets `legIndex = legs.length - 1` with `leg: null` and
+  // `timer: null` and the phase goes straight to `arrived` without ever
+  // routing through the walk card's `card.final` branch above. Checked
+  // BEFORE `alight-soon` and `riding` -- neither of those branches matches
+  // `arrived`, and without this case the card fell through all the way to
+  // the waiting branch below, printing `journey.nav.leavesIn` with
+  // `minutesLeft(null)` -- "Leaves in 0 min" -- at the exact moment the
+  // rider arrives. The overview card used to carry "You're here" for this
+  // moment; with it gone, the ride card is what has to say it.
+  if (state.phase === 'arrived') {
+    return {
+      route: leg.route,
+      headline: t('journey.phase.arrived'),
+      supporting: destination(destinationLabel, t),
+      tone: 'normal',
+      canSwitchLine: false,
+    };
+  }
+
   if (state.phase === 'alight-soon') {
     return {
       route: leg.route,
@@ -169,9 +189,15 @@ export function journeyCardModel(
   return {
     route: leg.route,
     headline: t('journey.nav.leavesIn', { minutes: minutesLeft(state.timer) }),
+    // Composed through a locale key rather than a JS template literal: the
+    // separator and the order are a translator's call, not this file's --
+    // `journey.card.walkFacts` above does the same join the same way.
     supporting:
       state.busStopsAway !== null
-        ? `${towards} · ${t('journey.nav.busStopsAway', { count: state.busStopsAway })}`
+        ? t('journey.card.towardsAndStops', {
+            towards,
+            stops: t('journey.nav.busStopsAway', { count: state.busStopsAway }),
+          })
         : towards,
     tone: 'normal',
     canSwitchLine: true,

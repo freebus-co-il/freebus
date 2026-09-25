@@ -169,9 +169,6 @@
       "ferry": "Take the ferry",
       "rerouting": "Finding the way from here…",
       "recenter": "Back to my location",
-      "stopsToGo_one": "{{count}} stop to go",
-      "stopsToGo_other": "{{count}} stops to go",
-      "getOffAt": "Get off at {{name}}",
       "busStopsAway_one": "{{count}} stop away",
       "busStopsAway_other": "{{count}} stops away",
       "leavesIn": "Leaves in {{minutes}} min"
@@ -206,7 +203,8 @@
       "walkFacts": "{{duration}} · {{distance}}",
       "catch": "{{line}} leaves in {{minutes}} min",
       "boardAt": "{{name}} {{time}}",
-      "offAt": "off at {{name}} {{time}}"
+      "offAt": "off at {{name}} {{time}}",
+      "towardsAndStops": "{{towards}} · {{stops}}"
     },
     "switchLine": {
       "trigger": "On a different bus?",

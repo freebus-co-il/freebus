@@ -25,7 +25,6 @@ import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
 import { OffPlanCard } from '@/features/journey/off-plan-card';
 import { TripMap, type LineShape } from '@/features/results/trip-map';
-import { StepCardFrame } from '@/features/trip/step-card';
 import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from '@/features/trip/step-cards';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
@@ -274,7 +273,11 @@ export default function JourneyScreen() {
     // The off-plan card stands in place of whatever card is showing: the legs
     // after the one the rider fell off are no longer the journey.
     if (offPlan) return <OffPlanCard state={state} />;
-    if (card.kind === 'overview') return <StepCardFrame>{null}</StepCardFrame>;
+    // Unreachable: the running journey's card list never carries an
+    // `overview` entry outside the off-plan branch above, which already
+    // returned. Returning null rather than an empty `StepCardFrame` means a
+    // future change that DOES reach this can't render a blank bordered card.
+    if (card.kind === 'overview') return null;
     return (
       <JourneyLegCard
         card={card}
@@ -398,7 +401,7 @@ export default function JourneyScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={confirmEnd}
-              style={styles.endButton}
+              style={[styles.endButton, { backgroundColor: theme.background }]}
             >
               <ThemedText type="defaultBold" themeColor="danger">
                 {t('journey.end')}
@@ -478,12 +481,20 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.three,
   },
-  // A text button, not a pill. Ending is the destructive option and the one
-  // thing a rider never came to this screen to do; `Got it` above is the one
-  // that has to be hittable without looking.
+  // A compact, centred text button, not a full-width pill -- ending is the
+  // destructive option and the one thing a rider never came to this screen
+  // to do; `Got it` above is the one that has to be hittable without
+  // looking. It still needs a `background` backing: this sits directly over
+  // live map tiles, and `danger`-coloured text with nothing behind it can
+  // lose contrast against whatever the map is showing underneath. The pill
+  // radius and horizontal padding read it as a chip rather than restoring
+  // the old full-width bordered button.
   endButton: {
+    alignSelf: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
+    borderRadius: 999,
   },
   empty: {
     flex: 1,

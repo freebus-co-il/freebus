@@ -61,7 +61,11 @@ export function JourneyLegCard({
         <View style={styles.stripSlot}>
           <LegStrip itinerary={itinerary} focusLegIndex={card.legIndex} />
         </View>
-        <ThemedText type="small" themeColor="textSecondary">
+        {/* A bare clock time next to a strip that is itself
+            `accessibilityElementsHidden` (see `LegStrip`) would otherwise
+            announce as a naked number -- give it the same label the PiP
+            widget uses for the same fact. */}
+        <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={t('journey.pip.arrive', { time: formatClockTime(state.arrivalTime) })}>
           {formatClockTime(state.arrivalTime)}
         </ThemedText>
       </View>
@@ -77,7 +81,12 @@ export function JourneyLegCard({
         <View style={styles.lines}>
           <ThemedText
             type="subtitle"
-            numberOfLines={1}
+            // Two lines, not one: on `riding` the headline IS the get-off stop
+            // -- the point of the card -- and Israeli stop names ("Beit
+            // LaBanim/Derekh HaBanim") run long enough to ellipsise at one
+            // line. The supporting line below stays single-line; this still
+            // satisfies the spec's two-row rule, since a row may wrap.
+            numberOfLines={2}
             themeColor={model.tone === 'alert' ? 'danger' : undefined}
           >
             {model.headline}
@@ -95,7 +104,9 @@ export function JourneyLegCard({
         <Pressable
           accessibilityRole="button"
           onPress={onSwitchLine}
-          hitSlop={Spacing.two}
+          // Matches the screen's own back button (`app/journey.tsx`): `Spacing.two`
+          // on a ~20pt text control gives a target of only ~36pt.
+          hitSlop={Spacing.three}
           style={styles.switchRow}
         >
           <ThemedText type="small" themeColor="textSecondary">

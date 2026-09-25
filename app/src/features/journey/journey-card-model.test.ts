@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { TFunction } from 'i18next';
 
+import type { Itinerary } from '@/api/types';
+import { buildStepCards, type LegCard } from '@/features/trip/step-cards';
+
 import { at, sampleJourney } from './journey-fixtures';
 import { journeyCardModel, type JourneyCardFormat } from './journey-card-model';
 import { resolveJourneyState } from './journey-machine';
-import { buildStepCards, type LegCard } from '@/features/trip/step-cards';
-import { DEFAULT_ALERT_SETTINGS } from './types';
+import { DEFAULT_ALERT_SETTINGS, type ActiveJourney } from './types';
 
 const t = ((key: string) => key) as unknown as TFunction;
 
@@ -116,6 +118,31 @@ test('a leg the rider is not on shows where to board and where to get off', () =
   assert.equal(model.headline, 'journey.card.boardAt');
   assert.equal(model.supporting, 'journey.card.offAt');
   assert.equal(model.canSwitchLine, true);
+});
+
+test('arrived on a ride card says arrived, never leaves-in', () => {
+  // The API omits a zero-second egress walk, so a journey can end ON a ride
+  // rather than on a final walk -- drop the sample's trailing walk leg to
+  // reproduce that shape. `resolveJourneyState`'s `arrived` branch always
+  // sets `legIndex = legs.length - 1` with `leg: null`, so the last card
+  // here (a ride, not a walk) is the one that must say "arrived" rather than
+  // falling through to the waiting branch's `journey.nav.leavesIn`.
+  const rideEndingItinerary: Itinerary = { ...sampleJourney().itinerary, legs: sampleJourney().itinerary.legs.slice(0, 2) };
+  const journey: ActiveJourney = { ...sampleJourney(), itinerary: rideEndingItinerary };
+  const state = resolveJourneyState(journey, null, at('2026-08-31T11:00:00.000Z'));
+  assert.equal(state.phase, 'arrived');
+  assert.equal(state.leg, null);
+
+  const card = buildStepCards(rideEndingItinerary).find(
+    (entry): entry is LegCard => entry.kind !== 'overview' && entry.legIndex === 1,
+  );
+  if (!card) throw new Error('no card for leg 1');
+
+  const model = journeyCardModel(card, state, rideEndingItinerary, 'Home', t, format);
+  assert.equal(model.headline, 'journey.phase.arrived');
+  assert.notEqual(model.headline, 'journey.nav.leavesIn');
+  assert.equal(model.supporting, 'Home');
+  assert.equal(model.canSwitchLine, false);
 });
 
 test('a leg already behind the rider offers no line switch', () => {

@@ -22,7 +22,10 @@ export type SnapCarouselHandle = {
 export type SnapCarouselProps<T> = {
   data: readonly T[];
   keyExtractor: (item: T, index: number) => string;
-  renderItem: (item: T, index: number) => ReactElement;
+  // `| null` so a caller can render nothing for an item it treats as
+  // unreachable (`app/journey.tsx`'s `overview` card) without a fragment
+  // just to satisfy this type.
+  renderItem: (item: T, index: number) => ReactElement | null;
   /** Fired when a swipe settles on a different card. */
   onActiveIndexChange: (index: number) => void;
   /** The card showing on first render. */
