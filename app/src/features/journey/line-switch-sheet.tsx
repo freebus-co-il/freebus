@@ -1,4 +1,5 @@
 import { IconCheck } from '@tabler/icons-react-native';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -36,12 +37,43 @@ export function LineSwitchSheet({
   onChoose: (tripId: string) => void;
   onClose: () => void;
 }) {
+  // Remember the leg this sheet last opened on. The caller's `leg` prop becomes
+  // null the instant the rider picks a run, but the Modal is still animating
+  // down. If we render null when leg goes null, the rows vanish mid-animation
+  // and the rider sees a glitch. Instead, we hold the remembered leg through
+  // the close so the content stays visible while the sheet slides out.
+  const [rememberedLeg, setRememberedLeg] = useState<TransitLeg | null>(null);
+
+  useEffect(() => {
+    if (leg) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRememberedLeg(leg);
+    }
+  }, [leg]);
+
+  return (
+    <Modal transparent animationType="slide" visible={leg !== null} onRequestClose={onClose}>
+      <SheetBackdrop onPress={onClose} />
+      {rememberedLeg && (
+        <LineSwitchSheetContent leg={rememberedLeg} onChoose={onChoose} onClose={onClose} />
+      )}
+    </Modal>
+  );
+}
+
+function LineSwitchSheetContent({
+  leg, onChoose, onClose,
+}: {
+  leg: TransitLeg;
+  onChoose: (tripId: string) => void;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const theme = useTheme();
   const sheetEdge = useSheetEdge();
 
-  const options = leg ? lineOptions(leg) : [];
-  const current = leg ? currentOption(leg, options) : null;
+  const options = lineOptions(leg);
+  const current = currentOption(leg, options);
 
   const noteFor = (verdict: LineVerdict): { text: string; color: 'danger' | 'success' } | null => {
     switch (verdict.kind) {
@@ -57,51 +89,48 @@ export function LineSwitchSheet({
   };
 
   return (
-    <Modal transparent animationType="slide" visible={leg !== null} onRequestClose={onClose}>
-      <SheetBackdrop onPress={onClose} />
-      <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-        <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-        <ThemedText type="subtitle">{t('journey.switchLine.title')}</ThemedText>
+    <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
+      <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
+      <ThemedText type="subtitle">{t('journey.switchLine.title')}</ThemedText>
 
-        <ScrollView style={styles.list}>
-          {options.map((option) => {
-            const mine = leg !== null && option.tripId === leg.tripId;
-            const note = mine ? null : noteFor(lineVerdict(option, current!));
-            return (
-              <Pressable
-                key={option.tripId}
-                accessibilityRole="button"
-                accessibilityState={{ selected: mine }}
-                onPress={() => {
-                  hapticSelected();
-                  onChoose(option.tripId);
-                  onClose();
-                }}
-                style={[styles.row, { borderBottomColor: theme.borderMuted }]}
-              >
-                <LineBadge route={option.route} />
-                <ThemedText type="default" style={styles.time}>
-                  {formatClockTime(option.from.departureTime)}
+      <ScrollView style={styles.list}>
+        {options.map((option) => {
+          const mine = option.tripId === leg.tripId;
+          const note = mine ? null : noteFor(lineVerdict(option, current));
+          return (
+            <Pressable
+              key={option.tripId}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mine }}
+              onPress={() => {
+                hapticSelected();
+                onChoose(option.tripId);
+                onClose();
+              }}
+              style={[styles.row, { borderBottomColor: theme.borderMuted }]}
+            >
+              <LineBadge route={option.route} />
+              <ThemedText type="default" style={styles.time}>
+                {formatClockTime(option.from.departureTime)}
+              </ThemedText>
+              {note && (
+                <ThemedText type="smallBold" themeColor={note.color}>
+                  {note.text}
                 </ThemedText>
-                {note && (
-                  <ThemedText type="smallBold" themeColor={note.color}>
-                    {note.text}
+              )}
+              {mine && (
+                <View style={styles.mine}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t('journey.switchLine.current')}
                   </ThemedText>
-                )}
-                {mine && (
-                  <View style={styles.mine}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {t('journey.switchLine.current')}
-                    </ThemedText>
-                    <IconCheck size={16} color={theme.text} />
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </ThemedView>
-    </Modal>
+                  <IconCheck size={16} color={theme.text} />
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </ThemedView>
   );
 }
 
