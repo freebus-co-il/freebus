@@ -213,7 +213,17 @@
     "end": "סיום מסלול",
     "endConfirm": "לסיים את המסלול?",
     "keepGoing": "להמשיך",
-    "otherBus": "נוסעים בקו אחר? אפשר לבחור",
+    "card": {
+      "walkFacts": "{{duration}} · {{distance}}",
+      "catch": "{{line}} יוצא בעוד {{minutes}} דק׳",
+      "boardAt": "{{name}} {{time}}",
+      "offAt": "ירידה ב{{name}} {{time}}"
+    },
+    "switchLine": {
+      "trigger": "נוסעים בקו אחר?",
+      "title": "באיזה קו אתם נוסעים?",
+      "current": "זה הקו שלכם"
+    },
     "replace": "להחליף את המסלול הפעיל?",
     "findAnotherWay": "חיפוש דרך אחרת",
     "bus": {
