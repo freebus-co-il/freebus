@@ -85,10 +85,22 @@ export default function JourneyScreen() {
   // whole job was to repeat the hero sentence one swipe away is exactly the
   // duplication this screen was built to remove. `journeyCardIndex` and
   // `cardFocusLegIndex` both test `kind`, never index 0, so nothing counts.
-  const cards = useMemo(
-    () => (journey ? buildStepCards(journey.itinerary).filter((card) => card.kind !== 'overview') : []),
-    [journey],
-  );
+  const cards = useMemo<StepCard[]>(() => {
+    if (!journey) return [];
+    // Off plan is the one exception, and it is not optional: `journeyCardIndex`
+    // falls back to index 0 for this phase, and with the leg cards filtered
+    // out below, index 0 would be a REAL leg -- so the map's `focusLegIndex`
+    // (via `cardFocusLegIndex`) would zoom to leg 0 and dim every other leg,
+    // regardless of which leg the rider actually fell off. A single overview
+    // entry restores every invariant at once: `journeyCardIndex` returns 0
+    // because that is genuinely the only card, `cardFocusLegIndex` sees
+    // `kind: 'overview'` and hands the map `null` (frame the whole journey,
+    // undimmed), and `renderCard` already renders `OffPlanCard` for it -- one
+    // card, one thing to do, instead of N identical `OffPlanCard`s to swipe
+    // between.
+    if (state?.phase === 'off-plan') return [{ kind: 'overview' }];
+    return buildStepCards(journey.itinerary).filter((card) => card.kind !== 'overview');
+  }, [journey, state?.phase]);
   const followIndex = state ? journeyCardIndex(cards, state) : 0;
   const [activeIndex, setActiveIndex] = useState(followIndex);
   const carouselRef = useRef<SnapCarouselHandle>(null);
@@ -357,7 +369,7 @@ export default function JourneyScreen() {
         <SnapCarousel
           ref={carouselRef}
           data={cards}
-          keyExtractor={(card) => `leg-${card.legIndex}`}
+          keyExtractor={(card) => (card.kind === 'overview' ? 'overview' : `leg-${card.legIndex}`)}
           initialIndex={followIndex}
           onActiveIndexChange={setActiveIndex}
           onUserSwipe={() => {
