@@ -344,7 +344,6 @@ export default function JourneyScreen() {
               guidance={guidance}
               rerouting={walkRoute?.rerouting ?? false}
               destinationLabel={journey.destinationLabel}
-              now={now}
             />
           </View>
         </View>
