@@ -1,6 +1,6 @@
 import type { Place, TransitLeg } from '@/api/types';
 import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
-import { haversineMeters } from '@/lib/geo';
+import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
 import { distanceToPathMeters, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
 import { buildLegSchedule } from './journey-rail';
@@ -105,40 +105,8 @@ function orderedStops(leg: TransitLeg): Place[] {
   return [leg.from.stop, ...leg.intermediateStops, leg.to.stop];
 }
 
-/**
- * Stops left before alighting, from the rider's own position.
- *
- * Nearest-stop rather than anything cleverer: the alternative needs a shape to
- * project onto, and `geometry` is nullable on every leg. Nearest-stop only
- * has to be right to within half the gap between two stops, which on a bus
- * route it comfortably is.
- */
-function stopsRemainingFrom(leg: TransitLeg, position: RiderPosition): number {
-  const stops = orderedStops(leg);
-  let nearest = 0;
-  let best = Infinity;
-  stops.forEach((stop, index) => {
-    const distance = haversineMeters(position, stop);
-    if (distance < best) {
-      best = distance;
-      nearest = index;
-    }
-  });
-  return stops.length - 1 - nearest;
-}
-
-/**
- * The stop the vehicle reaches next. The nearest stop, unless the point is
- * already past it -- closer to the stop after it than the nearest stop itself
- * is -- in which case the one after. No shape needed, same as the count.
- *
- * Null once the point is past the alight stop: nearest to the last stop, and
- * farther from the stop before it than the last stop itself is. There is no
- * "next" on this ride any more, and naming the alight stop there would tell a
- * rider already carried beyond it that it is still ahead.
- */
-function nextStopFrom(leg: TransitLeg, point: { lat: number; lon: number }): string | null {
-  const stops = orderedStops(leg);
+/** The stop a point is closest to. A tie keeps the earlier one. */
+function nearestStopIndex(stops: Place[], point: { lat: number; lon: number }): number {
   let nearest = 0;
   let best = Infinity;
   stops.forEach((stop, index) => {
@@ -148,13 +116,58 @@ function nextStopFrom(leg: TransitLeg, point: { lat: number; lon: number }): str
       nearest = index;
     }
   });
+  return nearest;
+}
+
+/**
+ * Stops left before alighting, from the rider's own position.
+ *
+ * Nearest-stop rather than anything cleverer: the alternative needs a shape to
+ * project onto, and `geometry` is nullable on every leg.
+ *
+ * But nearest is not the same as REACHED, and that difference is a whole stop
+ * -- see `hasLeftStop`, which both this and `nextStopFrom` decide it with, so
+ * that a count and a stop name read off the same position cannot disagree.
+ */
+function stopsRemainingFrom(leg: TransitLeg, position: RiderPosition): number {
+  const stops = orderedStops(leg);
+  const nearest = nearestStopIndex(stops, position);
+  const following = stops[nearest + 1];
+  // No stop after it means `nearest` IS the alight stop, and being nearest to
+  // it is as reached as this ride gets.
+  const reached = following === undefined || hasLeftStop(position, stops[nearest]!, following, haversineMeters)
+    ? nearest
+    : nearest - 1;
+  return (stops.length - 1) - Math.max(0, reached);
+}
+
+/**
+ * The stop the vehicle reaches next. The nearest stop, unless the point has
+ * left it (`hasLeftStop`, the same rule the count uses) -- in which case the
+ * one after. No shape needed, same as the count.
+ *
+ * Standing AT a stop counts as having left it, so a rider whose bus is sitting
+ * at Mid A is told the next stop is Mid B. Naming the stop they are already at
+ * as the one still to come is the confusion this shares its rule to avoid.
+ *
+ * Null once the point is past the alight stop: nearest to the last stop, and
+ * farther from the stop before it than the last stop itself is. There is no
+ * "next" on this ride any more, and naming the alight stop there would tell a
+ * rider already carried beyond it that it is still ahead.
+ */
+function nextStopFrom(leg: TransitLeg, point: { lat: number; lon: number }): string | null {
+  const stops = orderedStops(leg);
+  const nearest = nearestStopIndex(stops, point);
   const last = stops.length - 1;
   const previous = stops[last - 1];
   if (nearest === last && previous !== undefined && haversineMeters(point, previous) > haversineMeters(previous, stops[last]!)) {
     return null;
   }
   const following = stops[nearest + 1];
-  const passed = following !== undefined && haversineMeters(point, following) < haversineMeters(stops[nearest]!, following);
+  // No stop after it means `nearest` is the last one, and the last one is still
+  // the stop to come -- the opposite reading to the count's above, which is why
+  // `hasLeftStop` refuses to decide this case for either of them.
+  const passed = following !== undefined && hasLeftStop(point, stops[nearest]!, following, haversineMeters);
   return stops[passed ? nearest + 1 : nearest]?.name?.trim() || null;
 }
 

@@ -46,6 +46,41 @@ test('one stop out is the alert moment', () => {
   assert.equal(state.stopsRemaining, 1);
 });
 
+test('approaching a stop is not the same as having left it', () => {
+  // Between Mid A and Mid B, past the midpoint but still 219 m short of Mid B.
+  // Mid B and Allenby both remain, so the count is 2 and the alarm stays quiet.
+  //
+  // Reported from the field against build 91: "the next stop is not my stop,
+  // there are 2 more". Nearest-stop alone made the count flip a whole stop
+  // early -- at the midpoint -- so the rider was told to get off while the bus
+  // still had to call at Mid B.
+  const state = resolveJourneyState(journey(), near(32.0735, 34.7835), at('2026-08-31T10:22:00.000Z'));
+  assert.equal(state.stopsRemaining, 2);
+  assert.equal(state.phase, 'riding');
+});
+
+test('the stop count and the stop name never disagree', () => {
+  // The two are read off the same position by the same rule, so a surface can
+  // never say "next stop: Mid B" and "one stop left" -- which is get-off --
+  // in the same breath.
+  const state = resolveJourneyState(journey(), near(32.0735, 34.7835), at('2026-08-31T10:22:00.000Z'));
+  assert.equal(state.nextStopName, 'Mid B');
+  assert.equal(state.stopsRemaining, 2);
+});
+
+test('at a stop, the count and the name still agree', () => {
+  // Sitting exactly ON Mid B, one stop out. The count says one stop left and
+  // the name says Allenby -- the same stop. Before both were decided by
+  // `hasLeftStop`, the count said 1 (get off) while the name said 'Mid B',
+  // because the two used `<=` and `<` respectively and a stop is exactly where
+  // those two disagree. That pairing -- "get off" beside a stop that is not
+  // yours -- is the report this rule exists to answer.
+  const state = resolveJourneyState(journey(), near(32.075, 34.785), at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(state.stopsRemaining, 1);
+  assert.equal(state.nextStopName, 'Allenby');
+  assert.equal(state.phase, 'alight-soon');
+});
+
 test('with no position, the alert moment falls back to the clock', () => {
   // 60s before the 10:30 arrival, inside the 90s default lead.
   const state = resolveJourneyState(journey(), null, at('2026-08-31T10:29:00.000Z'));
@@ -232,7 +267,11 @@ test('with no fix, a fresh bus counts the stops', () => {
   assert.equal(state.phase, 'riding');
   assert.equal(state.stopsRemaining, 2);
   assert.equal(state.stopsSource, 'bus');
-  assert.equal(state.nextStopName, 'Mid A');
+  // The bus is sitting ON Mid A, so the stop it reaches NEXT is Mid B. It used
+  // to answer 'Mid A' here, which contradicted the count beside it: two stops
+  // remaining from Mid A are Mid B and Allenby, so Mid A is not one of them.
+  // Both now come from `hasLeftStop`, which is what makes them agree.
+  assert.equal(state.nextStopName, 'Mid B');
 });
 
 test('an inaccurate fix gives way to a fresh bus', () => {

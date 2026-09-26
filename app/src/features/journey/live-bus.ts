@@ -1,6 +1,6 @@
 import type { LiveVehicle, TransitLeg, TripDetail } from '@/api/types';
 import {
-  alignStopTimesToRun, busStopIndex, type RelevantStopInput,
+  alignStopTimesToRun, busReachedStopIndex, busStopIndex, type RelevantStopInput,
 } from '@/features/lines/first-relevant-stop';
 
 /** Where a live bus is relative to the rider's own leg on it, in stops. */
@@ -22,9 +22,17 @@ export function liveBusProgress(
 ): LiveBusProgress | null {
   const { boardingIndex, alightingIndex, bus, stops } = input;
   if (bus === null || boardingIndex < 0 || stops.length === 0) return null;
+  // Two different questions, and answering both with the nearest stop is what
+  // made the alarm fire early. WHICH count this is -- still coming to the
+  // rider's stop, or past it and counting to where they get off -- is a
+  // question about where the bus is, and `busStopIndex` is the order-aware
+  // answer to that. HOW MANY stops are left is a question about what the bus
+  // has already called at, which `busReachedStopIndex` answers and which is a
+  // stop further back for the whole second half of every gap.
   const at = busStopIndex(input);
-  if (at <= boardingIndex) return { kind: 'toBoarding', stops: boardingIndex - at };
-  if (alightingIndex >= 0 && at <= alightingIndex) return { kind: 'toAlighting', stops: alightingIndex - at };
+  const reached = busReachedStopIndex(input);
+  if (at <= boardingIndex) return { kind: 'toBoarding', stops: boardingIndex - reached };
+  if (alightingIndex >= 0 && at <= alightingIndex) return { kind: 'toAlighting', stops: alightingIndex - reached };
   return null;
 }
 
