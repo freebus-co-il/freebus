@@ -25,7 +25,7 @@ jobs:
     permissions:
       contents: write # to publish the release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the photon image
         run: docker compose -f api/docker-compose.yml build photon
