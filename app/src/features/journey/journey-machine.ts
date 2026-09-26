@@ -109,12 +109,24 @@ function orderedStops(leg: TransitLeg): Place[] {
  * Stops left before alighting, from the rider's own position.
  *
  * Nearest-stop rather than anything cleverer: the alternative needs a shape to
- * project onto, and `geometry` is nullable on every leg. Nearest-stop only
- * has to be right to within half the gap between two stops, which on a bus
- * route it comfortably is.
+ * project onto, and `geometry` is nullable on every leg.
+ *
+ * But nearest is not the same as REACHED, and that difference is a whole stop.
+ * The nearest stop flips to the one ahead at the midpoint between two stops, so
+ * counting it as already called at drops the count a stop early -- and at the
+ * default one-stop lead, early is the get-off alarm going off while the bus
+ * still has to stop somewhere else first. Reported from the field as "the next
+ * stop is not my stop, there are 2 more".
+ *
+ * So the rider has left `nearest` only once they are at least as close to the
+ * stop after it as that stop itself is. That is the same test `nextStopFrom`
+ * uses to decide a stop is behind them, which is what stops the count and the
+ * name ever disagreeing -- a surface saying "next stop: Mid B" and "one stop
+ * left" at once is the bug this rule exists to prevent.
  */
 function stopsRemainingFrom(leg: TransitLeg, position: RiderPosition): number {
   const stops = orderedStops(leg);
+  const last = stops.length - 1;
   let nearest = 0;
   let best = Infinity;
   stops.forEach((stop, index) => {
@@ -124,7 +136,16 @@ function stopsRemainingFrom(leg: TransitLeg, position: RiderPosition): number {
       nearest = index;
     }
   });
-  return stops.length - 1 - nearest;
+
+  const nearestStop = stops[nearest];
+  const following = stops[nearest + 1];
+  // No stop after it means `nearest` is the alight stop: being nearest to it
+  // is as reached as this ride gets.
+  const left =
+    nearestStop === undefined ||
+    following === undefined ||
+    haversineMeters(position, following) <= haversineMeters(nearestStop, following);
+  return last - Math.max(0, left ? nearest : nearest - 1);
 }
 
 /**

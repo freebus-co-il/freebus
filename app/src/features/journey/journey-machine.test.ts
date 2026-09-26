@@ -46,6 +46,28 @@ test('one stop out is the alert moment', () => {
   assert.equal(state.stopsRemaining, 1);
 });
 
+test('approaching a stop is not the same as having left it', () => {
+  // Between Mid A and Mid B, past the midpoint but still 219 m short of Mid B.
+  // Mid B and Allenby both remain, so the count is 2 and the alarm stays quiet.
+  //
+  // Reported from the field against build 91: "the next stop is not my stop,
+  // there are 2 more". Nearest-stop alone made the count flip a whole stop
+  // early -- at the midpoint -- so the rider was told to get off while the bus
+  // still had to call at Mid B.
+  const state = resolveJourneyState(journey(), near(32.0735, 34.7835), at('2026-08-31T10:22:00.000Z'));
+  assert.equal(state.stopsRemaining, 2);
+  assert.equal(state.phase, 'riding');
+});
+
+test('the stop count and the stop name never disagree', () => {
+  // The two are read off the same position by the same rule, so a surface can
+  // never say "next stop: Mid B" and "one stop left" -- which is get-off --
+  // in the same breath.
+  const state = resolveJourneyState(journey(), near(32.0735, 34.7835), at('2026-08-31T10:22:00.000Z'));
+  assert.equal(state.nextStopName, 'Mid B');
+  assert.equal(state.stopsRemaining, 2);
+});
+
 test('with no position, the alert moment falls back to the clock', () => {
   // 60s before the 10:30 arrival, inside the 90s default lead.
   const state = resolveJourneyState(journey(), null, at('2026-08-31T10:29:00.000Z'));
