@@ -13,9 +13,10 @@ import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carouse
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
-import { JourneyHero } from '@/features/journey/journey-hero';
-import { JourneyRailView } from '@/features/journey/journey-rail-view';
+import { JourneyLegCard } from '@/features/journey/journey-leg-card';
+import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
 import { LiveBusCard } from '@/features/journey/live-bus-card';
 import { NavigationBanner } from '@/features/journey/navigation/navigation-banner';
 import { navigationCamera } from '@/features/journey/navigation/navigation-camera';
@@ -25,7 +26,6 @@ import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
 import { OffPlanCard } from '@/features/journey/off-plan-card';
 import { TripMap, type LineShape } from '@/features/results/trip-map';
-import { LegStepCard, StepCardFrame } from '@/features/trip/step-card';
 import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from '@/features/trip/step-cards';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
@@ -80,7 +80,27 @@ export default function JourneyScreen() {
     [headerHeight, insets.top, bottomBarHeight],
   );
 
-  const cards = useMemo(() => (journey ? buildStepCards(journey.itinerary) : []), [journey]);
+  // The running journey has no overview card. Its two facts -- the rail and
+  // the arrival -- are on the strip row of every leg card, so a card whose
+  // whole job was to repeat the hero sentence one swipe away is exactly the
+  // duplication this screen was built to remove. `journeyCardIndex` and
+  // `cardFocusLegIndex` both test `kind`, never index 0, so nothing counts.
+  const cards = useMemo<StepCard[]>(() => {
+    if (!journey) return [];
+    // Off plan is the one exception, and it is not optional: `journeyCardIndex`
+    // falls back to index 0 for this phase, and with the leg cards filtered
+    // out below, index 0 would be a REAL leg -- so the map's `focusLegIndex`
+    // (via `cardFocusLegIndex`) would zoom to leg 0 and dim every other leg,
+    // regardless of which leg the rider actually fell off. A single overview
+    // entry restores every invariant at once: `journeyCardIndex` returns 0
+    // because that is genuinely the only card, `cardFocusLegIndex` sees
+    // `kind: 'overview'` and hands the map `null` (frame the whole journey,
+    // undimmed), and `renderCard` already renders `OffPlanCard` for it -- one
+    // card, one thing to do, instead of N identical `OffPlanCard`s to swipe
+    // between.
+    if (state?.phase === 'off-plan') return [{ kind: 'overview' }];
+    return buildStepCards(journey.itinerary).filter((card) => card.kind !== 'overview');
+  }, [journey, state?.phase]);
   const followIndex = state ? journeyCardIndex(cards, state) : 0;
   const [activeIndex, setActiveIndex] = useState(followIndex);
   const carouselRef = useRef<SnapCarouselHandle>(null);
@@ -89,6 +109,10 @@ export default function JourneyScreen() {
   // Bumped by each swipe of the rider's own, so the follow effect below
   // re-arms its hold from the latest one.
   const [swipeCount, setSwipeCount] = useState(0);
+  // The leg index whose line switcher is open, or null. By index rather than
+  // by leg, so a `chooseLine` that swaps the leg underneath cannot leave the
+  // sheet holding the run the rider just moved off.
+  const [switchingLegIndex, setSwitchingLegIndex] = useState<number | null>(null);
 
   // Follow the journey onto its next leg -- unless the rider is browsing, in
   // which case they keep the card they chose until the hold since their last
@@ -246,35 +270,46 @@ export default function JourneyScreen() {
 
   const offPlan = state.phase === 'off-plan';
 
+  // The open sheet's leg, re-asked of the same predicate the card's trigger
+  // uses on EVERY render rather than captured when the sheet opened: the
+  // machine re-resolves every five seconds, and `chooseLine` rewrites whichever
+  // leg it is handed -- including one the rider has already ridden. So a ride
+  // that goes behind them, or enters the get-off window, takes its sheet down
+  // with it instead of leaving a live list of runs over a leg that can no
+  // longer be switched.
+  //
+  // The index is dropped here at render time, not in an effect: the phase can
+  // come BACK -- `alight-soon` returns to `riding` the moment the rider taps
+  // "Got it" -- and an intent still sitting in state would re-open, unasked, a
+  // sheet they had already finished with. Adjusting state during render is
+  // React's own answer for this (and what `line-switch-sheet.tsx` does with
+  // its remembered leg); an effect for it is a cascading render.
+  const switchingLeg =
+    switchingLegIndex !== null && canSwitchLine(state, switchingLegIndex)
+      ? journey.itinerary.legs[switchingLegIndex]
+      : undefined;
+  if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
+
   const renderCard = (card: StepCard) => {
-    if (card.kind === 'overview') {
-      // The off-plan card stands IN PLACE OF the hero rather than under it:
-      // the spec gives `off-plan` a reason line and a single
-      // `[Find another way →]`, and the card owns both -- rendering the hero
-      // as well would print the same sentence twice.
-      if (offPlan) return <OffPlanCard state={state} />;
-      return (
-        <StepCardFrame>
-          <JourneyHero state={state} itinerary={journey.itinerary} destinationLabel={journey.destinationLabel} />
-          <JourneyRailView rail={rail} progress={state.progress} />
-        </StepCardFrame>
-      );
-    }
+    // The off-plan card stands in place of whatever card is showing: the legs
+    // after the one the rider fell off are no longer the journey.
+    if (offPlan) return <OffPlanCard state={state} />;
+    // Unreachable: the running journey's card list never carries an
+    // `overview` entry outside the off-plan branch above, which already
+    // returned. Returning null rather than an empty `StepCardFrame` means a
+    // future change that DOES reach this can't render a blank bordered card.
+    if (card.kind === 'overview') return null;
     return (
-      <LegStepCard
+      <JourneyLegCard
         card={card}
+        state={state}
         itinerary={journey.itinerary}
+        destinationLabel={journey.destinationLabel}
         // Faded rather than dropped: a rider three legs in still looks back to
         // check they did the earlier part right.
         done={card.legIndex < state.legIndex}
-        current={!offPlan && card.legIndex === state.legIndex}
-        // The ride in play and the ones still ahead, never one already behind
-        // the rider: that bus has gone, whichever line it was.
-        onChooseLine={
-          card.kind === 'ride' && !offPlan && card.legIndex >= state.legIndex
-            ? (tripId) => void chooseLine(card.legIndex, tripId)
-            : undefined
-        }
+        current={card.legIndex === state.legIndex}
+        onSwitchLine={card.kind === 'ride' ? () => setSwitchingLegIndex(card.legIndex) : undefined}
       />
     );
   };
@@ -333,7 +368,6 @@ export default function JourneyScreen() {
               guidance={guidance}
               rerouting={walkRoute?.rerouting ?? false}
               destinationLabel={journey.destinationLabel}
-              now={now}
             />
           </View>
         </View>
@@ -388,7 +422,7 @@ export default function JourneyScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={confirmEnd}
-              style={[styles.endButton, { borderColor: theme.borderMuted, backgroundColor: theme.background }]}
+              style={[styles.endButton, { backgroundColor: theme.background }]}
             >
               <ThemedText type="defaultBold" themeColor="danger">
                 {t('journey.end')}
@@ -397,6 +431,18 @@ export default function JourneyScreen() {
           )}
         </View>
       </SafeAreaView>
+
+      <LineSwitchSheet
+        leg={switchingLeg?.type === 'transit' ? switchingLeg : null}
+        onChoose={(tripId) => {
+          // Checked again here rather than trusted from the open sheet: the
+          // tap is handled a frame later than the render that drew the row.
+          if (switchingLegIndex !== null && canSwitchLine(state, switchingLegIndex)) {
+            void chooseLine(switchingLegIndex, tripId);
+          }
+        }}
+        onClose={() => setSwitchingLegIndex(null)}
+      />
     </ThemedView>
   );
 }
@@ -456,14 +502,20 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.three,
   },
-  // Outlined rather than filled. Ending is the destructive option, not the
-  // thing the rider came here to do. Filled with the card surface all the
-  // same, since it floats over the map.
+  // A compact, centred text button, not a full-width pill -- ending is the
+  // destructive option and the one thing a rider never came to this screen
+  // to do; `Got it` above is the one that has to be hittable without
+  // looking. It still needs a `background` backing: this sits directly over
+  // live map tiles, and `danger`-coloured text with nothing behind it can
+  // lose contrast against whatever the map is showing underneath. The pill
+  // radius and horizontal padding read it as a chip rather than restoring
+  // the old full-width bordered button.
   endButton: {
+    alignSelf: 'center',
     alignItems: 'center',
-    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
     borderRadius: 999,
-    borderWidth: 1,
   },
   empty: {
     flex: 1,

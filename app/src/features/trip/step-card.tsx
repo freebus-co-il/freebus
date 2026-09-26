@@ -73,7 +73,7 @@ export function StepCardFrame({ children, done = false }: { children: ReactNode;
   );
 }
 
-function NowTag() {
+export function NowTag() {
   const { t } = useTranslation();
   const theme = useTheme();
   return (
@@ -91,7 +91,7 @@ function NowTag() {
  * the part an unfamiliar rider actually loses sleep over.
  */
 export function LegStepCard({
-  card, itinerary, done = false, current = false, onChooseLine,
+  card, itinerary, done = false, current = false,
 }: {
   card: LegCard;
   itinerary: Itinerary;
@@ -99,9 +99,6 @@ export function LegStepCard({
   done?: boolean;
   /** The leg the running journey is on. */
   current?: boolean;
-  /** Set on a running journey: the rider picks which of the ride's lines they
-   *  are on. Without it the ride's other lines are only listed. */
-  onChooseLine?: (tripId: string) => void;
 }) {
   const { t } = useTranslation();
 
@@ -177,7 +174,7 @@ export function LegStepCard({
           {t('trip.getOffAt', { name: leg.to.stop.name ?? t('trip.unnamedStop') })}
         </ThemedText>
       </View>
-      <LineOptionChips leg={leg} onChoose={onChooseLine} />
+      <LineOptionChips leg={leg} />
     </StepCardFrame>
   );
 }

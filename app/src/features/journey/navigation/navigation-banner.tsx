@@ -22,12 +22,11 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary, WalkManeuver } from '@/api/types';
-import { LineBadge } from '@/components/line-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatClockTime, formatDistanceMeters } from '@/lib/format';
+import { formatDistanceMeters } from '@/lib/format';
 import { readableTextColor, WALK_LEG_COLOR } from '@/lib/route-color';
 
 import type { JourneyState } from '../types';
@@ -71,7 +70,6 @@ export type NavigationBannerProps = {
   rerouting: boolean;
   /** What the rider named as their destination, for the last walk's arrival. */
   destinationLabel: string;
-  now: Date;
 };
 
 function Frame({ glyph, children }: { glyph: ReactNode; children: ReactNode }) {
@@ -89,14 +87,15 @@ function Frame({ glyph, children }: { glyph: ReactNode; children: ReactNode }) {
  * navigation half of the journey screen, where the cards below are the plan.
  *
  * - **Walking**: the next turn, big, with how far it is ("80 m · Turn right onto
- *   HaDekalim"), counting down as they walk.
- * - **Waiting**: when the bus leaves, and how many stops away it is.
- * - **Riding**: stops still to go, and where to get off.
+ *   HaDekalim"), counting down as they walk -- the one thing this banner says
+ *   that a card cannot, since a turn instruction updates every few metres and
+ *   belongs eyes-up at the top of the screen.
  *
- * Nothing off plan or once arrived: those have their own card, and an
- * instruction there would be one the rider must not follow.
+ * Nothing on a transit leg, nothing off plan, and nothing once arrived: those
+ * have their own card, and an instruction here would be one the rider must
+ * not follow.
  */
-export function NavigationBanner({ itinerary, state, guidance, rerouting, destinationLabel, now }: NavigationBannerProps) {
+export function NavigationBanner({ itinerary, state, guidance, rerouting, destinationLabel }: NavigationBannerProps) {
   const { t, i18n } = useTranslation();
   const leg = itinerary.legs[state.legIndex];
   if (!leg || state.phase === 'off-plan' || state.phase === 'arrived') return null;
@@ -125,43 +124,11 @@ export function NavigationBanner({ itinerary, state, guidance, rerouting, destin
     );
   }
 
-  const badge = (
-    <View style={styles.badgeSlot}>
-      <LineBadge route={leg.route} />
-    </View>
-  );
-
-  if (state.phase === 'waiting' || state.phase === 'walking-to-stop' || state.phase === 'transferring') {
-    const departure = new Date(leg.realtime?.predictedDeparture ?? leg.from.departureTime);
-    const minutes = Math.max(0, Math.ceil((departure.getTime() - now.getTime()) / 60_000));
-    return (
-      <Frame glyph={badge}>
-        <ThemedText type="defaultBold" numberOfLines={1}>
-          {t('journey.nav.leavesIn', { minutes })}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {state.busStopsAway !== null
-            ? t('journey.nav.busStopsAway', { count: state.busStopsAway })
-            : t('trip.boardAt', { name: leg.from.stop.name ?? t('trip.unnamedStop') })}
-        </ThemedText>
-      </Frame>
-    );
-  }
-
-  return (
-    <Frame glyph={badge}>
-      <ThemedText type="defaultBold" numberOfLines={1}>
-        {state.phase === 'alight-soon'
-          ? t('journey.phase.alightSoon')
-          : state.stopsRemaining !== null
-            ? t('journey.nav.stopsToGo', { count: state.stopsRemaining })
-            : t('journey.phase.ridingUntil', { time: formatClockTime(leg.to.arrivalTime) })}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-        {t('journey.nav.getOffAt', { name: leg.to.stop.name ?? t('trip.unnamedStop') })}
-      </ThemedText>
-    </Frame>
-  );
+  // Transit legs say nothing here. The card below is the one surface that
+  // owns "what is happening now" on a ride, and a banner repeating its stop
+  // count over the top of it was the screen saying the most important thing
+  // twice, in two places, in two different wordings.
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -180,10 +147,6 @@ const styles = StyleSheet.create({
     borderRadius: GLYPH_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  badgeSlot: {
-    minWidth: GLYPH_SIZE,
-    alignItems: 'center',
   },
   texts: {
     flex: 1,

@@ -169,9 +169,6 @@
       "ferry": "Take the ferry",
       "rerouting": "Finding the way from here…",
       "recenter": "Back to my location",
-      "stopsToGo_one": "{{count}} stop to go",
-      "stopsToGo_other": "{{count}} stops to go",
-      "getOffAt": "Get off at {{name}}",
       "busStopsAway_one": "{{count}} stop away",
       "busStopsAway_other": "{{count}} stops away",
       "leavesIn": "Leaves in {{minutes}} min"
@@ -202,7 +199,18 @@
     "end": "End journey",
     "endConfirm": "End this journey?",
     "keepGoing": "Keep going",
-    "otherBus": "On a different one? Tap it",
+    "card": {
+      "walkFacts": "{{duration}} · {{distance}}",
+      "catch": "{{line}} leaves in {{minutes}} min",
+      "boardAt": "{{name}} · {{time}}",
+      "offAt": "off at {{name}} · {{time}}",
+      "towardsAndStops": "{{towards}} · {{stops}}"
+    },
+    "switchLine": {
+      "trigger": "On a different bus?",
+      "title": "Which one are you on?",
+      "current": "You're on this one"
+    },
     "replace": "Replace your active journey?",
     "findAnotherWay": "Find another way",
     "bus": {

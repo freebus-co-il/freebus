@@ -175,11 +175,6 @@
       "ferry": "עולים למעבורת",
       "rerouting": "מחפשים את הדרך מכאן…",
       "recenter": "חזרה למיקום שלי",
-      "stopsToGo_one": "עוד תחנה אחת",
-      "stopsToGo_two": "עוד {{count}} תחנות",
-      "stopsToGo_many": "עוד {{count}} תחנות",
-      "stopsToGo_other": "עוד {{count}} תחנות",
-      "getOffAt": "יורדים ב{{name}}",
       "busStopsAway_one": "במרחק תחנה אחת",
       "busStopsAway_two": "במרחק {{count}} תחנות",
       "busStopsAway_many": "במרחק {{count}} תחנות",
@@ -213,7 +208,18 @@
     "end": "סיום מסלול",
     "endConfirm": "לסיים את המסלול?",
     "keepGoing": "להמשיך",
-    "otherBus": "נוסעים בקו אחר? אפשר לבחור",
+    "card": {
+      "walkFacts": "{{duration}} · {{distance}}",
+      "catch": "{{line}} יוצא בעוד {{minutes}} דק׳",
+      "boardAt": "{{name}} · {{time}}",
+      "offAt": "ירידה ב{{name}} · {{time}}",
+      "towardsAndStops": "{{towards}} · {{stops}}"
+    },
+    "switchLine": {
+      "trigger": "נוסעים בקו אחר?",
+      "title": "באיזה קו אתם נוסעים?",
+      "current": "זה הקו שלכם"
+    },
     "replace": "להחליף את המסלול הפעיל?",
     "findAnotherWay": "חיפוש דרך אחרת",
     "bus": {

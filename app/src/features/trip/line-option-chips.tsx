@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
@@ -8,7 +8,7 @@ import { Spacing } from '@/constants/theme';
 import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { formatClockTime } from '@/lib/format';
 
-import { currentOption, laterOptions, lineOptions, lineVerdict, type LineVerdict } from './line-options';
+import { currentOption, laterOptions, lineVerdict, type LineVerdict } from './line-options';
 
 /**
  * The other buses this ride can be taken on, each with the time it leaves and
@@ -18,20 +18,18 @@ import { currentOption, laterOptions, lineOptions, lineVerdict, type LineVerdict
  * that is as good as the planned one says nothing, because nothing needs
  * saying. The ride's own bus is not repeated: the card above leads with it.
  *
- * Read-only on the trip screen. With `onChoose` -- a running journey -- each
- * one is how the rider says they got on that bus instead, so the journey
- * follows it; the bus they swapped away from then shows here in its place.
+ * Read-only, and always later runs than the planned one -- a preview must not
+ * suggest a bus already gone. On a running journey the same question --
+ * which bus is the rider actually on -- is asked through `LineSwitchSheet`
+ * instead, which offers every run, earlier ones included.
  *
  * Nothing at all when there is no other bus.
  */
-export function LineOptionChips({ leg, onChoose }: { leg: TransitLeg; onChoose?: (tripId: string) => void }) {
+export function LineOptionChips({ leg }: { leg: TransitLeg }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const outline = useControlOutline();
-  // Choosing (a running journey) offers every run, earlier ones included: the
-  // rider may be on the bus before the planned one. Reading (the trip screen)
-  // offers only later ones -- a preview must not suggest a bus already gone.
-  const options = onChoose ? lineOptions(leg) : laterOptions(leg);
+  const options = laterOptions(leg);
   const current = currentOption(leg, options);
   const others = options.filter((option) => option.tripId !== leg.tripId);
   if (others.length === 0) return null;
@@ -52,7 +50,7 @@ export function LineOptionChips({ leg, onChoose }: { leg: TransitLeg; onChoose?:
   return (
     <View style={[styles.block, { borderTopColor: theme.borderMuted }]}>
       <ThemedText type="small" themeColor="textSecondary">
-        {onChoose ? t('journey.otherBus') : t('trip.laterLines')}
+        {t('trip.laterLines')}
       </ThemedText>
       <View style={styles.chips}>
         {others.map((option) => {
@@ -60,8 +58,8 @@ export function LineOptionChips({ leg, onChoose }: { leg: TransitLeg; onChoose?:
           const line = option.route.shortName?.trim() || t(`results.modeType.${option.route.type}`, { defaultValue: '' });
           const note = noteFor(lineVerdict(option, current));
           const label = [t('trip.lineOption', { line, time }), note?.text].filter(Boolean).join(', ');
-          const chip = (
-            <View style={[styles.chip, { backgroundColor: theme.background }, outline]}>
+          return (
+            <View key={option.tripId} accessible accessibilityLabel={label} style={[styles.chip, { backgroundColor: theme.background }, outline]}>
               <LineBadge route={option.route} size="small" />
               <ThemedText type="small" themeColor="textSecondary">
                 {time}
@@ -71,21 +69,6 @@ export function LineOptionChips({ leg, onChoose }: { leg: TransitLeg; onChoose?:
                   {note.text}
                 </ThemedText>
               )}
-            </View>
-          );
-          return onChoose ? (
-            <Pressable
-              key={option.tripId}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              onPress={() => onChoose(option.tripId)}
-              hitSlop={Spacing.one}
-            >
-              {chip}
-            </Pressable>
-          ) : (
-            <View key={option.tripId} accessible accessibilityLabel={label}>
-              {chip}
             </View>
           );
         })}

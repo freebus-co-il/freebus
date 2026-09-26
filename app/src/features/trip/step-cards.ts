@@ -68,11 +68,21 @@ export function cardFocusLegIndex(card: StepCard | undefined): number | null {
 /**
  * The card a running journey should be showing.
  *
- * Off-plan stays on the first card, which is where the way out lives -- the
- * legs after the one the rider fell off are no longer the journey.
+ * Off-plan goes to the overview, which is where the way out lives -- the legs
+ * after the one the rider fell off are no longer the journey.
+ *
+ * The overview is looked UP rather than assumed to be index 0: the journey
+ * screen hands this a list with the leg cards' overview filtered out, carrying
+ * one only for `off-plan`, so a hardcoded 0 would mean "leg 0" there -- and
+ * `cardFocusLegIndex` would then zoom the map to the first leg and dim the
+ * rest, whichever leg the rider was actually on. The last resort, a list with
+ * no overview AND no card for the leg, is genuinely unreachable
+ * (`buildTripSteps` emits exactly one walk-or-ride step per leg, so
+ * `buildStepCards` gives every leg a card) and has no right answer.
  */
 export function journeyCardIndex(cards: StepCard[], state: Pick<JourneyState, 'phase' | 'legIndex'>): number {
-  if (state.phase === 'off-plan') return 0;
+  const overviewIndex = () => Math.max(0, cards.findIndex((card) => card.kind === 'overview'));
+  if (state.phase === 'off-plan') return overviewIndex();
   const index = cards.findIndex((card) => card.kind !== 'overview' && card.legIndex === state.legIndex);
-  return index === -1 ? 0 : index;
+  return index === -1 ? overviewIndex() : index;
 }

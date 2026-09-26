@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import type { Itinerary } from '@/api/types';
 import { sampleItinerary } from '@/features/journey/journey-fixtures';
 
-import { buildStepCards, cardFocusLegIndex, journeyCardIndex } from './step-cards';
+import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from './step-cards';
 
 test('leads with the whole journey, then one card per leg', () => {
   const cards = buildStepCards(sampleItinerary());
@@ -48,4 +48,16 @@ test('a running journey shows the card of the leg it is on', () => {
 test('an off-plan journey stays on the first card, where the way out is', () => {
   const cards = buildStepCards(sampleItinerary());
   assert.equal(journeyCardIndex(cards, { phase: 'off-plan', legIndex: 1 }), 0);
+});
+
+test('the running journey card list finds its overview wherever it sits', () => {
+  // The shape `app/journey.tsx` actually passes: the leg cards' own overview
+  // filtered out, with one appended for `off-plan` alone. A fallback that
+  // assumed index 0 was the overview would answer "leg 0" here, and the map
+  // would frame the first leg of a journey the rider has already left.
+  const legCards = buildStepCards(sampleItinerary()).filter((card) => card.kind !== 'overview');
+  const withOverview: StepCard[] = [...legCards, { kind: 'overview' }];
+  assert.equal(journeyCardIndex(withOverview, { phase: 'off-plan', legIndex: 1 }), legCards.length);
+  assert.equal(journeyCardIndex(withOverview, { phase: 'waiting', legIndex: 1 }), 1);
+  assert.equal(cardFocusLegIndex(withOverview[legCards.length]), null);
 });
