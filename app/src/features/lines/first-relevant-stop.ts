@@ -1,3 +1,5 @@
+import { hasLeftStop } from '@/lib/geo';
+
 export type RelevantStopInput = {
   /** The run's stops in travel order, each with its scheduled time (ISO-8601)
    *  when the surface has one. */
@@ -63,6 +65,34 @@ export function busStopIndex(input: RelevantStopInput): number {
     }
   });
   return nearby === -1 ? nearest : nearby;
+}
+
+/**
+ * The last stop the bus has actually CALLED AT.
+ *
+ * Not the same as `busStopIndex`, which answers "which stop is it at" -- and
+ * between two stops that flips to the one ahead at the midpoint, long before
+ * the bus gets there. A count of stops remaining measured from the nearest
+ * stop is therefore a stop short for the whole second half of every gap, which
+ * on the get-off alarm means telling a rider to get off while the bus still
+ * has to stop somewhere else first. `hasLeftStop` holds that rule; the
+ * journey machine decides the rider's own count with the same one, so the two
+ * cannot drift apart.
+ *
+ * Never further back than one stop: this corrects a half-gap, it does not
+ * re-derive where the bus is. Everything `busStopIndex` knows about route
+ * order -- out-and-back routes, loop terminals, GPS noise -- still decides
+ * that, and is deliberately not second-guessed here.
+ */
+export function busReachedStopIndex(input: RelevantStopInput): number {
+  const at = busStopIndex(input);
+  const { stops, bus } = input;
+  const stop = stops[at];
+  const following = stops[at + 1];
+  // No bus is no position to judge from; no following stop means the bus is at
+  // the end of the run, where nearest is as reached as it gets.
+  if (bus === null || stop === undefined || following === undefined) return at;
+  return hasLeftStop(bus, stop, following, distanceMeters) ? at : Math.max(0, at - 1);
 }
 
 /**
