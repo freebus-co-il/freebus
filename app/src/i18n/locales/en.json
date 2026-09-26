@@ -202,8 +202,8 @@
     "card": {
       "walkFacts": "{{duration}} · {{distance}}",
       "catch": "{{line}} leaves in {{minutes}} min",
-      "boardAt": "{{name}} {{time}}",
-      "offAt": "off at {{name}} {{time}}",
+      "boardAt": "{{name}} · {{time}}",
+      "offAt": "off at {{name}} · {{time}}",
       "towardsAndStops": "{{towards}} · {{stops}}"
     },
     "switchLine": {
