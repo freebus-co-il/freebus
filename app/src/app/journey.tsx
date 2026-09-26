@@ -13,6 +13,7 @@ import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carouse
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
 import { JourneyLegCard } from '@/features/journey/journey-leg-card';
 import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
@@ -269,6 +270,26 @@ export default function JourneyScreen() {
 
   const offPlan = state.phase === 'off-plan';
 
+  // The open sheet's leg, re-asked of the same predicate the card's trigger
+  // uses on EVERY render rather than captured when the sheet opened: the
+  // machine re-resolves every five seconds, and `chooseLine` rewrites whichever
+  // leg it is handed -- including one the rider has already ridden. So a ride
+  // that goes behind them, or enters the get-off window, takes its sheet down
+  // with it instead of leaving a live list of runs over a leg that can no
+  // longer be switched.
+  //
+  // The index is dropped here at render time, not in an effect: the phase can
+  // come BACK -- `alight-soon` returns to `riding` the moment the rider taps
+  // "Got it" -- and an intent still sitting in state would re-open, unasked, a
+  // sheet they had already finished with. Adjusting state during render is
+  // React's own answer for this (and what `line-switch-sheet.tsx` does with
+  // its remembered leg); an effect for it is a cascading render.
+  const switchingLeg =
+    switchingLegIndex !== null && canSwitchLine(state, switchingLegIndex)
+      ? journey.itinerary.legs[switchingLegIndex]
+      : undefined;
+  if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
+
   const renderCard = (card: StepCard) => {
     // The off-plan card stands in place of whatever card is showing: the legs
     // after the one the rider fell off are no longer the journey.
@@ -412,13 +433,13 @@ export default function JourneyScreen() {
       </SafeAreaView>
 
       <LineSwitchSheet
-        leg={
-          switchingLegIndex !== null && journey.itinerary.legs[switchingLegIndex]?.type === 'transit'
-            ? (journey.itinerary.legs[switchingLegIndex] as TransitLeg)
-            : null
-        }
+        leg={switchingLeg?.type === 'transit' ? switchingLeg : null}
         onChoose={(tripId) => {
-          if (switchingLegIndex !== null) void chooseLine(switchingLegIndex, tripId);
+          // Checked again here rather than trusted from the open sheet: the
+          // tap is handled a frame later than the render that drew the row.
+          if (switchingLegIndex !== null && canSwitchLine(state, switchingLegIndex)) {
+            void chooseLine(switchingLegIndex, tripId);
+          }
         }}
         onClose={() => setSwitchingLegIndex(null)}
       />
