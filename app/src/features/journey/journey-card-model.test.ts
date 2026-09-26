@@ -6,11 +6,30 @@ import type { Itinerary } from '@/api/types';
 import { buildStepCards, type LegCard } from '@/features/trip/step-cards';
 
 import { at, sampleJourney } from './journey-fixtures';
-import { journeyCardModel, type JourneyCardFormat } from './journey-card-model';
+import { canSwitchLine, journeyCardModel, type JourneyCardFormat } from './journey-card-model';
 import { resolveJourneyState } from './journey-machine';
 import { DEFAULT_ALERT_SETTINGS, type ActiveJourney } from './types';
 
 const t = ((key: string) => key) as unknown as TFunction;
+
+/**
+ * A `t` that also keeps what it was asked to interpolate.
+ *
+ * The bare stub above returns the key and DROPS its values, which makes an
+ * assertion about what a card does not say blind to the only shape the leak
+ * could take: every string this module produces goes through `t`, so a card
+ * that printed the boarding stop via `t('journey.card.boardAt', { name })`
+ * would still stringify to nothing but the key and read as clean. The
+ * `absent` assertions below look at `interpolated` as well as at the model.
+ */
+function recordingT() {
+  const interpolated: unknown[] = [];
+  const record = ((key: string, values?: Record<string, unknown>) => {
+    interpolated.push(values ?? null);
+    return key;
+  }) as unknown as TFunction;
+  return { t: record, interpolated };
+}
 
 const format: JourneyCardFormat = {
   clock: (iso: string) => new Date(iso).toISOString().slice(11, 16),
@@ -40,12 +59,16 @@ test('riding with a fix counts stops and never names the stop boarded at', () =>
   assert.equal(state.phase, 'riding');
   assert.notEqual(state.stopsRemaining, null);
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
+  const { t: recorded, interpolated } = recordingT();
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', recorded, format);
   assert.equal(model.headline, 'Allenby');
   assert.equal(model.supporting, 'journey.phase.riding');
   assert.equal(model.tone, 'normal');
   assert.equal(model.canSwitchLine, true);
-  assert.ok(!JSON.stringify(model).includes('Rothschild'), 'the boarding stop must not appear once riding');
+  assert.ok(
+    !JSON.stringify([model, interpolated]).includes('Rothschild'),
+    'the boarding stop must not appear once riding -- neither in the model nor in anything handed to `t`',
+  );
 });
 
 test('riding with no fix falls back to the clock rather than inventing a count', () => {
@@ -54,10 +77,11 @@ test('riding with no fix falls back to the clock rather than inventing a count',
   assert.equal(state.phase, 'riding');
   assert.equal(state.stopsRemaining, null);
 
-  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
+  const { t: recorded, interpolated } = recordingT();
+  const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', recorded, format);
   assert.equal(model.headline, 'Allenby');
   assert.equal(model.supporting, 'journey.phase.ridingUntil');
-  assert.ok(!JSON.stringify(model).includes('Rothschild'));
+  assert.ok(!JSON.stringify([model, interpolated]).includes('Rothschild'));
 });
 
 test('waiting leads with the departure and says which way the bus is headed', () => {
@@ -151,4 +175,40 @@ test('a leg already behind the rider offers no line switch', () => {
 
   const model = journeyCardModel(cardFor(1), state, journey.itinerary, 'Home', t, format);
   assert.equal(model.canSwitchLine, false);
+});
+
+test('switchability answers the same for the card and for an open sheet', () => {
+  // The journey screen re-asks this of every render while the sheet is up, so
+  // it is the whole guard against `chooseLine` rewriting a ride the rider has
+  // already finished -- `chooseLine` itself takes any leg index it is given.
+  const journey = sampleJourney();
+  const riding = resolveJourneyState(
+    journey,
+    { lat: 32.07, lon: 34.78, accuracyMeters: 10, at: '2026-08-31T10:20:00.000Z' },
+    at('2026-08-31T10:20:00.000Z'),
+  );
+  assert.equal(riding.phase, 'riding');
+  assert.equal(canSwitchLine(riding, 1), true, 'the ride under the rider');
+  assert.equal(canSwitchLine(riding, 0), false, 'a leg already behind them');
+
+  const alighting = resolveJourneyState(
+    journey,
+    { lat: 32.075, lon: 34.785, accuracyMeters: 10, at: '2026-08-31T10:28:00.000Z' },
+    at('2026-08-31T10:28:00.000Z'),
+    DEFAULT_ALERT_SETTINGS,
+  );
+  assert.equal(alighting.phase, 'alight-soon');
+  assert.equal(canSwitchLine(alighting, 1), false, 'the get-off window belongs to the alarm');
+
+  const walking = resolveJourneyState(journey, null, at('2026-08-31T10:02:00.000Z'));
+  assert.equal(walking.phase, 'walking-to-stop');
+  assert.equal(canSwitchLine(walking, 1), true, 'a ride still ahead');
+
+  const arrived = resolveJourneyState(journey, null, at('2026-08-31T11:00:00.000Z'));
+  assert.equal(arrived.phase, 'arrived');
+  assert.equal(canSwitchLine(arrived, 1), false, 'nothing is switchable once the journey is done');
+
+  // The reason this is a function and not four literals: an open sheet asks it
+  // about a leg the rider is no longer on, which no card would ever render.
+  assert.equal(canSwitchLine({ ...riding, phase: 'off-plan' }, 1), false);
 });
