@@ -16,6 +16,11 @@ export interface RankConfig {
   /** How far past the earliest feasible departure a
    *  journey may depart and still be ranked on cost (the departure window `W`). */
   departureWindowSeconds: number;
+  /** What a second spent waiting at the origin costs relative to a riding
+   *  second. `0` is free, which is the behaviour before this term existed;
+   *  `1` makes waiting cost the same as riding, which collapses the ordering
+   *  to arrival plus the effort terms. */
+  originWaitWeight: number;
   /** The walk-share backstop. Fraction of `durationSeconds` that may be
    *  walking before the itinerary is dropped outright. */
   maxWalkShare: number;
@@ -24,17 +29,31 @@ export interface RankConfig {
 /**
  * `durationSeconds` is measured from this itinerary's own
  * RE-ANCHORED departure (`routes/reoptimise.ts`'s `reanchorDeparture`), not
- * from the query instant, so waiting at the origin is priced at zero here by
- * construction and needs no term of its own -- that is the whole mechanism by
- * which a later, easier journey can beat an earlier, harder one.
+ * from the query instant, so the wait before it does not appear in the
+ * duration at all. `originWaitSeconds` is that wait, supplied by the caller,
+ * and it is what lets a later journey be preferred only when it actually buys
+ * something.
+ *
+ * It was priced at ZERO originally, which is what let a later, easier journey
+ * beat an earlier, harder one -- the point of the effort feature. The field
+ * case that ended that (see `2026-09-27-origin-wait-weight-design.md`) is a
+ * journey that bought NOTHING with the wait: same walk, same transfers, five
+ * minutes shorter in the vehicle, arriving twenty-four minutes later, and the
+ * only one in the list with a transfer at risk. Free waiting has no way to
+ * notice that the saving and the loss are different currencies to a rider.
  *
  * `durationSeconds` already counts `walkSeconds` once, so the walk term adds
  * `walkWeight - 1` rather than `walkWeight`; at the default 2 that makes a
- * walking second cost exactly twice a riding one.
+ * walking second cost exactly twice a riding one. The wait term is NOT already
+ * counted anywhere, so it adds `originWaitWeight` in full.
  */
-export function journeyCost(itin: Itinerary, cfg: RankConfig): number {
+export function journeyCost(itin: Itinerary, cfg: RankConfig, originWaitSeconds = 0): number {
   return itin.durationSeconds
     + itin.walkSeconds * (cfg.walkWeight - 1)
+    // Clamped: the anchor is the earliest departure among survivors, so a
+    // negative wait should be unreachable -- but a negative cost would be a
+    // silent ranking inversion rather than a visible failure.
+    + Math.max(0, originWaitSeconds) * cfg.originWaitWeight
     + cfg.transferPenaltySeconds * itin.transfers;
 }
 
@@ -140,6 +159,22 @@ export interface RankOptions<T> {
    * the window.
    */
   exempt?: (candidate: T) => boolean;
+  /**
+   * Whether waiting at the origin is charged for. Defaults to `true`.
+   *
+   * `false` for `arriveBy` and for `/plan/onboard`, and for opposite reasons.
+   * With the arrival pinned, a LATER departure is less waiting, not more, so
+   * charging for it would penalise the best answer the search can give. On
+   * board there is no origin to wait at: the rider is already moving.
+   *
+   * Deliberately NOT the existing `exempt`. That lifts the departure WINDOW
+   * for reverse-probe candidates, for the arithmetic reason its own doc
+   * comment derives. A probe candidate still departs at a real time the rider
+   * really waits for, so it pays the wait like everything else -- and
+   * overloading `exempt` would exempt precisely the candidates the probe
+   * exists to find.
+   */
+  priceOriginWait?: boolean;
 }
 
 /**
@@ -167,6 +202,7 @@ export function rankItineraries<T>(
 ): T[] {
   const applyFilters = opts.applyFilters ?? true;
   const exempt = opts.exempt ?? (() => false);
+  const priceOriginWait = opts.priceOriginWait ?? true;
 
   // Filter and dedupe in one walk. `seen` maps a journey key to its index in
   // `kept`, so a duplicate can REPLACE the entry already there rather than
@@ -222,8 +258,20 @@ export function rankItineraries<T>(
     if (exempt(candidate)) exemptAnchorMs = Math.min(exemptAnchorMs, departureMs);
     else anchorMs = Math.min(anchorMs, departureMs);
   }
+  // The WAIT anchor is the earliest departure among ALL survivors, taken
+  // before the window's own fallback below rewrites `anchorMs`. The two ask
+  // different questions and so use different anchors: the window asks "is this
+  // near the offer the forward search made", and deliberately ignores probe
+  // candidates so a probe cannot move the bound for everyone else; the wait
+  // asks "how much longer than necessary is this rider standing still", and
+  // "than necessary" means the earliest anything leaves, whoever found it.
+  const earliestDepartureMs = Math.min(anchorMs, exemptAnchorMs);
   if (anchorMs === Infinity) anchorMs = exemptAnchorMs;
   const cutoffMs = anchorMs + cfg.departureWindowSeconds * 1000;
+  const waitOf = (departureMs: number): number =>
+    priceOriginWait && Number.isFinite(earliestDepartureMs)
+      ? Math.max(0, (departureMs - earliestDepartureMs) / 1000)
+      : 0;
 
   // `inWindow` first, then cost, then departure as a stable final tiebreak so
   // two identically-priced journeys never swap order between requests.
@@ -235,7 +283,7 @@ export function rankItineraries<T>(
     const da = Date.parse(ia.departureTime);
     const db = Date.parse(ib.departureTime);
     return inWindow(a, da) - inWindow(b, db)
-      || journeyCost(ia, cfg) - journeyCost(ib, cfg)
+      || journeyCost(ia, cfg, waitOf(da)) - journeyCost(ib, cfg, waitOf(db))
       || da - db;
   });
 }

@@ -676,7 +676,12 @@ export const planOnboardRoutes: FastifyPluginAsync = async (app) => {
       itineraries.map((itinerary, i) => ({ itinerary, alight: alighting[i]! })),
       (candidate) => candidate.itinerary,
       rankConfig,
-      { applyFilters: false },
+      {
+        applyFilters: false,
+        // There is no origin to wait at: the rider is already on a vehicle.
+        // See `rankItineraries`' `priceOriginWait`.
+        priceOriginWait: false,
+      },
     );
     itineraries = ranked.map((candidate) => candidate.itinerary);
     alighting = ranked.map((candidate) => candidate.alight);

@@ -7,6 +7,7 @@ export const CFG: RankConfig = {
   walkWeight: 2,
   transferPenaltySeconds: 300,
   departureWindowSeconds: 1800,
+  originWaitWeight: 0.5,
   maxWalkShare: 0.7,
 };
 
@@ -414,4 +415,77 @@ test("rankItineraries keeps parallel data attached through the reorder", () => {
 
 test("rankItineraries returns an empty list unchanged", () => {
   assert.deepEqual(rankItineraries([], ID, CFG), []);
+});
+
+// --- Pricing the wait at the origin -----------------------------------------
+// See `2026-09-27-origin-wait-weight-design.md`. The two fixtures below are
+// that spec's §4.1: the field case must flip, and the case the effort feature
+// was built for must not.
+
+test("journeyCost prices waiting at the origin below riding", () => {
+  const j = itin({ durationSeconds: 3600, walkSeconds: 480, transfers: 1 });
+  // No wait: unchanged from before the term existed.
+  assert.equal(journeyCost(j, CFG), 3600 + 480 + 300);
+  // Half an hour of it, at half a riding second.
+  assert.equal(journeyCost(j, CFG, 1800), 3600 + 480 + 300 + 900);
+  // Never negative, however the anchor lands.
+  assert.equal(journeyCost(j, CFG, -600), 3600 + 480 + 300);
+});
+
+test("rankItineraries prefers the train the rider can still catch", () => {
+  // Field report, 2026-09-27 17:11, HaShalom -> Yad LaBanim/Derech HaBanim.
+  // Same walk, same transfers; the later one is five minutes shorter in the
+  // vehicle and arrives twenty-four minutes later. Before the wait term it
+  // ranked FIRST, and it is also the only one flagged transferAtRisk.
+  const catchable = itin({
+    departureTime: "2026-09-27T17:15:00+03:00",
+    durationSeconds: 65 * 60, walkSeconds: 8 * 60, transfers: 1,
+    legs: [walk(300), ride("t-rail-1721"), walk(180), ride("t-202")],
+  });
+  const laterAndLonger = itin({
+    departureTime: "2026-09-27T17:45:00+03:00",
+    durationSeconds: 60 * 60, walkSeconds: 8 * 60, transfers: 1,
+    legs: [walk(300), ride("t-rail-1751"), walk(180), ride("t-11")],
+  });
+
+  const ranked = rankItineraries([laterAndLonger, catchable], ID, CFG);
+  assert.equal(ranked.length, 2);
+  assert.equal(journeyKey(ranked[0]!), journeyKey(catchable));
+});
+
+test("rankItineraries still prefers a later journey that buys less walking", () => {
+  // The original effort spec's own query, at its real numbers: twenty-three
+  // minutes of waiting buys fourteen fewer minutes of walking, and must still
+  // win. This is the case the wait term must not break.
+  const walkHeavy = itin({
+    departureTime: "2026-08-25T11:16:00+03:00",
+    durationSeconds: 20 * 60, walkSeconds: 17 * 60,
+    legs: [walk(17 * 60), ride("t-walkheavy")],
+  });
+  const bus34 = itin({
+    departureTime: "2026-08-25T11:39:00+03:00",
+    durationSeconds: 12 * 60, walkSeconds: 3 * 60,
+    legs: [walk(3 * 60), ride("t-bus34")],
+  });
+
+  const ranked = rankItineraries([walkHeavy, bus34], ID, CFG);
+  assert.equal(journeyKey(ranked[0]!), journeyKey(bus34));
+});
+
+test("rankItineraries leaves waiting free when told not to price it", () => {
+  // `arriveBy` and `/plan/onboard`: a later departure is less waiting, not
+  // more, so charging for it would penalise the best answer.
+  const early = itin({
+    departureTime: "2026-09-27T17:15:00+03:00",
+    durationSeconds: 65 * 60, walkSeconds: 8 * 60, transfers: 1,
+    legs: [walk(300), ride("t-early"), walk(180), ride("t-early-2")],
+  });
+  const lateButShorter = itin({
+    departureTime: "2026-09-27T17:45:00+03:00",
+    durationSeconds: 60 * 60, walkSeconds: 8 * 60, transfers: 1,
+    legs: [walk(300), ride("t-late"), walk(180), ride("t-late-2")],
+  });
+
+  const ranked = rankItineraries([early, lateButShorter], ID, CFG, { priceOriginWait: false });
+  assert.equal(journeyKey(ranked[0]!), journeyKey(lateButShorter));
 });

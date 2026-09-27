@@ -1809,7 +1809,13 @@ export const planRoutes: FastifyPluginAsync = async (app) => {
       })),
       (candidate) => candidate.itinerary,
       rankConfig,
-      { exempt: exemptFromWindow },
+      {
+        exempt: exemptFromWindow,
+        // With the arrival pinned, a later departure is LESS waiting, not
+        // more -- charging for it would penalise the best answer the reverse
+        // search can give. See `rankItineraries`' `priceOriginWait`.
+        priceOriginWait: q.arriveBy === undefined,
+      },
     ).slice(0, q.results);
     itineraries = ranked.map((candidate) => candidate.itinerary);
     reverseSourced = ranked.map((candidate) => candidate.reverse);
