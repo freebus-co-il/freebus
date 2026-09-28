@@ -36,8 +36,10 @@ export interface RankConfig {
  *
  * It was priced at ZERO originally, which is what let a later, easier journey
  * beat an earlier, harder one -- the point of the effort feature. The field
- * case that ended that (see `2026-09-27-origin-wait-weight-design.md`) is a
- * journey that bought NOTHING with the wait: same walk, same transfers, five
+ * case that ended that is a journey that bought NOTHING with the wait: reported
+ * against production on 2026-09-27, HaShalom -> Yad LaBanim, and pinned by
+ * `rank.test.ts`'s "prefers the train the rider can still catch". Same walk,
+ * same transfers, five
  * minutes shorter in the vehicle, arriving twenty-four minutes later, and the
  * only one in the list with a transfer at risk. Free waiting has no way to
  * notice that the saving and the loss are different currencies to a rider.
