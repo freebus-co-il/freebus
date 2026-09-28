@@ -418,9 +418,8 @@ test("rankItineraries returns an empty list unchanged", () => {
 });
 
 // --- Pricing the wait at the origin -----------------------------------------
-// See `2026-09-27-origin-wait-weight-design.md`. The two fixtures below are
-// that spec's §4.1: the field case must flip, and the case the effort feature
-// was built for must not.
+// The two cases the term has to get right at once: the field case must flip,
+// and the case the effort feature was built for must not.
 
 test("journeyCost prices waiting at the origin below riding", () => {
   const j = itin({ durationSeconds: 3600, walkSeconds: 480, transfers: 1 });
@@ -434,16 +433,24 @@ test("journeyCost prices waiting at the origin below riding", () => {
 
 test("rankItineraries prefers the train the rider can still catch", () => {
   // Field report, 2026-09-27 17:11, HaShalom -> Yad LaBanim/Derech HaBanim.
-  // Same walk, same transfers; the later one is five minutes shorter in the
-  // vehicle and arrives twenty-four minutes later. Before the wait term it
-  // ranked FIRST, and it is also the only one flagged transferAtRisk.
+  // Same walk, same transfers; the later one is shorter in the vehicle and
+  // arrives later. Before the wait term it ranked FIRST, and it is also the
+  // only one flagged transferAtRisk.
+  //
+  // The later departure is deliberately WELL INSIDE the departure window. The
+  // real report's was 17:45 -- exactly `anchor + PLAN_DEPARTURE_WINDOW_SECONDS`
+  // -- and a candidate sitting on that boundary lets the window demote it all
+  // by itself: at `originWaitWeight: 0`, with the term switched off entirely,
+  // this test still passed. It would have gone on passing while guarding
+  // nothing. At 17:35 only the cost can separate them, which is the thing
+  // being tested.
   const catchable = itin({
     departureTime: "2026-09-27T17:15:00+03:00",
     durationSeconds: 65 * 60, walkSeconds: 8 * 60, transfers: 1,
     legs: [walk(300), ride("t-rail-1721"), walk(180), ride("t-202")],
   });
   const laterAndLonger = itin({
-    departureTime: "2026-09-27T17:45:00+03:00",
+    departureTime: "2026-09-27T17:35:00+03:00",
     durationSeconds: 60 * 60, walkSeconds: 8 * 60, transfers: 1,
     legs: [walk(300), ride("t-rail-1751"), walk(180), ride("t-11")],
   });
