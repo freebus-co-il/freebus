@@ -314,17 +314,32 @@ visible in the response.
 
 ```
 cost = durationSeconds
-     + walkSeconds × (PLAN_WALK_WEIGHT − 1)
+     + walkSeconds       × (PLAN_WALK_WEIGHT − 1)
+     + originWaitSeconds × PLAN_ORIGIN_WAIT_WEIGHT
      + PLAN_TRANSFER_PENALTY_SECONDS × transfers
 ```
 
 and the list is sorted by that, ascending, with departure time as a stable
 tiebreak. `durationSeconds` is measured from the itinerary's own re-anchored
-departure, so **waiting at the origin costs nothing** — that is what lets a
-later, easier journey beat an earlier, harder one. **Transfers are no longer
-the primary sort key**: a one-transfer twelve-minute journey now outranks a
-zero-transfer twenty-minute one. A client that relied on "fewest transfers
-first" needs updating.
+departure, so the wait before it is not in the duration at all;
+`originWaitSeconds` is that wait, measured from the **earliest feasible
+departure among the answers** rather than from the requested time. A rider
+whose first option leaves in forty minutes is not charged forty minutes on
+every candidate — only for choosing to leave later than they had to.
+
+**Waiting is cheaper than riding, not free.** At the default `0.5` a waiting
+second costs half a riding one. It was free originally, which is what lets a
+later, easier journey beat an earlier, harder one — and still does when the
+wait buys something: twenty-three minutes of waiting to save fourteen minutes
+of walking is a trade riders make, and the ordering keeps making it. What free
+waiting could not see is a later journey that buys *nothing*: same walking,
+same transfers, five minutes shorter in the vehicle, arriving twenty-four
+minutes later. `PLAN_ORIGIN_WAIT_WEIGHT=0` restores the free-waiting ordering
+exactly.
+
+**Transfers are no longer the primary sort key**: a one-transfer twelve-minute
+journey now outranks a zero-transfer twenty-minute one. A client that relied on
+"fewest transfers first" needs updating.
 
 **The departure window.** So that a five-minute ride three hours from now
 cannot bury a perfectly good journey leaving shortly, a `departAfter` journey
@@ -936,8 +951,9 @@ silently reconfiguring a safety gate.
 | `SAME_STATION_TRANSFER_SECONDS` | `180` | Platform-to-platform interchange at a station; never street-routed. |
 | `PLAN_REOPTIMISE_MAX_ITINERARIES` | `3` | How many of a `/plan` response's itineraries get the departure *reoptimisation* pass (a second reverse RAPTOR search each). Range 0–10. Every itinerary is still **re-anchored** on its own first boarding regardless — the bound only skips the further "could I leave even later?" refinement, never returns an itinerary to reporting the query instant. The cost is superlinear in the number of Pareto members actually returned (measured warm on the live feed: 107/136/206/321/453/590 ms for 1–6 members), so unbounded a long inter-city query ran 273–453 ms against the then-standing flat 250 ms budget; bounded at 3 the same queries are ~200 ms and latency is flat in `results`. That flat budget has since been replaced by one that scales with Pareto members returned — see `config.ts`'s own comment on this key. |
 | `PLAN_WALK_WEIGHT` | `2.0` | What a walking second costs relative to a riding second in `/plan`'s effort ordering — see [Ranking and filtering](#ranking-and-filtering). Range 1.0–5.0; refused at boot outside it. `1.0` makes them equal, which is the pre-feature ordering. |
-| `PLAN_TRANSFER_PENALTY_SECONDS` | `300` | Flat cost added per interchange, on top of the wait it already implies through `durationSeconds`. Range 0–3600. Set together with `PLAN_WALK_WEIGHT=1` this collapses the cost to `durationSeconds` — a **cost-function** off switch, not a feature off switch: the extra reverse pass still runs and both filters still apply. |
+| `PLAN_TRANSFER_PENALTY_SECONDS` | `300` | Flat cost added per interchange, on top of the wait it already implies through `durationSeconds`. Range 0–3600. Set together with `PLAN_WALK_WEIGHT=1` **and `PLAN_ORIGIN_WAIT_WEIGHT=0`** this collapses the cost to `durationSeconds` — a **cost-function** off switch, not a feature off switch: the extra reverse pass still runs and both filters still apply. |
 | `PLAN_DEPARTURE_WINDOW_SECONDS` | `1800` | How far past the **earliest feasible departure** a `departAfter` journey may depart and still be ranked purely on cost; a later one is listed but never promoted above an in-window one. Range 0–21600. Anchored on the earliest *feasible* departure, not on the requested time, so a query hours before the first service still returns that service. Not applied on `arriveBy`, nor to the reverse probe (already bounded on arrival). Also the deadline offset the probe itself searches at. |
+| `PLAN_ORIGIN_WAIT_WEIGHT` | `0.5` | What a second spent waiting at the origin costs relative to a riding second in `/plan`'s effort ordering — see [Ranking and filtering](#ranking-and-filtering). Measured from the **earliest feasible departure among the answers**, not from the requested time. Range 0.0–1.0; refused at boot outside it. `0.0` prices waiting at nothing, which is the ordering before this term existed; `1.0` makes a waiting second cost a riding one, collapsing the order to arrival plus the walking and transfer terms. Not applied on `arriveBy` (with the arrival pinned, a later departure is *less* waiting) nor by `/plan/onboard` (a rider already aboard has no origin to wait at). |
 | `PLAN_MAX_WALK_SHARE` | `0.7` | Fraction of an itinerary's own `durationSeconds` that may be walking before it is dropped outright. Range 0.0–1.0; `1.0` disables the cap. A backstop against the pathological tail only — the cost function is what demotes walk-heavy journeys in the ordinary case. Deliberately stricter than a shipping transit app at the default. The companion drop — an itinerary with **no transit leg at all** — has no knob by design. |
 | `PLAN_REVERSE_PROBES` | `1` | How many reverse RAPTOR probes the `departAfter` branch runs, at evenly spaced deadlines up to `earliestArrival + PLAN_DEPARTURE_WINDOW_SECONDS`. Range 1–3 — **it cannot be switched off**; one probe is what makes a later-departing, lower-effort journey visible at all. Each increment is another full reverse search on every request; raise it only if real queries are shown to lose *middle* departures. |
 | `PLAN_RATE_LIMIT_PER_MINUTE` | `60` | Per-**client-IP** requests/minute `GET /plan` answers before `429`ing, layered on top of the global 300/min limit — `/plan` runs a RAPTOR search per request and is the expensive endpoint on this box, so it gets its own tighter budget. Range 1–10,000. `@fastify/rate-limit` keys on `request.ip`, and Israeli carrier-grade NAT puts many real riders behind one address; the default assumes roughly 60 concurrent watchers per address, since the app polls an open results screen once a minute (`PLAN_REFETCH_INTERVAL_MS` in `app/src/api/plan.ts`). If real users start seeing `429`s, raise this — don't remove it. |

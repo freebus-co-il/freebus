@@ -413,8 +413,10 @@ export const routeRateLimits = {
  * `transit/rank.ts` `RankConfig`, plus the probe count, which only
  * `routes/plan.ts` reads.
  *
- * `PLAN_WALK_WEIGHT=1` with `PLAN_TRANSFER_PENALTY_SECONDS=0` collapses
- * `journeyCost` to `durationSeconds`, restoring duration ordering exactly. Be
+ * `PLAN_WALK_WEIGHT=1` with `PLAN_TRANSFER_PENALTY_SECONDS=0` and
+ * `PLAN_ORIGIN_WAIT_WEIGHT=0` collapses `journeyCost` to `durationSeconds`,
+ * restoring duration ordering exactly. All three: each is a separate term, and
+ * leaving any one of them at its default leaves that term in the cost. Be
  * precise about what that is and is not: it is a COST-FUNCTION off switch, not
  * a FEATURE off switch. The extra reverse pass still runs and the filters
  * still apply, so results are not byte-identical to the pre-feature planner --
@@ -428,6 +430,7 @@ export const rankConfig = {
   walkWeight: floatEnv("PLAN_WALK_WEIGHT", 2.0, 1.0, 5.0),
   transferPenaltySeconds: intEnv("PLAN_TRANSFER_PENALTY_SECONDS", 300, 0, 3_600),
   departureWindowSeconds: intEnv("PLAN_DEPARTURE_WINDOW_SECONDS", 1_800, 0, 21_600),
+  originWaitWeight: floatEnv("PLAN_ORIGIN_WAIT_WEIGHT", 0.5, 0, 1),
   maxWalkShare: floatEnv("PLAN_MAX_WALK_SHARE", 0.7, 0, 1),
   /**
    * How many reverse probes the `departAfter` branch runs,
