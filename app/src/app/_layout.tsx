@@ -19,6 +19,7 @@ import { SavedLocationsProvider } from '@/features/saved-locations/saved-locatio
 import { SearchProvider } from '@/features/search/search-context';
 import { ShareIntentGate } from '@/features/share-intent/share-intent-gate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initAnalytics } from '@/lib/analytics';
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,9 @@ export const unstable_settings = { anchor: '(tabs)' };
 // language and then swaps -- and never has to reload itself just to get the
 // direction right on a normal launch.
 SplashScreen.preventAutoHideAsync();
+
+// Release builds only, one event per open, no properties -- see the module.
+initAnalytics();
 
 /** Everything that needs to know the rider's preferences, which is to say
  *  everything -- this exists only because it must sit INSIDE the provider. */

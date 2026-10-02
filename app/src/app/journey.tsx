@@ -30,6 +30,7 @@ import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } fr
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
+import { countEvent } from '@/lib/analytics';
 import { routeColor } from '@/lib/route-color';
 
 /** The back chip's height below the safe area, plus breathing room: the part
@@ -261,6 +262,7 @@ export default function JourneyScreen() {
         text: t('journey.end'),
         style: 'destructive',
         onPress: () => {
+          countEvent('journey_cancelled');
           void end();
           dismiss();
         },
