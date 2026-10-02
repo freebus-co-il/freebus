@@ -10,6 +10,6 @@
 
 ## Checklist
 
-- [ ] Commit messages follow the [Conventional Commits](../CONTRIBUTING.md#commit-convention) format (`npm run commit` at the repo root can write these for you)
+- [ ] Commit messages follow the [Conventional Commits](CONTRIBUTING.md#commit-convention) format (`npm run commit` at the repo root can write these for you)
 - [ ] `npm --prefix <project> test` passes for every project touched
-- [ ] Docs updated where relevant (`README.md`, `CONTRIBUTING.md`, or the touched project's own `README.md`)
+- [ ] Docs updated where relevant (`README.md`, `.github/CONTRIBUTING.md`, or the touched project's own `README.md`)

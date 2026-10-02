@@ -1,6 +1,6 @@
 # FreeBus (פריבוס)
 
-![FreeBus](https://github.com/freebus-co-il/freebus/blob/main/cover.jpg?raw=true)
+![FreeBus](.github/assets/cover.jpg)
 
 FreeBus is an Israeli public-transit trip planner: search a stop or address,
 get itineraries with walking and transfer legs, and see live delays where
@@ -48,7 +48,7 @@ for the Expo app. Install and run each project separately.
 
 Prerequisites: **Node.js 22+**, and **Docker** if you want real walking
 directions or address search rather than the straight-line/no-results
-fallback. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the rest of the setup,
+fallback. See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) for the rest of the setup,
 including what the `app` project needs that the others don't.
 
 **`api`** — the route-planning service:
@@ -85,7 +85,7 @@ By default it points at `http://localhost:3100` (`api`'s dev port) — see
 section if you're running on a device or emulator that can't reach
 `localhost` directly. **The Android build additionally needs your own
 `EXPO_PUBLIC_ANDROID_MAPS_KEY`, or the map renders blank with no error** —
-see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+see [`CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 
 ## Tests
 
@@ -99,11 +99,11 @@ npm --prefix app test
 
 `api` and `gtfs` also have `test:live`, which hits the real upstream feed or
 database instead of fixtures. It needs network access and is **not** run in
-CI — see [`CONTRIBUTING.md`](CONTRIBUTING.md#tests).
+CI — see [`CONTRIBUTING.md`](.github/CONTRIBUTING.md#tests).
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full setup (including the
+See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) for the full setup (including the
 two things that will otherwise cost you an afternoon: the Android Maps key,
 and the EAS project ownership), the commit convention, and the PR flow.
 
@@ -111,7 +111,7 @@ and the EAS project ownership), the commit convention, and the PR flow.
 
 This repository's code is [MIT licensed](LICENSE). It runs on data from
 OpenStreetMap and Israel's Ministry of Transport under their own separate
-terms — see [`ATTRIBUTION.md`](ATTRIBUTION.md) for what those require.
+terms — see [`ATTRIBUTION.md`](docs/ATTRIBUTION.md) for what those require.
 
 ## Roadmap
 
@@ -119,6 +119,6 @@ terms — see [`ATTRIBUTION.md`](ATTRIBUTION.md) for what those require.
   (Photon) and walking directions (Valhalla) are built from OpenStreetMap
   data, which requires "© OpenStreetMap contributors" to be shown wherever
   that data reaches a user (ODbL 1.0). The app's UI does not currently show
-  this attribution anywhere. See [`ATTRIBUTION.md`](ATTRIBUTION.md) for the
+  this attribution anywhere. See [`ATTRIBUTION.md`](docs/ATTRIBUTION.md) for the
   full obligation — this needs to be added before the app is more broadly
   distributed.
