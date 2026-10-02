@@ -5,6 +5,8 @@ import { siblingStopIds, stopExists } from "../db/stops.js";
 import {
   departuresAt, nextDepartureAfter, tripStopVisit, type Departure,
 } from "../db/departures.js";
+import { destinationReach, reachKey, type Reach } from "../db/destinationReach.js";
+import { destinationStops, DESTINATION_RADIUS_METERS, type DestinationStop } from "../db/destinationArea.js";
 import { config } from "../config.js";
 import { toIso } from "../transit/calendar.js";
 import type { TimetableIndex } from "../transit/index.js";
@@ -48,7 +50,45 @@ type PublicDeparture = Omit<Departure, "arrivalTime"> & {
   runId: string;
   /** True for a live bus running off-timetable on this trip's slot. */
   unscheduled: boolean;
+  /**
+   * Where this run sets the rider down for the destination they asked for
+   * with `toLat`/`toLon`, and when it gets there.
+   *
+   * Absent on every row when no destination was asked for. Present on
+   * EVERY row when one was -- a run that does not reach it is not on the
+   * board at all, so this is never the way to tell that a row does not go
+   * there.
+   */
+  destination?: PublicDestination;
 };
+
+/** See `PublicDeparture.destination`. */
+interface PublicDestination {
+  /** The stop this run actually calls at near the destination. The rider
+   *  named a PLACE -- a station, a landmark, an address -- and this is
+   *  whichever stop around it this particular run serves, which is rarely
+   *  one they could have named themselves. */
+  stopId: string;
+  stopSequence: number;
+  /** Straight-line metres from that stop to the point the rider named, so a
+   *  client can say when getting off still leaves a walk. Never more than
+   *  `DESTINATION_RADIUS_METERS`. */
+  walkMeters: number;
+  /**
+   * When the rider gets there: this row's BOARDABLE instant plus the
+   * scheduled ride (`Reach.rideSeconds`), so a bus already running ten
+   * minutes late arrives ten minutes late here too.
+   *
+   * It is not a prediction for this stop, because the feed does not offer
+   * one -- SIRI predicts the call at the board's own stop. Carrying the
+   * delay the bus already has is the only evidence available about a stop
+   * further down its line, and it is better than pretending the timetable
+   * still holds.
+   */
+  arrivalTime: string;
+  /** Scheduled seconds on board -- see `Reach.rideSeconds`. */
+  rideSeconds: number;
+}
 
 function toPublicDeparture(d: Departure, realtime: DepartureRealtime): PublicDeparture {
   return {
@@ -161,6 +201,19 @@ const LATE_LOOKBACK_SECONDS = 20 * 60;
  */
 const LATE_LOOKBACK_ROW_CAP = 500;
 
+/**
+ * How many rows the board is built from before a destination filter runs.
+ *
+ * The rider's own `limit` cannot be used for that scan: it limits the rows
+ * they will READ, and at scan time the question they asked has not been put
+ * yet. At a stop where fifty buses leave within the hour and exactly one of
+ * them goes where the rider is going, a scan cut to `limit` first answers
+ * "nothing goes there" -- the one true row thrown away before it could be
+ * recognised. So the scan is widened here and `limit` is applied last, to
+ * what survived the filter.
+ */
+const DESTINATION_SCAN_ROW_CAP = 500;
+
 /** The instant a rider can actually board: the prediction when there is
  *  one, else the schedule. What the board is ordered by. */
 function boardableEpoch(d: PublicDeparture): number {
@@ -237,6 +290,34 @@ function unscheduledDepartures(
   return rows;
 }
 
+/**
+ * The board, cut to the runs that carry the rider to the destination
+ * without changing, each surviving row told where and when it gets there.
+ */
+function reachingDestination(
+  board: readonly PublicDeparture[], reach: Map<string, Reach>, tz: string,
+): PublicDeparture[] {
+  const out: PublicDeparture[] = [];
+  for (const d of board) {
+    // Keyed on the boarding VISIT, not the trip: a loop calling here twice
+    // is two rows, and the later one may already have passed the
+    // destination.
+    const hit = reach.get(reachKey(d.tripId, d.stopSequence));
+    if (hit === undefined) continue;
+    out.push({
+      ...d,
+      destination: {
+        stopId: hit.stopId,
+        stopSequence: hit.stopSequence,
+        walkMeters: hit.walkMeters,
+        rideSeconds: hit.rideSeconds,
+        arrivalTime: toIso(Math.round(boardableEpoch(d)) + hit.rideSeconds, tz),
+      },
+    });
+  }
+  return out;
+}
+
 export const departureRoutes: FastifyPluginAsync = async (app) => {
   app.get("/stops/:stopId/departures", {
     schema: {
@@ -248,6 +329,8 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
           window: { type: "integer", minimum: 1, maximum: 180, default: 60 },
           limit: { type: "integer", minimum: 1, maximum: 100, default: 30 },
           includeSiblings: { type: "boolean", default: false },
+          toLat: { type: "number", minimum: -90, maximum: 90 },
+          toLon: { type: "number", minimum: -180, maximum: 180 },
           lang: { type: "string" },
         },
       },
@@ -255,7 +338,8 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const { stopId } = req.params as { stopId: string };
     const q = req.query as {
-      at?: string; window: number; limit: number; includeSiblings: boolean; lang?: string;
+      at?: string; window: number; limit: number; includeSiblings: boolean;
+      toLat?: number; toLon?: number; lang?: string;
     };
 
     let lang;
@@ -280,10 +364,31 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
     }
     const stopIds = q.includeSiblings ? siblingStopIds(app.db.db, stopId) : [stopId];
 
+    // The destination is a POINT, not a stop: the rider names a railway
+    // station, a hospital, an address -- somewhere they can actually name --
+    // and any stop within `DESTINATION_RADIUS_METERS` of it counts as
+    // arriving. `includeSiblings` is a question about the board's own stop
+    // and has no say here.
+    //
+    // Half a pair is a programming error rather than a rider's typo, so it
+    // is a 400: a lone `toLat` would otherwise silently return an unfiltered
+    // board, which reads as "every line goes there".
+    if ((q.toLat === undefined) !== (q.toLon === undefined)) {
+      throw app.httpErrors.badRequest("toLat and toLon must be given together");
+    }
+    // An empty list is a legitimate answer here and NOT an error: it means no
+    // bus stops anywhere near the place the rider named, which the board then
+    // reports as having nothing rather than as a fault.
+    const destStops: DestinationStop[] | null = q.toLat === undefined || q.toLon === undefined
+      ? null
+      : destinationStops(app.db.db, { lat: q.toLat, lon: q.toLon });
+    // See DESTINATION_SCAN_ROW_CAP: filter first, then limit.
+    const scanLimit = destStops === null ? q.limit : DESTINATION_SCAN_ROW_CAP;
+
     const ix = app.index.current();
     const scheduled = departuresAt(app.db.db, app.translator, app.calendar, {
       stopIds, at, windowSeconds: q.window * 60,
-      limit: q.limit, lang, tz: config.timezone,
+      limit: scanLimit, lang, tz: config.timezone,
     });
 
     // Departures already due, which only realtime can put back on the board.
@@ -313,7 +418,7 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
         stopIds, at, windowSeconds: q.window * 60, lang, tz: config.timezone,
       });
 
-    const board = [
+    const merged = [
       ...annotateDepartures(app.realtime, ix, config.timezone, scheduled),
       ...stillToCome(annotateDepartures(app.realtime, ix, config.timezone, overdue), at),
       ...unscheduled,
@@ -321,17 +426,35 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
       // On the boardable instant, not the scheduled one: a rider reads this
       // board to know what to catch next, and a bus 70 minutes late is not
       // the next thing to catch merely because its timetable slot was.
-      .sort((a, b) => boardableEpoch(a) - boardableEpoch(b))
-      // Applied AFTER the merge, so a resurrected departure competes for a
-      // place on equal terms rather than being appended past the limit the
-      // client asked for.
-      .slice(0, q.limit);
+      .sort((a, b) => boardableEpoch(a) - boardableEpoch(b));
+
+    // One query for the whole board. Unscheduled runs go through it exactly
+    // like timetabled ones: an off-timetable bus is running a real trip's
+    // stop pattern, so where it goes is a fact about that trip.
+    const reaching = destStops === null ? merged : reachingDestination(
+      merged,
+      destinationReach(app.db.db, {
+        tripIds: [...new Set(merged.map((d) => d.tripId))],
+        boardStopIds: stopIds,
+        destStops,
+      }),
+      config.timezone,
+    );
+
+    // Applied AFTER the merge -- and after the destination filter -- so a
+    // resurrected departure competes for a place on equal terms rather than
+    // being appended past the limit the client asked for.
+    const board = reaching.slice(0, q.limit);
 
     // Only when the board is empty, and only ever ONE row: the lookahead
     // walks day by day (see `nextDepartureAfter`), so it is far dearer than
     // the board query it supplements and must not run alongside a board that
     // already answered the question.
-    const upcoming = board.length === 0
+    // Never alongside a destination filter: this lookahead answers "is this
+    // stop served at all", which is a question about the STOP. The run it
+    // finds is under no obligation to go where the rider is going, and
+    // offering it under a destination filter would read as one that does.
+    const upcoming = board.length === 0 && destStops === null
       ? nextDepartureAfter(app.db.db, app.translator, app.calendar, {
         stopIds, at, lang, tz: config.timezone,
       })
@@ -344,7 +467,8 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
        * The next departure BEYOND the requested window, present only when
        * the board itself is empty -- so a client can tell "this stop is
        * closed right now" from "this stop is not served at all". Null when
-       * nothing runs from here in the next eight days.
+       * nothing runs from here in the next eight days, and always null
+       * under a destination filter -- see the comment where it is built.
        */
       nextDeparture: upcoming === null
         ? null
