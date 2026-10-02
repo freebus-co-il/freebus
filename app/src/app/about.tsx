@@ -13,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { GOOGLE_MAPS_TEXT, OSM_COPYRIGHT_URL } from '@/lib/attribution';
 
 const REPO_URL = 'https://github.com/freebus-co-il/freebus';
+const PRIVACY_URL = 'https://freebus.co.il/privacy';
 const MOT_URL = 'https://www.gov.il/he/departments/ministry_of_transport_and_road_safety';
 
 /**
@@ -74,6 +75,9 @@ export default function AboutScreen() {
           <ThemedText type="default">{t('about.openSource')}</ThemedText>
           <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(REPO_URL)}>
             <ThemedText type="link">{t('about.sourceCode')}</ThemedText>
+          </Pressable>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)}>
+            <ThemedText type="link">{t('about.privacy')}</ThemedText>
           </Pressable>
 
           <Hairline />

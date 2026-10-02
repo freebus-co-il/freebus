@@ -182,6 +182,12 @@
       "busStopsAway_other": "{{count}} stops away",
       "leavesIn": "Leaves in {{minutes}} min"
     },
+    "backgroundDisclosure": {
+      "title": "Wake me at my stop",
+      "body": "FreeBus collects your location, even when the app is closed or not in use, to follow your trip and alert you when it is time to get off. Your location is used only on this device for this journey, and is not shared.",
+      "accept": "Continue",
+      "decline": "Not now"
+    },
     "alert": {
       "getOffNow": "Get off at the next stop",
       "gotIt": "Got it"
@@ -345,6 +351,7 @@
     "version": "Version {{version}}",
     "openSource": "FreeBus is open source under the MIT license.",
     "sourceCode": "Source code on GitHub",
+    "privacy": "Privacy policy",
     "dataSources": "Data sources",
     "motTitle": "Timetables and real-time data",
     "motBody": "Israel Ministry of Transport and Road Safety",
