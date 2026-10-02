@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { buildFixtureDb } from "../testing/fixture.js";
 import { buildServer } from "../server.js";
 import { IndexManager } from "../transit/manager.js";
@@ -586,5 +587,213 @@ test("a rail board row is headed for the train's last stop and carries tripNumbe
       body.departures.map((d) => [d.tripId, d.headsign, d.tripNumber]),
       [["T106", "Central Station", "106"]],
     );
+  } finally { await app.close(); index.stop(); }
+});
+
+// ---------------------------------------------------------------------
+// The destination filter: GET /stops/:stopId/departures?toLat=&toLon=
+// ---------------------------------------------------------------------
+
+interface DestDeparture {
+  tripId: string;
+  departureTime: string;
+  destination?: {
+    stopId: string; stopSequence: number; walkMeters: number;
+    arrivalTime: string; rideSeconds: number;
+  };
+}
+
+/** The fixture's station pair (3000 and its platform 4000) sit here; stop
+ *  2000 is ~1.2 km away, well outside the destination radius. */
+const STATION = "toLat=32.0700&toLon=34.7900";
+
+/**
+ * The shared fixture plus a morning crowd at stop 1000: three runs that
+ * terminate at 2000, and ONE later run that carries on to 4000.
+ *
+ * The crowd is the point. It lets a board be asked for with a `limit`
+ * smaller than the number of rows standing between the rider and the only
+ * run that goes where they are going -- the case that decides whether the
+ * filter runs before the limit or after it.
+ */
+async function serveWithCrowd() {
+  const dir = mkdtempSync(join(tmpdir(), "transit-depboard-dest-"));
+  const link = buildFixtureDb(dir);
+  const w = new Database(link);
+  w.exec(`
+    INSERT INTO trips VALUES (20,'TC1','R1','S1','הרצל',0,NULL,0);
+    INSERT INTO trips VALUES (21,'TC2','R1','S1','הרצל',0,NULL,0);
+    INSERT INTO trips VALUES (22,'TC3','R1','S1','הרצל',0,NULL,0);
+    INSERT INTO trips VALUES (23,'TR1','R3','S1','תחנת השלום',0,NULL,0);
+    -- 07:05, 07:10, 07:15 from 1000, each ending at 2000.
+    INSERT INTO stop_times VALUES (20,1,1,25500,25500,0,1,0);
+    INSERT INTO stop_times VALUES (20,2,2,26100,26100,1,0,1200);
+    INSERT INTO stop_times VALUES (21,1,1,25800,25800,0,1,0);
+    INSERT INTO stop_times VALUES (21,2,2,26400,26400,1,0,1200);
+    INSERT INTO stop_times VALUES (22,1,1,26100,26100,0,1,0);
+    INSERT INTO stop_times VALUES (22,2,2,26700,26700,1,0,1200);
+    -- 07:20 from 1000, through 2000, reaching 4000 at 07:40.
+    INSERT INTO stop_times VALUES (23,1,1,26400,26400,0,1,0);
+    INSERT INTO stop_times VALUES (23,2,2,27000,27000,0,0,1200);
+    INSERT INTO stop_times VALUES (23,4,3,27600,27600,1,0,2400);
+  `);
+  w.close();
+  const index = new IndexManager(dir, { buildFn: async () => buildIndex(link) });
+  const app = await buildServer({ index });
+  return { app, index };
+}
+
+test("a destination keeps only the runs that stop near it after this stop", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: `/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&${STATION}`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[] };
+    assert.deepEqual(body.departures.map((d) => d.tripId), ["TR1"]);
+  } finally { await app.close(); index.stop(); }
+});
+
+// The whole reason the scan is widened past `limit`: three runs that go
+// nowhere near the destination stand in front of the one that reaches it.
+// Filtering after a limit of 2 would answer "nothing goes there".
+test("a destination filters BEFORE the limit truncates the board", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: `/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&limit=2&${STATION}`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[] };
+    assert.deepEqual(body.departures.map((d) => d.tripId), ["TR1"]);
+  } finally { await app.close(); index.stop(); }
+});
+
+test("each surviving row says where it sets the rider down, and when", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: `/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&${STATION}`,
+    });
+    const body = res.json() as { departures: DestDeparture[] };
+    const destination = body.departures[0]!.destination!;
+    assert.equal(destination.stopId, "4000");
+    assert.equal(destination.stopSequence, 3);
+    assert.equal(destination.arrivalTime, "2026-08-24T07:40:00+03:00");
+    assert.equal(destination.rideSeconds, 1200);
+    // 4000 is a handful of metres from the point asked about.
+    assert.ok(destination.walkMeters < 50, `walk was ${destination.walkMeters}`);
+  } finally { await app.close(); index.stop(); }
+});
+
+// The point of the whole change: the rider names a place, not a stop. This
+// coordinate is no stop at all -- it is ~150 m from the station pair.
+test("a destination that is not a stop still finds the stops around it", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: "/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&toLat=32.0713&toLon=34.7910",
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[] };
+    assert.deepEqual(body.departures.map((d) => d.tripId), ["TR1"]);
+    assert.equal(body.departures[0]!.destination!.stopId, "4000");
+    assert.ok(body.departures[0]!.destination!.walkMeters > 50);
+  } finally { await app.close(); index.stop(); }
+});
+
+test("without a destination no row carries one", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: "/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60",
+    });
+    const body = res.json() as { departures: DestDeparture[] };
+    assert.equal(body.departures.length, 5);
+    assert.ok(body.departures.every((d) => d.destination === undefined));
+  } finally { await app.close(); index.stop(); }
+});
+
+// Half a pair is a programming error, and answering it with an unfiltered
+// board would read as "every line goes there".
+test("one half of the destination pair is a 400", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const lat = await app.inject({
+      url: "/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&toLat=32.07",
+    });
+    assert.equal(lat.statusCode, 400);
+    const lon = await app.inject({
+      url: "/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&toLon=34.79",
+    });
+    assert.equal(lon.statusCode, 400);
+  } finally { await app.close(); index.stop(); }
+});
+
+// Somewhere with no bus stop near it is a real answer, not a fault.
+test("a destination with no stop near it is an empty board, not an error", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    const res = await app.inject({
+      url: "/stops/1000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&toLat=32.07&toLon=34.0",
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[]; nextDeparture: unknown };
+    assert.equal(body.departures.length, 0);
+    assert.equal(body.nextDeparture, null);
+  } finally { await app.close(); index.stop(); }
+});
+
+// A board emptied by the filter must not offer the next run from this stop:
+// that run is under no obligation to go where the rider asked.
+test("a board emptied by the destination filter names no next departure", async () => {
+  const { app, index } = await serveWithCrowd();
+  try {
+    // From 2000 back towards stop 1000, which nothing in the window does.
+    const res = await app.inject({
+      url: "/stops/2000/departures?at=2026-08-24T07:00:00%2B03:00&window=60&toLat=32.0554&toLon=34.7800",
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[]; nextDeparture: unknown };
+    assert.equal(body.departures.length, 0);
+    assert.equal(body.nextDeparture, null);
+  } finally { await app.close(); index.stop(); }
+});
+
+// The arrival at the destination is the BOARDABLE instant plus the
+// scheduled ride, so a bus that is already late gets there late.
+test("a late bus carries its delay through to the destination arrival", async () => {
+  const store = new RealtimeStore("siri-sm", 180, () => 1_000);
+  const journey: RealtimeJourney = {
+    lineRef: "R3", directionId: 0, dataFrameRef: null, datedVehicleJourneyRef: null,
+    originAimedDeparture: null, operatorRef: null, publishedLineName: null,
+    vehicleRef: "veh-9", confidence: "veryReliable", lat: null, lon: null,
+    recordedAt: Date.parse("2026-08-24T11:58:00+03:00") / 1000, calls: [], distanceFromStart: null,
+  };
+  // T101 (trip_ref 101) is the fourth trip by trip_ref, so trip index 3;
+  // stop 1000 is stop index 0. Scheduled 12:00 from 1000, predicted 12:05.
+  store.replace(
+    [{
+      tripIdx: 3, journey,
+      byStopIdx: new Map([[0, {
+        expectedArrival: Date.parse("2026-08-24T12:05:00+03:00") / 1000, ambiguous: false,
+      }]]),
+    }],
+    { resolved: 1, unresolved: 0, resolvedWithNoCalls: 0, nearMissCount: 0 }, 1_000,
+  );
+
+  const { app, index } = await serveWithRealtime(store);
+  try {
+    const res = await app.inject({
+      url: `/stops/1000/departures?at=2026-08-24T11:30:00%2B03:00&window=60&${STATION}`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json() as { departures: DestDeparture[] };
+    const t101 = body.departures.find((d) => d.tripId === "T101");
+    // Scheduled 12:00 -> 12:20. Five minutes late boarding, five minutes
+    // late arriving; the 1200 s ride itself is the timetable's.
+    assert.equal(t101!.destination!.arrivalTime, "2026-08-24T12:25:00+03:00");
+    assert.equal(t101!.destination!.rideSeconds, 1200);
   } finally { await app.close(); index.stop(); }
 });

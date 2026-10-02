@@ -278,6 +278,30 @@ export type Departure = {
     color: string | null;
   };
   realtime: RealtimeInfo | null;
+  /**
+   * Where this run sets the rider down at the destination the board was
+   * filtered to, and when it gets there.
+   *
+   * Present on every row of a board asked for with a destination, absent on
+   * every row of one that was not -- a run that does not reach the
+   * destination is not on the board at all, so this is never how to tell
+   * that a row does not go there. Absent from an API deploy older than the
+   * field.
+   */
+  destination?: {
+    /** The stop near the destination this run actually calls at. The rider
+     *  named a PLACE, so this is rarely a stop they could have named. */
+    stopId: string;
+    stopSequence: number;
+    /** Straight-line metres from that stop to the point the rider named --
+     *  what is left to walk. Absent from an API deploy older than it. */
+    walkMeters?: number;
+    /** The row's boardable time plus the scheduled ride, so a late bus gets
+     *  there late. Not a prediction for this stop -- the feed offers none. */
+    arrivalTime: string;
+    /** Scheduled seconds on board from this stop to the destination. */
+    rideSeconds: number;
+  };
 };
 
 export type StopDeparturesResponse = {
