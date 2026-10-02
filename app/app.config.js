@@ -72,6 +72,9 @@ module.exports = {
     },
     plugins: [
       "expo-router",
+      // Generates the open-source licence list (JS and native) shown from
+      // Settings -> About & legal.
+      "react-native-legal",
       [
         "expo-splash-screen",
         {

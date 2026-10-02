@@ -325,7 +325,9 @@
     "alertLeadFiveMinutes": "5 min",
     "alertSound": "Sound",
     "alertVibrate": "Vibration",
-    "alertRepeat": "Keep alerting until I acknowledge"
+    "alertRepeat": "Keep alerting until I acknowledge",
+    "about": "About & legal",
+    "aboutRow": "About FreeBus"
   },
   "recentSearches": {
     "title": "Recent searches"
@@ -337,5 +339,20 @@
   "attribution": {
     "osm": "© OpenStreetMap contributors",
     "osmA11y": "Map data © OpenStreetMap contributors. Opens the copyright page."
+  },
+  "about": {
+    "title": "About & legal",
+    "version": "Version {{version}}",
+    "openSource": "FreeBus is open source under the MIT license.",
+    "sourceCode": "Source code on GitHub",
+    "dataSources": "Data sources",
+    "motTitle": "Timetables and real-time data",
+    "motBody": "Israel Ministry of Transport and Road Safety",
+    "osmTitle": "Maps, walking routes, rail lines and address lookup",
+    "osmBody": "© OpenStreetMap contributors, under the Open Database License (ODbL)",
+    "googleTitle": "Address search",
+    "disclaimerTitle": "Accuracy",
+    "disclaimer": "Timetable and real-time data are provided by the Ministry of Transport without any guarantee of accuracy or completeness. Always check signs at the stop.",
+    "licenses": "Open-source licenses"
   }
 }
