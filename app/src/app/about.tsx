@@ -2,10 +2,10 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { ReactNativeLegal } from 'react-native-legal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconBack } from '@/components/directional-icon';
+import { Hairline } from '@/components/hairline';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -14,6 +14,23 @@ import { GOOGLE_MAPS_TEXT, OSM_COPYRIGHT_URL } from '@/lib/attribution';
 
 const REPO_URL = 'https://github.com/freebus-co-il/freebus';
 const MOT_URL = 'https://www.gov.il/he/departments/ministry_of_transport_and_road_safety';
+
+/**
+ * Opens the native open-source licence list. Required here, not imported at
+ * the top: the module looks its native half up the moment it loads, and
+ * expo-router loads every route at startup -- so a top-level import would
+ * crash, on launch, any installed binary built before this native module
+ * existed, if this code reached it as an over-the-air update.
+ */
+function openLicenses(title: string) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberately lazy, see above
+    const { ReactNativeLegal } = require('react-native-legal') as typeof import('react-native-legal');
+    ReactNativeLegal.launchLicenseListScreen(title);
+  } catch {
+    // A binary without the native module: there is no list to show.
+  }
+}
 
 /** One data source: what it covers, and whose it is. */
 function Source({ title, body, url }: { title: string; body: string; url?: string }) {
@@ -37,7 +54,6 @@ export default function AboutScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
   const version = Constants.expoConfig?.version ?? '';
-  const rule = <View style={[styles.rule, { backgroundColor: theme.borderMuted }]} />;
 
   return (
     <ThemedView type="background" style={styles.container}>
@@ -60,7 +76,7 @@ export default function AboutScreen() {
             <ThemedText type="link">{t('about.sourceCode')}</ThemedText>
           </Pressable>
 
-          {rule}
+          <Hairline />
           <ThemedText type="smallBold" themeColor="textSecondary">{t('about.dataSources')}</ThemedText>
           <Source title={t('about.motTitle')} body={t('about.motBody')} url={MOT_URL} />
           <Source title={t('about.osmTitle')} body={t('about.osmBody')} url={OSM_COPYRIGHT_URL} />
@@ -68,7 +84,7 @@ export default function AboutScreen() {
               forth, and this page cannot know which one answered. */}
           <Source title={t('about.googleTitle')} body={GOOGLE_MAPS_TEXT} />
 
-          {rule}
+          <Hairline />
           <ThemedText type="smallBold" themeColor="textSecondary">{t('about.disclaimerTitle')}</ThemedText>
           <ThemedText type="default">{t('about.disclaimer')}</ThemedText>
 
@@ -76,10 +92,10 @@ export default function AboutScreen() {
               Android builds, and there is no web equivalent. */}
           {Platform.OS !== 'web' && (
             <>
-              {rule}
+              <Hairline />
               <Pressable
                 accessibilityRole="button"
-                onPress={() => ReactNativeLegal.launchLicenseListScreen(t('about.licenses'))}
+                onPress={() => openLicenses(t('about.licenses'))}
               >
                 <ThemedText type="link">{t('about.licenses')}</ThemedText>
               </Pressable>
@@ -116,9 +132,5 @@ const styles = StyleSheet.create({
   },
   block: {
     gap: Spacing.one,
-  },
-  rule: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: Spacing.two,
   },
 });
