@@ -137,7 +137,7 @@ module.exports = {
         projectId: "48516aee-b137-401c-83a2-122fbdb7578f"
       }
     },
-    owner: "sagishalom",
+    owner: "freebus-co-il",
     runtimeVersion: {
       policy: "fingerprint"
     },
