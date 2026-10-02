@@ -1,5 +1,7 @@
 # FreeBus (פריבוס)
 
+![FreeBus](https://github.com/freebus-co-il/freebus/blob/main/cover.jpg?raw=true)
+
 FreeBus is an Israeli public-transit trip planner: search a stop or address,
 get itineraries with walking and transfer legs, and see live delays where
 the Ministry of Transport's realtime feed has data. It's a Fastify API in
