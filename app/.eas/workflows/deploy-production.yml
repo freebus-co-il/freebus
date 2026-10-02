@@ -1,0 +1,97 @@
+name: Deploy to production
+
+# Every push to main that touches the app ships it, and the fingerprint
+# decides how:
+#
+#   - a production build with this fingerprint already exists -> only JS or
+#     assets changed, so publish an OTA update to the `production` channel;
+#   - no such build -> native code changed (a native dependency, a config
+#     plugin, app.config.js, modules/live-journey, targets/journey-widget),
+#     so build and submit to the stores. An OTA update here would land on
+#     binaries that cannot run it.
+#
+# Each platform decides on its own: a widget-only change rebuilds iOS while
+# Android still gets an OTA update.
+#
+# The runtime version is the fingerprint (app.config.js), so an update can
+# only ever reach a binary built from the same native code. What the
+# fingerprint covers is set in fingerprint.config.js.
+on:
+  push:
+    branches: ["main"]
+    # Paths are relative to the repository root. Markdown never ships.
+    paths:
+      - "app/**"
+      - "!app/**/*.md"
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+
+  get_android_build:
+    name: Check for existing Android build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: production
+  get_ios_build:
+    name: Check for existing iOS build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: production
+
+  # Native change: build, then submit (Play internal track as a draft, and
+  # TestFlight -- see eas.json). Promoting to the public store is manual.
+  build_android:
+    name: Build Android
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    params:
+      platform: android
+      profile: production
+  build_ios:
+    name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_android:
+    name: Submit Android build
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+  submit_ios:
+    name: Submit iOS build
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+
+  # JS-only change: OTA update to the binaries already in users' hands.
+  publish_android_update:
+    name: Publish Android update
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      branch: production
+      platform: android
+  publish_ios_update:
+    name: Publish iOS update
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      branch: production
+      platform: ios
