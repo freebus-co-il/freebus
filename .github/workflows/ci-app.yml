@@ -1,43 +1,26 @@
-name: CI
+name: CI (app)
 
+# One workflow per package so a change only runs the checks it can affect.
+# The packages are independent (separate lockfiles, no cross-imports -- see
+# the root package.json), so an app-only change has nothing to prove in api
+# or gtfs. Markdown never reaches typecheck, lint or tests.
 on:
   pull_request:
+    paths:
+      - "app/**"
+      - "!app/**/*.md"
+      - .github/workflows/ci-app.yml
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "!app/**/*.md"
+      - .github/workflows/ci-app.yml
 
 permissions:
   contents: read
 
 jobs:
-  api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - run: npm --prefix api ci
-      - run: npm --prefix api run typecheck
-      # `test`, not `test:live` -- the live suites need network and real
-      # upstreams, and a CI run that depends on a third party is a CI run
-      # that fails for reasons the contributor cannot fix.
-      - run: npm --prefix api test
-
-  gtfs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: gtfs/package-lock.json
-      - run: npm --prefix gtfs ci
-      - run: npm --prefix gtfs run typecheck
-      - run: npm --prefix gtfs test
-
   app:
     runs-on: ubuntu-latest
     steps:
