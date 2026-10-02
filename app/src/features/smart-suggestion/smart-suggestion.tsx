@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { usePlanTrip } from '@/api/plan';
 import type { PlanQuery } from '@/api/types';
+import { DataCredit } from '@/components/data-credit';
 import { IconForward } from '@/components/directional-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -156,7 +157,7 @@ export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
   return (
     <Pressable onPress={() => onSelect(target.place)}>
       <ThemedView type="background" style={styles.hero}>
-        <TripMap itinerary={best} style={styles.map} edgePadding={MAP_EDGE_PADDING} monochrome />
+        <TripMap itinerary={best} style={styles.map} edgePadding={MAP_EDGE_PADDING} monochrome showCredit={false} />
 
         {/* Just enough veil to hold the text, and no more -- the map is the
             point. Ramps from zero rather than starting at the text's own
@@ -173,6 +174,10 @@ export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
           locations={[0, 0.62, 1]}
           style={styles.scrim}
         />
+
+        {/* The map's own credit would sit under the text; up here it is
+            readable, and still on the map it is for. */}
+        <DataCredit source="osm" variant="overlay" style={styles.credit} />
 
         <View style={styles.body}>
           <View style={styles.identityRow}>
@@ -231,6 +236,11 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  credit: {
+    position: 'absolute',
+    top: Spacing.two,
+    end: Spacing.two,
   },
   map: {
     position: 'absolute',

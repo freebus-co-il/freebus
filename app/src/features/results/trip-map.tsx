@@ -110,6 +110,10 @@ export type TripMapProps = {
    *  pass their actual measured heights here so the route never frames
    *  itself underneath them. Defaults to plain breathing room on all sides. */
   edgePadding?: EdgePadding;
+  /** Draw the OpenStreetMap credit over the map. A caller that covers the
+   *  map's bottom with its own content passes false and shows the credit
+   *  somewhere it can be read instead. */
+  showCredit?: boolean;
   /** One leg of `itinerary` to be about: the camera frames just that leg, and
    *  every other leg and stop stays drawn but faded, so the rider keeps the
    *  shape of the whole journey while reading one part of it. Null or omitted
@@ -294,7 +298,7 @@ export function TripMap({
   itinerary, origin = null, destination = null, style, monochrome = false,
   vehicles = EMPTY_VEHICLES, onVehiclePress, lineShapes = EMPTY_LINE_SHAPES,
   selectedVehicleTripId = null, vehicleCard = null, onMapPress,
-  edgePadding = DEFAULT_EDGE_PADDING, focusLegIndex = null,
+  edgePadding = DEFAULT_EDGE_PADDING, showCredit = true, focusLegIndex = null,
   navigationCamera = null, cameraPaused = false, onUserGesture, walkOverride = null,
   vehiclePredictions, vehiclesTowardsAlighting = false,
 }: TripMapProps) {
@@ -624,7 +628,9 @@ export function TripMap({
           geometry -- both OpenStreetMap, whose licence wants it credited. In
           the middle, because Apple and Google both keep their labels in the
           bottom corners. */}
-      <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+      {showCredit && (
+        <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+      )}
       {vehicleCard !== null && selectedVehicleTripId !== null && (
         <Animated.View
           pointerEvents={cardVisible ? 'box-none' : 'none'}
