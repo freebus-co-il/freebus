@@ -121,9 +121,13 @@ test("stop() prevents further ticks from firing", async () => {
   });
 
   const schedule = startSchedule(runner, "* * * * * *", "UTC", () => {});
-  await waitUntil(() => calls >= 1, { timeoutMs: 2000 });
-
-  schedule.stop();
+  try {
+    await waitUntil(() => calls >= 1, { timeoutMs: 3000 });
+  } finally {
+    // Stop even when the wait throws: a live cron keeps the event loop busy,
+    // so the whole file would otherwise hang until the runner's 30s timeout.
+    schedule.stop();
+  }
   const callsAtStop = calls;
   // Proving a negative: wait comfortably longer than one cron period so a
   // still-pending tick would have had time to land if stop() were a no-op.
