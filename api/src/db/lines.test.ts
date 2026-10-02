@@ -50,6 +50,7 @@ test("route shape decodes to GeoJSON", () => {
   assert.equal(shape.geometry.type, "LineString");
   assert.equal(shape.geometryFallback, false);
   assert.equal(shape.geometry.coordinates.length, 2);
+  assert.equal(shape.attribution, null, "the feed's own shape is not OSM data");
   // GeoJSON is [lon, lat], not [lat, lon] — inverting these silently puts
   // every route in the wrong hemisphere.
   assert.ok(shape.geometry.coordinates[0]![0] > 34 && shape.geometry.coordinates[0]![0] < 35);
@@ -64,6 +65,7 @@ test("a shapeless route falls back to a stop-to-stop line and flags it", () => {
   assert.ok(shape);
   assert.equal(shape.geometryFallback, true);
   assert.equal(shape.geometry.coordinates.length, 2);
+  assert.equal(shape.attribution, null);
   h.close();
 });
 
@@ -76,6 +78,7 @@ test("trip detail lists every stop with its times", () => {
   assert.ok(trip);
   assert.equal(trip.stops.length, 2);
   assert.equal(trip.stops[0]!.departureSeconds, 28800);
+  assert.equal(trip.attribution, null);
   h.close();
 });
 
@@ -219,6 +222,7 @@ test("a shapeless rail route is drawn along its baked track, as real geometry", 
     const shape = getRouteShape(h.db, "R7", 0, rail);
     assert.ok(shape);
     assert.equal(shape.geometryFallback, false);
+    assert.equal(shape.attribution, "osm", "baked track is OSM data and must be credited");
     const coords = shape.geometry.coordinates;
     assert.deepEqual(coords[0], [34.78, 32.0554], "starts on the first station, [lon, lat]");
     assert.deepEqual(coords[coords.length - 1], [34.7901, 32.0701], "ends on the last station");
@@ -237,6 +241,7 @@ test("a shapeless rail trip's detail is drawn along its baked track, as real geo
       { calendar: cal, tz: TZ, now: new Date("2026-08-26T09:00:00+03:00"), rail });
     assert.ok(trip?.geometry);
     assert.equal(trip.geometryFallback, false);
+    assert.equal(trip.attribution, "osm");
     assert.ok(trip.geometry.coordinates.some(([lon, lat]) => lon === 34.787 && lat === 32.063));
   } finally { h.close(); }
 });
