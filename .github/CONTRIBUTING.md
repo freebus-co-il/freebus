@@ -28,7 +28,7 @@ npm install
 ```
 
 Then install each project you're working on separately, e.g. `npm install`
-inside `api/`, `gtfs/`, or `app/`. See the root [`README.md`](README.md) for
+inside `api/`, `gtfs/`, or `app/`. See the root [`README.md`](../README.md) for
 the full per-project quickstart.
 
 ## Commit convention

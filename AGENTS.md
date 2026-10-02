@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Agent-facing notes for working in this repo. `README.md` and
-`CONTRIBUTING.md` cover setup, the HTTP APIs, and the PR flow — read those
+`.github/CONTRIBUTING.md` cover setup, the HTTP APIs, and the PR flow — read those
 first. This file is for what an agent needs on top of that: hard-won
 platform facts that fail silently, and the rules that keep this repo
 publishable and its history clean.
@@ -66,7 +66,7 @@ calendar in `app/` or `api/`.
   geocoding only — produces the exact same blank-map failure, with nothing
   in any log to distinguish it from the `customMapStyle` problem above. If
   a map is blank, check the key's API restrictions before anything else.
-  This is `EXPO_PUBLIC_ANDROID_MAPS_KEY`; see `CONTRIBUTING.md`.
+  This is `EXPO_PUBLIC_ANDROID_MAPS_KEY`; see `.github/CONTRIBUTING.md`.
 - **Never prompt for a permission from a foreground-return handler.**
   Asking Android for a permission it may already hold still opens a system
   activity over the app, which itself fires an `AppState` transition back
@@ -127,4 +127,4 @@ npm --prefix app test
 
 `api` and `gtfs` also have `test:live`, which hits the real upstream feed
 or database instead of fixtures — not run in CI, needs network access. See
-`CONTRIBUTING.md` for the full story.
+`.github/CONTRIBUTING.md` for the full story.
