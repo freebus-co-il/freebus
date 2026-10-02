@@ -139,7 +139,7 @@ module.exports = {
     },
     owner: "sagishalom",
     runtimeVersion: {
-      policy: "appVersion"
+      policy: "fingerprint"
     },
     updates: {
       url: "https://u.expo.dev/48516aee-b137-401c-83a2-122fbdb7578f"
