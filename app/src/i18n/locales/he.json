@@ -344,7 +344,7 @@
     "alertVibrate": "רטט",
     "alertRepeat": "להמשיך להתריע עד שאאשר",
     "about": "אודות ומידע משפטי",
-    "aboutRow": "אודות FreeBus"
+    "aboutRow": "אודות האפליקציה"
   },
   "recentSearches": {
     "title": "חיפושים אחרונים"
@@ -360,7 +360,7 @@
   "about": {
     "title": "אודות ומידע משפטי",
     "version": "גרסה {{version}}",
-    "openSource": "FreeBus היא תוכנה בקוד פתוח ברישיון MIT.",
+    "openSource": "האפליקציה FreeBus היא קוד פתוח ברישיון MIT.",
     "sourceCode": "קוד המקור ב-GitHub",
     "dataSources": "מקורות מידע",
     "motTitle": "לוחות זמנים ומידע בזמן אמת",
