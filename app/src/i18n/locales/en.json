@@ -333,5 +333,9 @@
   "update": {
     "title": "A new version is available",
     "detail": "It will be installed the next time you open the app"
+  },
+  "attribution": {
+    "osm": "© OpenStreetMap contributors",
+    "osmA11y": "Map data © OpenStreetMap contributors. Opens the copyright page."
   }
 }
