@@ -111,7 +111,16 @@
     "empty": "אין אוטובוסים ב-{{minutes}} הדקות הקרובות.",
     "noService": "לא מתוכננת יציאה כלשהי מהתחנה הזו.",
     "nextService": "הבא {{day}} ב-{{time}}",
-    "unscheduled": "לא מתוכנן"
+    "unscheduled": "לא מתוכנן",
+    "filterPrompt": "רק קווים שמגיעים ל…",
+    "filterTo": "אל {{name}}",
+    "filterClear": "ניקוי היעד",
+    "arrivesAt": "מגיע ב-{{time}}",
+    "arrivesFirst": "מגיע ב-{{time}} — הראשון שמגיע",
+    "noneToDestination": "אין קו ישיר שעוצר ליד {{name}} ב-{{minutes}} הדקות הקרובות.",
+    "destinationPlaceholder": "חיפוש תחנה או מקום",
+    "destinationHint": "בחרו לאן אתם נוסעים — תחנה, או מקום כמו תחנת רכבת או קניון. הלוח ישאיר רק את הקווים שעוצרים במרחק הליכה קצר משם, בלי להחליף.",
+    "thenWalk": "{{meters}} מ׳ הליכה"
   },
   "units": {
     "minutes": "{{value}} דק׳",

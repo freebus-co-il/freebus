@@ -1,6 +1,7 @@
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { IconMapPin, IconX } from '@tabler/icons-react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -24,13 +25,15 @@ import { firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
 import { StopSpineRow } from '@/features/lines/stop-spine';
 import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts';
+import { fastestArrivalKey } from '@/features/stations/destination-board';
+import { takeDestination, type PickedDestination } from '@/features/stations/destination-handoff';
 import { StationMap } from '@/features/stations/station-map';
 import {
   departureKey, highlightMarkers, lineDepartures, lineKey, runStops,
 } from '@/features/stations/station-line';
 import { stationLines, stationTripIds, stationVehicleMarkers } from '@/features/stations/station-vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
+import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { departureTime } from '@/lib/departure-time';
 import { formatClockTime, formatDurationMinutes, formatRelativeDay } from '@/lib/format';
 import { routeColor } from '@/lib/route-color';
@@ -46,6 +49,17 @@ const SELECTED_RING = 2;
 const UNSELECTED_BADGE_OPACITY = 0.45;
 /** GTFS `route_type` for rail. */
 const RAIL_ROUTE_TYPE = 2;
+
+/**
+ * How far from the destination a run has to set the rider down before the
+ * row says so.
+ *
+ * The server counts any stop within 500 m as arriving, which is what lets a
+ * rider name a railway station instead of the bus stop outside it. Most of
+ * the time that stop IS the place and there is nothing to report; past this
+ * much it is a walk the rider should know about before boarding.
+ */
+const WALK_WORTH_SAYING = 150;
 
 function secondsUntil(iso: string, now: Date): number {
   return Math.max(0, (new Date(iso).getTime() - now.getTime()) / 1000);
@@ -116,13 +130,16 @@ function RunStops(
 /** One departure on the board. Tapping it opens it in place -- its stops
  *  below it, its line's path on the map -- and tapping it again closes it. */
 function DepartureRow(
-  { departure, showLive, now, expanded, stationId, bus, onPress }: {
+  { departure, showLive, now, expanded, stationId, bus, fastest, onPress }: {
     departure: Departure;
     showLive: boolean;
     now: Date;
     expanded: boolean;
     stationId: string | undefined;
     bus: LiveVehicle | null;
+    /** This run reaches the filtered destination before every other row on
+     *  the board, and is not the first to leave -- see `fastestArrivalKey`. */
+    fastest: boolean;
     onPress: () => void;
   },
 ) {
@@ -141,6 +158,27 @@ function DepartureRow(
     departure.unscheduled ? t('station.unscheduled') : null,
   ].filter((part): part is string => part !== null).join(' · ');
 
+  // Present on every row of a board filtered to a destination, and on none
+  // of an unfiltered one. Where the arrival is the EARLIEST on the board it
+  // is said with weight instead of quietly -- the row is further down than
+  // the bus that leaves first, and nothing else on a time-ordered board
+  // would tell the rider that this is the one to wait for.
+  const arrival = departure.destination === undefined
+    ? null
+    : t(fastest ? 'station.arrivesFirst' : 'station.arrivesAt', {
+      time: formatClockTime(departure.destination.arrivalTime),
+    });
+
+  // The destination is a PLACE, and the stop this run calls at may be a few
+  // minutes' walk from it -- so "arrives 07:52" would otherwise quietly
+  // promise a door it does not reach. Said only past `WALK_WORTH_SAYING`:
+  // below that the stop is effectively the place, and a distance on every
+  // row would be noise that trains the rider to stop reading the line.
+  const walkMeters = departure.destination?.walkMeters;
+  const walk = walkMeters !== undefined && walkMeters >= WALK_WORTH_SAYING
+    ? t('station.thenWalk', { meters: walkMeters })
+    : null;
+
   return (
     <View>
       <Pressable onPress={onPress} accessibilityState={{ expanded }} style={styles.row}>
@@ -156,6 +194,15 @@ function DepartureRow(
           {secondary !== '' && (
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
               {secondary}
+            </ThemedText>
+          )}
+          {arrival !== null && (
+            <ThemedText
+              type={fastest ? 'smallBold' : 'small'}
+              themeColor={fastest ? undefined : 'textSecondary'}
+              numberOfLines={1}
+            >
+              {walk === null ? arrival : `${arrival} · ${walk}`}
             </ThemedText>
           )}
         </View>
@@ -189,8 +236,26 @@ function DepartureRow(
  * next real departure resolves it in one line, and the API looks it up
  * (`nextDeparture`) precisely when the board comes back empty.
  */
-function EmptyBoard({ next }: { next: Departure | null }) {
+function EmptyBoard({ next, destinationName }: {
+  next: Departure | null;
+  /** Set when the board was filtered to a destination -- then an empty board
+   *  is not a fact about the stop at all, and the lookahead below (which
+   *  answers "is this stop served") is deliberately withheld by the API. */
+  destinationName: string | null;
+}) {
   const { t } = useTranslation();
+
+  if (destinationName !== null) {
+    return (
+      <View style={styles.centered}>
+        <ThemedText type="default" style={styles.centeredText}>
+          {t('station.noneToDestination', {
+            name: destinationName, minutes: DEPARTURES_WINDOW_MINUTES,
+          })}
+        </ThemedText>
+      </View>
+    );
+  }
 
   if (next === null) {
     return (
@@ -222,6 +287,68 @@ function EmptyBoard({ next }: { next: Departure | null }) {
 type Highlight = { key: string; departureKey: string | null };
 
 /**
+ * The board's destination filter: the one control on this screen that
+ * changes WHICH buses are listed rather than which one is in focus.
+ *
+ * Unset it is an ordinary outlined control, like every other in the app.
+ * Set, it inverts to a `text` fill -- the app's one way of drawing a control
+ * that is doing something, and worth the weight here because a filtered
+ * board is a board that is hiding rows, which the rider must never have to
+ * deduce from a short list.
+ */
+function DestinationFilter(
+  { destination, onPick, onClear }: {
+    destination: PickedDestination | null;
+    onPick: () => void;
+    onClear: () => void;
+  },
+) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const outline = useControlOutline();
+
+  if (destination === null) {
+    return (
+      <Pressable accessibilityRole="button" onPress={onPick} style={styles.filterRow}>
+        <View style={[styles.filterControl, outline, { backgroundColor: theme.background }]}>
+          <IconMapPin size={16} color={theme.text} />
+          <ThemedText type="small" numberOfLines={1}>{t('station.filterPrompt')}</ThemedText>
+        </View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.filterRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: true }}
+        onPress={onPick}
+        style={styles.filterFill}
+      >
+        <View style={[styles.filterControl, { backgroundColor: theme.text }]}>
+          <IconMapPin size={16} color={theme.background} />
+          {/* The ink on a `text` fill is the PAGE colour, so it inverts with
+              the theme -- see the colour roles in AGENTS.md. */}
+          <ThemedText type="small" numberOfLines={1} style={{ color: theme.background }}>
+            {t('station.filterTo', { name: destination.name })}
+          </ThemedText>
+        </View>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('station.filterClear')}
+        onPress={onClear}
+        hitSlop={Spacing.two}
+        style={styles.filterClear}
+      >
+        <IconX size={18} color={theme.textSecondary} />
+      </Pressable>
+    </View>
+  );
+}
+
+/**
  * The station page: a full-screen map centred on the stop, with the buses
  * heading to it, and the departure board in a drawer over the map.
  *
@@ -247,7 +374,18 @@ export default function StationScreen() {
   const listRef = useRef<BottomSheetFlatListMethods>(null);
 
   const { data: stop } = useStop(stopId ?? null, i18n.language);
-  const { data, isLoading, isError } = useStopDepartures(stopId ?? null, DEPARTURES_LIMIT, i18n.language);
+
+  // --- The destination the board is filtered to ---------------------------
+  //
+  // This screen's own state, and it dies with the screen: tapping a stop
+  // further down a run opens a NEW board, which is a fresh question about a
+  // different place and starts unfiltered.
+  const [destination, setDestination] = useState<PickedDestination | null>(null);
+
+  const { data, isLoading, isError } = useStopDepartures(
+    stopId ?? null, DEPARTURES_LIMIT, i18n.language,
+    destination === null ? null : { lat: destination.lat, lon: destination.lon },
+  );
   const departures = useMemo(() => data?.departures ?? [], [data]);
 
   const tripIds = useMemo(() => stationTripIds(departures), [departures]);
@@ -256,11 +394,43 @@ export default function StationScreen() {
     () => stationVehicleMarkers(departures, live?.vehicles ?? [], now),
     [departures, live, now],
   );
-  const lines = useMemo(() => stationLines(stop?.routes ?? []), [stop]);
+  // Filtered, the strip is built from the BOARD rather than from the stop:
+  // a strip still offering every line that calls here would put badges above
+  // a board that cannot show a single one of their departures.
+  const lines = useMemo(
+    () => (destination === null
+      ? stationLines(stop?.routes ?? [])
+      : stationLines(departures.map((d) => d.route))),
+    [stop, departures, destination],
+  );
 
   // --- The line in focus ----------------------------------------------------
 
   const [highlight, setHighlight] = useState<Highlight | null>(null);
+
+  /** Changing the destination changes which lines exist on this board, so a
+   *  line held in focus from the previous one has to let go. */
+  function applyDestination(next: PickedDestination | null) {
+    setDestination(next);
+    setHighlight(null);
+  }
+
+  // The station picked on the screen this board opened, taken on the way
+  // back -- see `destination-handoff`. The two setters are React's own and
+  // never change, so this callback can be built once and the board is not
+  // re-subscribed on every render.
+  useFocusEffect(
+    useCallback(() => {
+      const picked = takeDestination();
+      if (picked === null) return;
+      setDestination(picked);
+      setHighlight(null);
+    }, []),
+  );
+
+  // Null on an unfiltered board, and on a filtered one whose first departure
+  // is already its first arrival -- see `fastestArrivalKey`.
+  const fastestKey = useMemo(() => fastestArrivalKey(departures), [departures]);
   // The open departure while it is still on the board. Once it has left, the
   // line stays in focus with nothing open: the board must not jump to another.
   const selected = highlight === null
@@ -317,6 +487,13 @@ export default function StationScreen() {
   const header = (
     <View style={styles.sheetHeader}>
       <ThemedText type="smallBold" numberOfLines={2} style={styles.title}>{title}</ThemedText>
+      {/* Above the line strip, because it governs it: with a destination set
+          the strip below lists only the lines that actually go there. */}
+      <DestinationFilter
+        destination={destination}
+        onPick={() => router.push('/station/destination-picker')}
+        onClear={() => applyDestination(null)}
+      />
       {lines.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineStrip}>
           {lines.map((line) => {
@@ -376,7 +553,10 @@ export default function StationScreen() {
           ) : isError ? (
             <View style={styles.status}><ThemedText type="default">{t('station.error')}</ThemedText></View>
           ) : (
-            <EmptyBoard next={data?.nextDeparture ?? null} />
+            <EmptyBoard
+              next={data?.nextDeparture ?? null}
+              destinationName={destination?.name ?? null}
+            />
           )
         }
         ItemSeparatorComponent={() => (
@@ -394,6 +574,7 @@ export default function StationScreen() {
               // For every row, not just the open one: a row closing keeps its
               // stops on screen while it shrinks, and they must not re-fold.
               bus={live?.vehicles.find((v) => v.tripId === item.tripId) ?? null}
+              fastest={fastestKey !== null && departureKey(item) === fastestKey}
               onPress={() => toggleDeparture(item)}
             />
           );
@@ -415,6 +596,32 @@ const styles = StyleSheet.create({
   // name and the strip's content each carry the header's inset instead.
   // Cluster spacing, not `SectionGap`: this is a sheet, and its peek is
   // the only part the rider sees without dragging it up.
+  // The filter sits between the name and the line strip, each `Spacing.three`
+  // from its neighbour -- a cluster of controls under a heading, not three
+  // sections of a page.
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+  },
+  // Shrinks rather than pushing the clear button off the row: a station name
+  // can be long, and the way out of a filter must never be what gets cut.
+  filterFill: {
+    flexShrink: 1,
+  },
+  filterControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+  },
+  filterClear: {
+    padding: Spacing.one,
+  },
   sheetHeader: {
     paddingTop: Spacing.one,
     paddingBottom: Spacing.four,

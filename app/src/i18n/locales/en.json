@@ -105,7 +105,16 @@
     "empty": "No buses in the next {{minutes}} min.",
     "noService": "Nothing is scheduled to leave this stop.",
     "nextService": "Next {{day}} at {{time}}",
-    "unscheduled": "Unscheduled"
+    "unscheduled": "Unscheduled",
+    "filterPrompt": "Only lines going to…",
+    "filterTo": "To {{name}}",
+    "filterClear": "Clear destination",
+    "arrivesAt": "Arrives {{time}}",
+    "arrivesFirst": "Arrives {{time}} — first to get there",
+    "noneToDestination": "No direct line stopping near {{name}} in the next {{minutes}} min.",
+    "destinationPlaceholder": "Search for a station or place",
+    "destinationHint": "Pick where you're heading — a station, or a place like a railway station or a mall. The board keeps only the lines that stop within a short walk of it, without changing.",
+    "thenWalk": "{{meters}} m walk"
   },
   "units": {
     "minutes": "{{value}} min",
