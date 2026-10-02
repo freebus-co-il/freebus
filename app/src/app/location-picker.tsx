@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { newGeocodeSession, resolvePlace, reverseGeocode, useAddressSearch } from '@/api/geocode';
 import { useStopSearch } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
+import { DataCredit } from '@/components/data-credit';
 import { IconBack } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
@@ -23,6 +24,7 @@ import { FieldShell } from '@/features/search/field-shell';
 import { useSearch } from '@/features/search/search-context';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
 import { useControlOutline, useTheme } from '@/hooks/use-theme';
+import { addressCredit } from '@/lib/attribution';
 import { haversineMeters } from '@/lib/geo';
 import type { SelectedPlace } from '@/lib/place';
 import { placeToRouteParams } from '@/lib/place';
@@ -163,6 +165,9 @@ export default function LocationPickerScreen() {
   const rows = here
     ? [...unsortedRows].sort((a, b) => distanceFrom(here, a) - distanceFrom(here, b))
     : unsortedRows;
+  // Counted from the rows actually listed, so the credit never outlives the
+  // addresses it is for.
+  const credit = addressCredit(addressData?.attribution, rows.filter((r) => r.kind === 'address').length);
   // Gate on the debounced query too, so nothing flashes "no matches" during
   // the pause before the requests go out.
   const showResults = debouncedQuery.trim().length >= 2 && query.trim().length >= 2;
@@ -432,6 +437,7 @@ export default function LocationPickerScreen() {
                 keyExtractor={(item) => item.key}
                 style={styles.list}
                 keyboardShouldPersistTaps="handled"
+                ListFooterComponent={credit ? <DataCredit source={credit} /> : null}
                 ItemSeparatorComponent={() => (
                   <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
                 )}
