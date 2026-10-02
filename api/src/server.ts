@@ -226,6 +226,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   // server that talks to a real geocoder unless it explicitly injects
   // `deps.geocoder`.
   const inertGeocoder: Geocoder = {
+    attributionFor: () => "osm",
     search: async () => [],
     place: async () => null,
     reverse: async () => null,

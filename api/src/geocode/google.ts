@@ -1,5 +1,5 @@
 import type { Lang } from "../db/i18n.js";
-import type { GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
+import type { Attribution, GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
 
 /**
  * Google Places API (New) autocomplete + Place Details, and the Geocoding API
@@ -168,6 +168,8 @@ export interface GoogleGeocoderOptions {
 }
 
 export class GoogleGeocoder implements Geocoder {
+  attributionFor(): Attribution { return "google"; }
+
   private readonly budget: DailyBudget;
   private readonly placesBaseUrl: string;
   private readonly geocodingBaseUrl: string;

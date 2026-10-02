@@ -42,7 +42,16 @@ export interface SearchOptions {
   near?: LatLon;
 }
 
+/** Whose data a geocoding answer is. Each needs its own on-screen credit:
+ *  Google's Places policy and OpenStreetMap's ODbL both require it beside the
+ *  results, and production switches backends with `GEOCODER`. */
+export type Attribution = "google" | "osm";
+
+export type GeocodeOp = "search" | "place" | "reverse";
+
 export interface Geocoder {
+  /** Whose data `op` answers with -- reported to clients so they credit it. */
+  attributionFor(op: GeocodeOp): Attribution;
   /** Never throws -- an outage degrades to no address results. */
   search(q: string, lang: Lang, limit: number, opts?: SearchOptions): Promise<GeocodePlace[]>;
   /** Resolves a `placeId` from `search` to a position. Never throws. */
