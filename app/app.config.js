@@ -14,14 +14,16 @@ module.exports = {
     userInterfaceStyle: "automatic",
     ios: {
       bundleIdentifier: "il.co.freebus",
+      config: {
+        usesNonExemptEncryption: false
+      },
       icon: "./assets/expo.icon",
       infoPlist: {
         NSSupportsLiveActivities: true,
         NSLocationWhenInUseUsageDescription: "FreeBus uses your location to set your starting point for trip planning.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "FreeBus follows your journey in the background so it can wake you in time to get off.",
         UIBackgroundModes: [
-          "location",
-          "processing"
+          "location"
         ]
       },
       entitlements: {
@@ -72,6 +74,9 @@ module.exports = {
     },
     plugins: [
       "expo-router",
+      // Generates the open-source licence list (JS and native) shown from
+      // Settings -> About & legal.
+      "react-native-legal",
       [
         "expo-splash-screen",
         {

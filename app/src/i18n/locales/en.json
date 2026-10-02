@@ -182,6 +182,12 @@
       "busStopsAway_other": "{{count}} stops away",
       "leavesIn": "Leaves in {{minutes}} min"
     },
+    "backgroundDisclosure": {
+      "title": "Wake me at my stop",
+      "body": "FreeBus collects your location, even when the app is closed or not in use, to follow your trip and alert you when it is time to get off. Your location is used only on this device for this journey, and is not shared.",
+      "accept": "Continue",
+      "decline": "Not now"
+    },
     "alert": {
       "getOffNow": "Get off at the next stop",
       "gotIt": "Got it"
@@ -325,7 +331,9 @@
     "alertLeadFiveMinutes": "5 min",
     "alertSound": "Sound",
     "alertVibrate": "Vibration",
-    "alertRepeat": "Keep alerting until I acknowledge"
+    "alertRepeat": "Keep alerting until I acknowledge",
+    "about": "About & legal",
+    "aboutRow": "About FreeBus"
   },
   "recentSearches": {
     "title": "Recent searches"
@@ -333,5 +341,25 @@
   "update": {
     "title": "A new version is available",
     "detail": "It will be installed the next time you open the app"
+  },
+  "attribution": {
+    "osm": "© OpenStreetMap contributors",
+    "osmA11y": "Map data © OpenStreetMap contributors. Opens the copyright page."
+  },
+  "about": {
+    "title": "About & legal",
+    "version": "Version {{version}}",
+    "openSource": "FreeBus is open source under the MIT license.",
+    "sourceCode": "Source code on GitHub",
+    "privacy": "Privacy policy",
+    "dataSources": "Data sources",
+    "motTitle": "Timetables and real-time data",
+    "motBody": "Israel Ministry of Transport and Road Safety",
+    "osmTitle": "Maps, walking routes, rail lines and address lookup",
+    "osmBody": "© OpenStreetMap contributors, under the Open Database License (ODbL)",
+    "googleTitle": "Address search",
+    "disclaimerTitle": "Accuracy",
+    "disclaimer": "Timetable and real-time data are provided by the Ministry of Transport without any guarantee of accuracy or completeness. Always check signs at the stop.",
+    "licenses": "Open-source licenses"
   }
 }

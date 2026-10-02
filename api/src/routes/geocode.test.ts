@@ -14,7 +14,9 @@ async function serve(overrides?: Partial<Geocoder>) {
   const link = buildFixtureDb(dir);
   const index = new IndexManager(dir, { buildFn: async () => buildIndex(link) });
   const geocoder: Geocoder | undefined = overrides && {
-    search: async () => [], place: async () => null, reverse: async () => null, ...overrides,
+    search: async () => [], place: async () => null, reverse: async () => null,
+    attributionFor: () => "osm",
+    ...overrides,
   };
   const app = await buildServer({ index, geocoder });
   return { app, index };
@@ -106,7 +108,7 @@ test("GET /geocode/place resolves an id with its session", async () => {
   const { app, index } = await serve({ place: async (id, session) => { seen = [id, session]; return { lat: 32.07, lon: 34.79 }; } });
   const res = await app.inject({ url: "/geocode/place?id=ChIJ_abc-1&session=s1" });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { location: { lat: 32.07, lon: 34.79 } });
+  assert.deepEqual(res.json(), { location: { lat: 32.07, lon: 34.79 }, attribution: "osm" });
   assert.deepEqual(seen, ["ChIJ_abc-1", "s1"]);
   await app.close(); index.stop();
 });
@@ -115,5 +117,43 @@ test("GET /geocode/place rejects an id that is not URL-safe base64", async () =>
   const { app, index } = await serve();
   const res = await app.inject({ url: "/geocode/place?id=..%2Fplaces" });
   assert.equal(res.statusCode, 400);
+  await app.close(); index.stop();
+});
+
+// Production toggles GEOCODER between google and photon, so the app cannot
+// know which credit to show unless every response says where it came from.
+const COMPOSITE: Partial<Geocoder> = {
+  search: async () => [PLACE],
+  place: async () => ({ lat: 1, lon: 2 }),
+  reverse: async () => PLACE,
+  attributionFor: (op) => (op === "reverse" ? "osm" : "google"),
+};
+
+test("GET /geocode/search reports the search backend's attribution", async () => {
+  const { app, index } = await serve(COMPOSITE);
+  const res = await app.inject({ url: "/geocode/search?q=Shomer+13" });
+  assert.equal((res.json() as { attribution: string }).attribution, "google");
+  await app.close(); index.stop();
+});
+
+test("GET /geocode/search reports attribution even with no places", async () => {
+  const { app, index } = await serve({ ...COMPOSITE, search: async () => [] });
+  const body = (await app.inject({ url: "/geocode/search?q=x" })).json() as { places: unknown[]; attribution: string };
+  assert.deepEqual(body.places, []);
+  assert.equal(body.attribution, "google");
+  await app.close(); index.stop();
+});
+
+test("GET /geocode/place reports the search backend's attribution", async () => {
+  const { app, index } = await serve(COMPOSITE);
+  const res = await app.inject({ url: "/geocode/place?id=abc" });
+  assert.equal((res.json() as { attribution: string }).attribution, "google");
+  await app.close(); index.stop();
+});
+
+test("GET /geocode/reverse reports the reverse backend's attribution", async () => {
+  const { app, index } = await serve(COMPOSITE);
+  const res = await app.inject({ url: "/geocode/reverse?lat=32.47&lon=34.98" });
+  assert.equal((res.json() as { attribution: string }).attribution, "osm");
   await app.close(); index.stop();
 });

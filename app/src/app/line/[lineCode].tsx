@@ -26,6 +26,7 @@ import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { lineVehicleMarkers } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
 import { useControlOutline, useTheme } from '@/hooks/use-theme';
+import { shapeCredit } from '@/lib/attribution';
 import { formatClockTime } from '@/lib/format';
 import { routeColor } from '@/lib/route-color';
 
@@ -412,6 +413,7 @@ export default function LineScreen() {
             coordinates={shapePath}
             color={color}
             dashed={shape?.geometryFallback ?? false}
+            credit={shapeCredit(shape?.attribution)}
             vehicles={vehicles}
             pins={pins}
             edgePadding={edgePadding}

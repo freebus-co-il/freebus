@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
+import { DataCredit } from '@/components/data-credit';
 import type { StationKind } from '@/components/station-icon';
 import { MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
 import type { EdgePadding } from '@/features/results/trip-map';
@@ -21,7 +22,13 @@ export type StationMapProps = {
   edgePadding?: EdgePadding;
   /** A line in focus: its path, drawn under the buses in its own colour.
    *  Dashed when the feed published no real shape for it. */
-  route?: { coordinates: readonly { latitude: number; longitude: number }[]; color: string; dashed: boolean } | null;
+  route?: {
+    coordinates: readonly { latitude: number; longitude: number }[];
+    color: string;
+    dashed: boolean;
+    /** "osm" when the path is OpenStreetMap rail track -- see `routePath`. */
+    credit?: 'osm' | null;
+  } | null;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -99,10 +106,12 @@ export function StationMap({
   if (lat === null || lon === null) return <View style={[styles.map, style]} />;
 
   return (
+    // A plain box around the map, so the credit can float over it.
+    <View style={[styles.map, style]}>
     <MapView
       key={remountKey}
       ref={mapRef}
-      style={[styles.map, style]}
+      style={styles.map}
       userInterfaceStyle={userInterfaceStyle}
       // Required on Android, where an unstyled map draws a blank basemap.
       customMapStyle={customMapStyle}
@@ -112,6 +121,9 @@ export function StationMap({
       showsUserLocation={showsUserLocation}
       // Google Maps' own recentre button would sit under the floating chips.
       showsMyLocationButton={false}
+      // Apple Maps only: keeps its logo and Legal link above the drawer, as
+      // its terms require. Not `mapPadding` -- see pick-map.tsx.
+      legalLabelInsets={{ top: 0, left: 0, right: 0, bottom: edgePadding.bottom }}
       onMapReady={() => frame(false)}
       initialRegion={{ latitude: lat, longitude: lon, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
     >
@@ -145,10 +157,18 @@ export function StationMap({
       {/* Last: see `VehicleMarkerPins` for why nothing may follow it. */}
       <VehicleMarkerPins markers={vehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
+      {route?.credit && (
+        <DataCredit source={route.credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  credit: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
   map: {
     flex: 1,
   },

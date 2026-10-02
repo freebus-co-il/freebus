@@ -22,6 +22,7 @@ export type LineMapProps = {
   onVehiclePress?: (tripId: string) => void;
   pins?: readonly MapPin[];
   edgePadding?: EdgePadding;
+  credit?: 'osm' | null;
   style?: StyleProp<ViewStyle>;
 };
 

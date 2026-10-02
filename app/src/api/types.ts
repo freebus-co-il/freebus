@@ -1,3 +1,5 @@
+import type { Attribution } from '@/lib/attribution';
+
 export type Place = {
   type: 'coordinate' | 'stop';
   lat: number;
@@ -375,16 +377,22 @@ export type GeocodePlace = {
   distanceMeters: number | null;
 };
 
+/** `attribution` on the geocode responses: whose data it is, for the credit
+ *  beside it -- see `@/lib/attribution`. Optional: a server older than the
+ *  field sends none, and then nothing is credited. */
 export type GeocodeSearchResponse = {
   places: GeocodePlace[];
+  attribution?: Attribution;
 };
 
 export type GeocodeLocationResponse = {
   location: { lat: number; lon: number } | null;
+  attribution?: Attribution;
 };
 
 export type GeocodeReverseResponse = {
   place: GeocodePlace | null;
+  attribution?: Attribution;
 };
 
 export type ApiErrorBody = {
@@ -504,6 +512,8 @@ export type RouteRunsResponse = {
 export type RouteShapeResponse = {
   geometry: { type: 'LineString'; coordinates: [number, number][] };
   geometryFallback: boolean;
+  /** "osm" when drawn from OpenStreetMap rail track, which must be credited. */
+  attribution?: 'osm' | null;
 };
 
 export type Agency = {

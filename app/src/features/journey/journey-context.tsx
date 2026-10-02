@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import * as TaskManager from 'expo-task-manager';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Platform } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 
 import { useRealtimeAvailable } from '@/api/meta';
 import type { Itinerary, Place } from '@/api/types';
@@ -282,12 +282,36 @@ TaskManager.defineTask<{ eventType: Location.GeofencingEventType; region: Locati
   },
 );
 
+/**
+ * Google Play's prominent disclosure: before the background-location prompt,
+ * the app itself has to say what it collects, why, and that it keeps doing so
+ * while closed -- the system dialog alone does not count. Android only; iOS
+ * puts the same reason in its own prompt from the Info.plist string.
+ */
+async function acceptsBackgroundDisclosure(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  const current = await Location.getBackgroundPermissionsAsync();
+  if (current.granted || !current.canAskAgain) return true;
+  return new Promise((resolve) => {
+    Alert.alert(
+      i18n.t('journey.backgroundDisclosure.title'),
+      i18n.t('journey.backgroundDisclosure.body'),
+      [
+        { text: i18n.t('journey.backgroundDisclosure.decline'), style: 'cancel', onPress: () => resolve(false) },
+        { text: i18n.t('journey.backgroundDisclosure.accept'), onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
 async function armGeofences(journey: ActiveJourney): Promise<void> {
   try {
     // Foreground first: iOS will not even offer the always-on prompt until
     // when-in-use has been granted.
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (!foreground.granted) return;
+    if (!(await acceptsBackgroundDisclosure())) return;
     const background = await Location.requestBackgroundPermissionsAsync();
     if (!background.granted) return;
 

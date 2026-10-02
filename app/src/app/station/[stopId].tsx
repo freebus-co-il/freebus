@@ -27,6 +27,7 @@ import { StopSpineRow } from '@/features/lines/stop-spine';
 import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts';
 import { fastestArrivalKey } from '@/features/stations/destination-board';
 import { takeDestination, type PickedDestination } from '@/features/stations/destination-handoff';
+import { routePath } from '@/features/stations/route-path';
 import { StationMap } from '@/features/stations/station-map';
 import {
   departureKey, highlightMarkers, lineDepartures, lineKey, runStops,
@@ -443,9 +444,7 @@ export default function StationScreen() {
   const pathColor = pathDeparture ? routeColor(pathDeparture.route) : null;
   const route = useMemo(() => {
     if (highlight === null || pathColor === null || !shape) return null;
-    // GeoJSON puts longitude first; the map wants latitude, named.
-    const coordinates = shape.geometry.coordinates.map(([lon, lat]) => ({ latitude: lat, longitude: lon }));
-    return coordinates.length > 1 ? { coordinates, color: pathColor, dashed: shape.geometryFallback } : null;
+    return routePath(shape, pathColor);
   }, [highlight, pathColor, shape]);
 
   const vehicles = useMemo(

@@ -190,6 +190,12 @@
       "busStopsAway_other": "במרחק {{count}} תחנות",
       "leavesIn": "יוצא בעוד {{minutes}} דק׳"
     },
+    "backgroundDisclosure": {
+      "title": "התראה לפני התחנה שלי",
+      "body": "FreeBus אוספת את המיקום שלכם, גם כשהאפליקציה סגורה או לא בשימוש, כדי לעקוב אחרי הנסיעה ולהתריע כשצריך לרדת. המיקום משמש רק במכשיר הזה ולנסיעה הזו, ואינו משותף.",
+      "accept": "המשך",
+      "decline": "לא עכשיו"
+    },
     "alert": {
       "getOffNow": "רדו בתחנה הבאה",
       "gotIt": "הבנתי"
@@ -342,7 +348,9 @@
     "alertLeadFiveMinutes": "5 דק׳",
     "alertSound": "צליל",
     "alertVibrate": "רטט",
-    "alertRepeat": "להמשיך להתריע עד שאאשר"
+    "alertRepeat": "להמשיך להתריע עד שאאשר",
+    "about": "אודות ומידע משפטי",
+    "aboutRow": "אודות האפליקציה"
   },
   "recentSearches": {
     "title": "חיפושים אחרונים"
@@ -350,5 +358,25 @@
   "update": {
     "title": "גרסה חדשה זמינה",
     "detail": "תותקן בפעם הבאה שתפתחו את האפליקציה"
+  },
+  "attribution": {
+    "osm": "© תורמי OpenStreetMap",
+    "osmA11y": "נתוני מפה © תורמי OpenStreetMap. פותח את עמוד זכויות היוצרים."
+  },
+  "about": {
+    "title": "אודות ומידע משפטי",
+    "version": "גרסה {{version}}",
+    "openSource": "האפליקציה FreeBus היא קוד פתוח ברישיון MIT.",
+    "sourceCode": "קוד המקור ב-GitHub",
+    "privacy": "מדיניות פרטיות",
+    "dataSources": "מקורות מידע",
+    "motTitle": "לוחות זמנים ומידע בזמן אמת",
+    "motBody": "המשרד לתחבורה ולבטיחות בדרכים",
+    "osmTitle": "מפות, מסלולי הליכה, קווי רכבת וחיפוש כתובות",
+    "osmBody": "© תורמי OpenStreetMap, ברישיון Open Database License (ODbL)",
+    "googleTitle": "חיפוש כתובות",
+    "disclaimerTitle": "דיוק המידע",
+    "disclaimer": "לוחות הזמנים והמידע בזמן אמת מסופקים על ידי משרד התחבורה ללא כל התחייבות לדיוק או לשלמות. יש לבדוק תמיד את השילוט בתחנה.",
+    "licenses": "רישיונות קוד פתוח"
   }
 }

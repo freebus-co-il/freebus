@@ -1,5 +1,5 @@
 import type { Lang } from "../db/i18n.js";
-import type { GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
+import type { Attribution, GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
 
 /**
  * Photon only understands `default` (the OSM feature's own local-language
@@ -96,6 +96,9 @@ function parseFeatureCollection(json: unknown): GeocodePlace[] {
 }
 
 export class PhotonClient implements Geocoder {
+  /** Photon's index is built from OpenStreetMap. */
+  attributionFor(): Attribution { return "osm"; }
+
   constructor(private readonly opts: { url: string; timeoutMs: number }) {}
 
   private async get(path: string, params: Record<string, string>): Promise<unknown> {

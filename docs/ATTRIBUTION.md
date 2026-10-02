@@ -37,10 +37,13 @@ time and never enter the tree.**
 routes Valhalla returns, the addresses and places Photon geocodes, and the
 rail lines drawn from the baked geometry — must carry the attribution
 "© OpenStreetMap contributors" wherever it reaches an end user.
-**This currently appears nowhere in the app's user interface.** That is an
-open compliance gap, not a design choice: this document is the
-repository-level notice, and it does not discharge the obligation for a
-shipped app. It is tracked as a follow-up in `README.md`'s roadmap.
+
+**Where the app shows it:** "© OpenStreetMap contributors" appears under
+address results answered by Photon, on every map that shows walking routes
+or OSM rail track (trip, rail line, rail run and map picker), and on
+Settings → About & legal. The API says which responses carry OSM data
+(`attribution` on `/geocode/*` and `/routes/:id/shape`, and on `/trips/:id`),
+so the credit follows the data rather than a guess.
 
 ## Israel Ministry of Transport GTFS feed
 
@@ -57,15 +60,25 @@ directly by URL — the repository has no licence file, terms-of-use document,
 or usage-terms reference for this feed anywhere in its source, tests, or
 documentation.
 
-**Could not be established from this repository:** the feed's licence or
-terms of use. Nothing in `gtfs/`, `docs/`, or elsewhere in the codebase
-states what MOT permits (attribution requirements, redistribution rights,
-commercial-use terms, or a disclaimer of accuracy). **The maintainer must
-confirm the current terms of use published at `gtfs.mot.gov.il` (or Israel's
-open-data portal, `data.gov.il`, if the feed is also listed there) before
-this project is published, and update this section with the actual terms** —
-do not assume public-domain or unrestricted status in the absence of that
-confirmation.
+**Terms found (2 Oct 2026):** the Ministry's GTFS developer guide points to
+the general [gov.il terms of use](https://www.gov.il/en/pages/gov_terms_of_use).
+They require the source to be stated when material is quoted, prohibit
+distorting it, and provide it "as is". The app credits the Ministry and
+carries an accuracy disclaimer on Settings → About & legal.
+
+**Open question for legal review:** the same terms prohibit making derivative
+works without written approval. Every transit app built on this feed relies
+on the Ministry publishing it for developers. Confirm with the Ministry, or
+get legal advice, before relying on that reading.
+
+## Google Places (when `GEOCODER=google`)
+
+Address search may be answered by Google Places API (New). Google's policy
+requires its attribution, the Google Maps logo or the exact text "Google
+Maps", in the same container as results shown outside a Google map. The app
+shows "Google Maps" under address results whenever the API reports
+`attribution: "google"`. The app also persists picked places in recents and
+saved locations; whether that fits Google's caching terms is an open item.
 
 ## Third-party services (containerised, not vendored)
 
@@ -91,6 +104,8 @@ HTTP:
 | `api/assets/rail-geometry.json` (committed) | OpenStreetMap via Overpass | ODbL 1.0 | "© OpenStreetMap contributors" — carried in the file's own `attribution` field |
 | Valhalla routing tiles | Geofabrik regional extract (OpenStreetMap) | ODbL 1.0 | "© OpenStreetMap contributors" |
 | Photon geocoding index | Photon's Asia-continent OSM jsonl dump | ODbL 1.0 | "© OpenStreetMap contributors" |
-| GTFS schedule data | `gtfs.mot.gov.il` (Israel Ministry of Transport) | **Unconfirmed — see above** | **Unconfirmed — see above** |
+| GTFS schedule data | `gtfs.mot.gov.il` (Israel Ministry of Transport) | gov.il terms of use | State the source; "as is"; derivative-works clause under review |
+| Google Places results | Google Places API (New) | Google Maps Platform terms | "Google Maps" beside results |
 | Valhalla (engine) | `ghcr.io/gis-ops/docker-valhalla/valhalla` | MIT | Licence file retained upstream |
 | Photon (engine) | `github.com/komoot/photon`, release 1.3.0 | Apache-2.0 | Licence file retained upstream |
+| Open-source dependencies (app) | npm, CocoaPods, Gradle | various (MIT, Apache-2.0, …) | In-app list via react-native-legal |

@@ -30,7 +30,7 @@ export const geocodeRoutes: FastifyPluginAsync = async (app) => {
     catch (err) { throw app.httpErrors.badRequest((err as Error).message); }
     const near = lat !== undefined && lon !== undefined ? { lat, lon } : undefined;
     const places = await app.geocoder.search(q, parsed, limit, { session, near });
-    return { places };
+    return { places, attribution: app.geocoder.attributionFor("search") };
   });
 
   // Resolves a search result that came back with a `placeId` instead of a
@@ -52,7 +52,7 @@ export const geocodeRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const { id, session } = req.query as { id: string; session?: string };
     const location = await app.geocoder.place(id, session);
-    return { location };
+    return { location, attribution: app.geocoder.attributionFor("place") };
   });
 
   app.get("/geocode/reverse", {
@@ -73,6 +73,6 @@ export const geocodeRoutes: FastifyPluginAsync = async (app) => {
     try { parsed = parseLang(lang); }
     catch (err) { throw app.httpErrors.badRequest((err as Error).message); }
     const place = await app.geocoder.reverse(lat, lon, parsed);
-    return { place };
+    return { place, attribution: app.geocoder.attributionFor("reverse") };
   });
 };

@@ -113,12 +113,3 @@ This repository's code is [MIT licensed](LICENSE). It runs on data from
 OpenStreetMap and Israel's Ministry of Transport under their own separate
 terms — see [`ATTRIBUTION.md`](docs/ATTRIBUTION.md) for what those require.
 
-## Roadmap
-
-- **Open OpenStreetMap attribution gap.** Both address search/geocoding
-  (Photon) and walking directions (Valhalla) are built from OpenStreetMap
-  data, which requires "© OpenStreetMap contributors" to be shown wherever
-  that data reaches a user (ODbL 1.0). The app's UI does not currently show
-  this attribution anywhere. See [`ATTRIBUTION.md`](docs/ATTRIBUTION.md) for the
-  full obligation — this needs to be added before the app is more broadly
-  distributed.

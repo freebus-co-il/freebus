@@ -16,6 +16,7 @@ function spy(name: string): Geocoder & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
+    attributionFor: () => (name === "google" ? "google" : "osm"),
     async search(q: string, lang: Lang, limit: number, opts?: SearchOptions): Promise<GeocodePlace[]> {
       calls.push(`search:${q}:${lang}:${limit}:${opts?.session ?? "-"}`);
       return [{
@@ -81,6 +82,7 @@ test("a reverse backend that finds nothing returns null rather than falling back
   // label", not to a bill. `location-picker`/`share` already handle null.
   const search = spy("google");
   const reverse: Geocoder = {
+    attributionFor: () => "osm",
     search: async () => [],
     place: async () => null,
     reverse: async () => null,
@@ -89,4 +91,11 @@ test("a reverse backend that finds nothing returns null rather than falling back
 
   assert.equal(await geocoder.reverse(32.0731, 34.7925, "en"), null);
   assert.deepEqual(search.calls, []);
+});
+
+test("attribution follows the backend each operation reaches", () => {
+  const geocoder = new CompositeGeocoder(spy("google"), spy("photon"));
+  assert.equal(geocoder.attributionFor("search"), "google");
+  assert.equal(geocoder.attributionFor("place"), "google");
+  assert.equal(geocoder.attributionFor("reverse"), "osm");
 });

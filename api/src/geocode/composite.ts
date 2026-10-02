@@ -1,5 +1,5 @@
 import type { Lang } from "../db/i18n.js";
-import type { GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
+import type { Attribution, GeocodeOp, GeocodePlace, Geocoder, LatLon, SearchOptions } from "./types.js";
 
 /**
  * One geocoder built from two, split by OPERATION rather than by deployment.
@@ -45,6 +45,10 @@ export class CompositeGeocoder implements Geocoder {
 
   place(placeId: string, session?: string): Promise<LatLon | null> {
     return this.forSearch.place(placeId, session);
+  }
+
+  attributionFor(op: GeocodeOp): Attribution {
+    return op === "reverse" ? this.forReverse.attributionFor(op) : this.forSearch.attributionFor(op);
   }
 
   reverse(lat: number, lon: number, lang: Lang): Promise<GeocodePlace | null> {

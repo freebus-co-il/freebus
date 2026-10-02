@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ADDRESS_MIN_QUERY_LENGTH, newGeocodeSession, resolvePlace, useAddressSearch } from '@/api/geocode';
 import { useStopSearch } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
+import { DataCredit } from '@/components/data-credit';
 import { IconBack } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
@@ -18,6 +19,7 @@ import { FieldShell } from '@/features/search/field-shell';
 import { leaveDestination } from '@/features/stations/destination-handoff';
 import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { INPUT_ALIGN_START } from '@/i18n/direction';
+import { addressCredit } from '@/lib/attribution';
 
 /** The same pause the location picker gives stop search, and for the same
  *  reason: `/stops/search` is local and free, so it can afford to be brisk. */
@@ -94,6 +96,7 @@ export default function DestinationPickerScreen() {
       lat: p.lat, lon: p.lon, placeId: p.placeId,
     })),
   ];
+  const credit = addressCredit(placeData?.attribution, rows.filter((r) => r.kind === 'place').length);
 
   // Gated on the debounced query as well, so nothing flashes "no matches"
   // during the pause before the requests go out.
@@ -173,6 +176,7 @@ export default function DestinationPickerScreen() {
             keyExtractor={(item) => item.key}
             style={styles.list}
             keyboardShouldPersistTaps="handled"
+            ListFooterComponent={credit ? <DataCredit source={credit} /> : null}
             ItemSeparatorComponent={() => (
               <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
             )}

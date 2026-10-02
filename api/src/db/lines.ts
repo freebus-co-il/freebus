@@ -87,6 +87,9 @@ export interface TripDetail {
   stops: TripStopTime[];
   geometry: GeoJsonLineString | null;
   geometryFallback: boolean;
+  /** "osm" when `geometry` is the baked OpenStreetMap rail track, which the
+   *  ODbL requires clients to credit; null for the feed's own shapes. */
+  attribution: "osm" | null;
 }
 
 interface RouteRow {
@@ -358,7 +361,7 @@ function lineStringFrom(points: readonly (readonly [number, number])[]): GeoJson
 export function getRouteShape(
   db: Database.Database, routeId: string, directionId: number,
   rail: RailGeometry = defaultRailGeometry(),
-): { geometry: GeoJsonLineString; geometryFallback: boolean } | null {
+): { geometry: GeoJsonLineString; geometryFallback: boolean; attribution: "osm" | null } | null {
   const trip = representativeTrip(db, routeId, directionId);
   if (trip === undefined) return null;
 
@@ -367,7 +370,7 @@ export function getRouteShape(
     const shape = db.prepare("SELECT encoded_polyline FROM shapes WHERE shape_id = ?")
       .get(shapeId) as { encoded_polyline: string } | undefined;
     if (shape !== undefined) {
-      return { geometry: lineStringFrom(decodePolyline(shape.encoded_polyline)), geometryFallback: false };
+      return { geometry: lineStringFrom(decodePolyline(shape.encoded_polyline)), geometryFallback: false, attribution: null };
     }
   }
 
@@ -382,13 +385,14 @@ export function getRouteShape(
   const routeType = db.prepare("SELECT route_type FROM routes WHERE route_id = ?")
     .get(routeId) as { route_type: number | null } | undefined;
   const track = routeType?.route_type === RAIL_ROUTE_TYPE ? rail.lineThrough(pts) : null;
-  if (track !== null) return { geometry: lineStringFrom(track), geometryFallback: false };
+  if (track !== null) return { geometry: lineStringFrom(track), geometryFallback: false, attribution: "osm" };
 
   // Otherwise draw the stop-to-stop line and flag it, so a client can style
   // it differently rather than believing it has real geometry.
   return {
     geometry: lineStringFrom(pts.map((p) => [p.lat, p.lon] as const)),
     geometryFallback: true,
+    attribution: null,
   };
 }
 
@@ -489,6 +493,7 @@ export function getTrip(
     })),
     geometry,
     geometryFallback: shape === undefined && track === null,
+    attribution: shape === undefined && track !== null ? "osm" : null,
   };
 }
 

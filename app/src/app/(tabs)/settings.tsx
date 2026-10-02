@@ -1,8 +1,10 @@
 import { IconCheck } from '@tabler/icons-react-native';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { IconForward } from '@/components/directional-icon';
 import { SegmentedControl } from '@/components/segmented-control';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -134,6 +136,18 @@ function SwitchRow({
   );
 }
 
+/** A row that opens another page. */
+function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.row}>
+      <ThemedText type="default">{label}</ThemedText>
+      <IconForward size={20} color={theme.textSecondary} />
+    </Pressable>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
@@ -234,6 +248,10 @@ export default function SettingsScreen() {
               }
               last
             />
+          </Section>
+
+          <Section title={t('settings.about')}>
+            <LinkRow label={t('settings.aboutRow')} onPress={() => router.push('/about')} />
           </Section>
         </ScrollView>
       </SafeAreaView>

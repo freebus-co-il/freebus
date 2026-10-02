@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 import type { MapStop } from '@/api/types';
+import { DataCredit } from '@/components/data-credit';
 import { stationKindOf } from '@/components/station-icon';
 import { MARKER_SNAPSHOT_MS } from '@/features/results/vehicle-marker-pin';
 import { useLocationGranted } from '@/hooks/use-location-granted';
@@ -123,10 +124,12 @@ export function PickMap({
   }, []);
 
   return (
+    // A plain box around the map, so the credit can float over it.
+    <View style={[styles.map, style]}>
     <MapView
       key={remountKey}
       ref={mapRef}
-      style={[styles.map, style]}
+      style={styles.map}
       userInterfaceStyle={userInterfaceStyle}
       // Required on Android, where an unstyled map draws a blank basemap.
       customMapStyle={customMapStyle}
@@ -166,10 +169,17 @@ export function PickMap({
         <StationPin key={station.stopId} station={station} onPress={centerOn} />
       ))}
     </MapView>
+      {/* The address under the pin comes from Photon -- OpenStreetMap. */}
+      <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: legalLabelBottomInset + 4 }]} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  credit: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
   map: {
     flex: 1,
   },

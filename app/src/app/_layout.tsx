@@ -82,6 +82,7 @@ function App() {
                     panning the map. */}
                 <Stack.Screen name="map-picker" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="save-location" options={{ animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="about" />
                 {/* Same reasoning, plus one of its own: the journey screen is what
                     the docked bar EXPANDS into, so it has to cover the bar. */}
                 <Stack.Screen name="journey" options={{ animation: 'slide_from_bottom' }} />
