@@ -22,6 +22,7 @@ import { useRecents } from '@/features/recents/recents-context';
 import { useSearch } from '@/features/search/search-context';
 import { TripTimePicker } from '@/features/search/trip-time-picker';
 import { useTheme } from '@/hooks/use-theme';
+import { countEvent } from '@/lib/analytics';
 import { placeCoordinates, placeLabel } from '@/lib/place';
 
 export default function ResultsScreen() {
@@ -47,6 +48,7 @@ export default function ResultsScreen() {
   useEffect(() => {
     if (searchSignature === null || destination === null) return;
     recordSearch({ kind: 'search', place: destination });
+    countEvent('trip_planned');
     // `destination` is the object behind `searchSignature`, and
     // `recordSearch`'s identity changes on every recents state change (it
     // closes over `setState`), which would re-record on each save. The

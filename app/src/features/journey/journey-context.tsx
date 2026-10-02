@@ -41,6 +41,7 @@ import {
 } from './live-surface';
 import { pip, useJourneyPipPosition, useJourneyVisible } from './pip';
 import { sameFacts, surfaceFacts, type SurfaceFacts } from './surface-facts';
+import { countEvent } from '@/lib/analytics';
 import { hapticSucceeded, hapticWarned } from '@/lib/haptics';
 
 import type { ActiveJourney, AlertSettings, JourneyState, RiderPosition } from './types';
@@ -801,6 +802,7 @@ function useJourneyState() {
       // re-arms this effect for the new instant.
       if (final.phase !== 'arrived' || finishedJourneyId.current === journey.id) return;
       finishedJourneyId.current = journey.id;
+      countEvent('journey_completed');
       pushSurface(final, copyFor(journey, final));
       void end();
       // Left long enough to read, then put away. Module scope rather than a
@@ -822,6 +824,7 @@ function useJourneyState() {
   useEffect(() => {
     if (!arrivedHere || !journey || !state || finishedJourneyId.current === journey.id) return;
     finishedJourneyId.current = journey.id;
+    countEvent('journey_completed');
     pushSurface(state, copyFor(journey, state));
     void end();
     setTimeout(() => void pip.leave(), PIP_ARRIVED_LINGER_MS);
@@ -833,6 +836,9 @@ function useJourneyState() {
       // the new one arms anything, or its geofences and pending alerts would
       // outlive it and shout about a stop the rider is no longer heading to.
       await releaseOsResources(journey);
+      // Replaced before it got anywhere: counted as cancelled, so a replan
+      // reads as one journey abandoned and one started, not two in flight.
+      if (journey) countEvent('journey_cancelled');
 
       // Start means NOW. A rider who set out before the plan told them to gets
       // the run they can actually catch on the same route, not the bus a
@@ -863,6 +869,7 @@ function useJourneyState() {
       // pressed is now running. Fired after the commit, so it answers for a
       // journey that exists rather than for an attempt.
       hapticSucceeded();
+      countEvent('journey_started');
       // Claimed synchronously, before anything is awaited: the re-arm effect
       // above runs as soon as this commit lands, which can be inside the very
       // next await, and it has to recognise the schedule below as its own
