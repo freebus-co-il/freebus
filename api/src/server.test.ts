@@ -19,6 +19,49 @@ async function serve(extra: Partial<ServerDeps> = {}) {
   return { app: await buildServer({ index, ...extra }), index };
 }
 
+test("request and error logs omit client IPs and request data while retaining diagnostics", async () => {
+  const logs: string[] = [];
+  const { app, index } = await serve({ logStream: { write: (line) => logs.push(line) } });
+  const ip = "198.51.100.73";
+  const ipv6 = "2001:db8::73";
+  app.get("/logging-fault", (req) => {
+    const err = Object.assign(new Error(`failure for ${req.ip}`), {
+      code: "TEST_FAILURE",
+      address: req.ip,
+      cause: new Error(`forwarded from ${ipv6}`),
+      request: req,
+    });
+    throw err;
+  });
+  try {
+    for (const [url, status] of [
+      ["/health?search=private-search", 200],
+      ["/missing/private-search", 404],
+      ["/logging-fault", 500],
+      ["/stops/nearby?lat=private-search&lon=34", 400],
+      ["/bad/%ZZ", 400],
+    ] as const) {
+      const res = await app.inject({ url, remoteAddress: ip,
+        headers: { "x-forwarded-for": ipv6, "x-real-ip": ip, host: ip } });
+      assert.equal(res.statusCode, status, url);
+    }
+    const output = logs.join("");
+    for (const value of [ip, ipv6, "private-search", "remoteAddress", "x-forwarded-for", "x-real-ip"]) {
+      assert.ok(!output.includes(value), `logs must not contain ${value}`);
+    }
+    const records = logs.map((line) => JSON.parse(line));
+    assert.ok(records.some((record) => record.msg === "incoming request"));
+    assert.ok(records.some((record) => record.res?.statusCode === 200));
+    const fault = records.find((record) => record.msg === "request failed");
+    assert.equal(fault.err.code, "TEST_FAILURE");
+    assert.ok(fault.reqId);
+    assert.match(fault.err.stack, /server.test.ts/);
+  } finally {
+    await app.close();
+    index.stop();
+  }
+});
+
 // The realtime-gating and no-timer-armed guarantees themselves are tested
 // directly against `resolveRealtimeConfig` (config.test.ts) and
 // `createRealtimeRuntime` (realtime/wiring.test.ts) -- this file is scoped

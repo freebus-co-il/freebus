@@ -38,6 +38,8 @@ import type { SiriPoller, StreamFilter, StreamStatus } from "./realtime/poller.j
 
 export interface ServerDeps {
   index: IndexManager;
+  /** Optional structured-log destination, also used by privacy regression tests. */
+  logStream?: { write(message: string): unknown };
   /**
    * Wired to `onRequest`/`onResponse` hooks below when provided, so
    * `IndexManager` can tell when it is safe to close a database handle a
@@ -111,8 +113,8 @@ export interface ServerDeps {
 const usePrettyTransport = !isProduction && !process.env.NODE_TEST_CONTEXT;
 
 /**
- * The fixed message every 5xx gets. The real error is in the log, under the
- * request id echoed back in the body.
+ * The fixed message every 5xx gets. Error codes and stack frames are logged
+ * under the request id; messages and attached data may contain user input.
  */
 const FAULT_MESSAGE =
   "The service failed to handle this request. Quote requestId when reporting it.";
@@ -121,7 +123,23 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: config.logLevel,
-      ...(usePrettyTransport ? { transport: { target: "pino-pretty" } } : {}),
+      serializers: {
+        // Allowlist diagnostic fields. Never serialize IPs, headers, sockets,
+        // hostnames or raw URLs (which can include searches and coordinates).
+        req: (req) => ({ method: req.method, route: req.routeOptions?.url }),
+        // Error messages, causes and arbitrary properties can echo client
+        // input, including IP addresses. Keep code and call sites instead.
+        err: (err) => ({
+          type: err?.constructor?.name,
+          message: "Error details omitted for privacy",
+          code: typeof err?.code === "string" && /^[A-Z_0-9]+$/.test(err.code) ? err.code : undefined,
+          stack: typeof err?.stack === "string"
+            ? err.stack.split("\n").filter((line: string) => /^\s+at /.test(line)).join("\n")
+            : "",
+        }),
+      },
+      ...(deps.logStream ? { stream: deps.logStream }
+        : usePrettyTransport ? { transport: { target: "pino-pretty" } } : {}),
     },
     trustProxy: isProduction,
     // PRE-ROUTER errors. Fastify raises a few failures before routing
@@ -273,8 +291,8 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   //    failing query answered `{"code":"SQLITE_ERROR","message":"no such
   //    column: nope"}` (schema and driver disclosure) and a reload during
   //    the fetcher's symlink-unlink window answered with an ABSOLUTE SERVER
-  //    PATH. So the fault is logged server-side in full — stack, cause,
-  //    driver code, everything — under the request id, and the client gets
+  //    PATH. So the fault's code and stack frames are logged, without its
+  //    message or attached data, under the request id, and the client gets
   //    a fixed generic message plus that same id. Nothing else crosses the
   //    boundary: no SQLite code, no driver text, no stack, no filesystem path.
   //
