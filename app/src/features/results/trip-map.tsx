@@ -4,6 +4,7 @@ import { Animated, I18nManager, Platform, StyleSheet, View, type StyleProp, type
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import type { Itinerary, Leg, LiveVehicle, Place } from '@/api/types';
+import { DataCredit } from '@/components/data-credit';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
 import { useLocationGranted } from '@/hooks/use-location-granted';
 import { useNow } from '@/hooks/use-now';
@@ -543,6 +544,10 @@ export function TripMap({
       showsUserLocation={showsUserLocation}
       // Google Maps' own recentre button would sit under the floating chips.
       showsMyLocationButton={false}
+      // Apple Maps only: keeps its logo and Legal link above whatever covers
+      // the bottom of the map, as its terms require. Not `mapPadding` -- see
+      // pick-map.tsx.
+      legalLabelInsets={{ top: 0, left: 0, right: 0, bottom: edgePadding.bottom }}
       mapType={monochrome && Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
       onMapReady={() => {
         setMapReady(true);
@@ -615,6 +620,11 @@ export function TripMap({
           `VehicleMarkerPins`). */}
       <VehicleMarkerPins markers={liveVehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
+      {/* Walking legs come from Valhalla and rail track from the baked rail
+          geometry -- both OpenStreetMap, whose licence wants it credited. In
+          the middle, because Apple and Google both keep their labels in the
+          bottom corners. */}
+      <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
       {vehicleCard !== null && selectedVehicleTripId !== null && (
         <Animated.View
           pointerEvents={cardVisible ? 'box-none' : 'none'}
@@ -639,6 +649,10 @@ export function TripMap({
 }
 
 const styles = StyleSheet.create({
+  credit: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
   map: {
     flex: 1,
   },

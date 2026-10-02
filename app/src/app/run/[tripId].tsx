@@ -22,6 +22,7 @@ import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts
 import { lineVehicleMarkers } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
+import { shapeCredit } from '@/lib/attribution';
 import { routeColor } from '@/lib/route-color';
 
 function LineHeader({ trip }: { trip: TripDetail }) {
@@ -167,6 +168,7 @@ export default function RunScreen() {
           coordinates={shapePath}
           color={color}
           dashed={shape?.geometryFallback ?? false}
+          credit={shapeCredit(shape?.attribution)}
           vehicles={vehicles}
           pins={pins}
           edgePadding={edgePadding}

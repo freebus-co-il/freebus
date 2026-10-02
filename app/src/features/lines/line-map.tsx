@@ -3,6 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
+import { DataCredit } from '@/components/data-credit';
 import { MARKER_RING_COLOR, MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
@@ -41,6 +42,9 @@ export type LineMapProps = {
   /** Stops to pin on the path -- the rider's own stop, when the page knows
    *  one. Not part of the camera's fit. */
   pins?: readonly MapPin[];
+  /** "osm" when the line is drawn from OpenStreetMap rail track -- the
+   *  server's `attribution`, through `shapeCredit`. Null draws no credit. */
+  credit?: 'osm' | null;
   /** How much of the map the caller covers -- a drawer at the bottom -- so the
    *  path frames in the part that is still visible. Hold it MEMOIZED: the fit
    *  re-runs when its identity changes. */
@@ -79,7 +83,7 @@ const EDGE_PADDING = { top: 24, right: 24, bottom: 24, left: 24 };
  */
 export function LineMap({
   coordinates, color, dashed = false, vehicles = NO_VEHICLES, onVehiclePress,
-  pins = NO_PINS, edgePadding = EDGE_PADDING, style,
+  pins = NO_PINS, edgePadding = EDGE_PADDING, credit = null, style,
 }: LineMapProps) {
   const { t } = useTranslation();
   const mapRef = useRef<MapView | null>(null);
@@ -109,10 +113,13 @@ export function LineMap({
   if (first === undefined || coordinates.length < 2) return null;
 
   return (
+    // A plain box around the map, so the credit can float over it. The map
+    // stays an in-flow child -- see `MapScreen`.
+    <View style={[styles.map, style]}>
     <MapView
       key={remountKey}
       ref={mapRef}
-      style={[styles.map, style]}
+      style={styles.map}
       // The app's theme, not the phone's -- see `useMapAppearance`.
       userInterfaceStyle={userInterfaceStyle}
       // Required on Android, where an unstyled map draws a blank basemap.
@@ -123,6 +130,10 @@ export function LineMap({
       showsUserLocation={showsUserLocation}
       // Google Maps' own recentre button would sit under the floating chips.
       showsMyLocationButton={false}
+      // Apple Maps only: keeps its logo and Legal link above whatever covers
+      // the bottom of the map, as its terms require. Not `mapPadding` -- see
+      // pick-map.tsx.
+      legalLabelInsets={{ top: 0, left: 0, right: 0, bottom: edgePadding.bottom }}
       onMapReady={() => fitToShape(false)}
       initialRegion={{
         latitude: first.latitude,
@@ -143,6 +154,10 @@ export function LineMap({
       {/* Last: see `VehicleMarkerPins` for why nothing may follow it. */}
       <VehicleMarkerPins markers={vehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
+      {credit && (
+        <DataCredit source={credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+      )}
+    </View>
   );
 }
 
@@ -171,6 +186,10 @@ function StopPin({ pin }: { pin: MapPin }) {
 }
 
 const styles = StyleSheet.create({
+  credit: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
   map: {
     flex: 1,
   },
