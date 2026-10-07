@@ -13,8 +13,9 @@ name: Deploy to production
 # Each platform decides on its own: a widget-only change rebuilds iOS while
 # Android still gets an OTA update.
 #
-# The runtime version is the fingerprint (app.config.js), so an update can
-# only ever reach a binary built from the same native code. What the
+# The fingerprint only decides build-or-update here; the runtime version is
+# set by hand in app.config.js and must be bumped with every native change,
+# since an update reaches only binaries built with that exact value. What the
 # fingerprint covers is set in fingerprint.config.js.
 on:
   push:

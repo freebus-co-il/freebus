@@ -1,7 +1,7 @@
 {
   "name": "freebus",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "@aptabase/react-native": "^0.6.0",
     "@gorhom/bottom-sheet": "^5.2.14",
