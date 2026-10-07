@@ -229,9 +229,13 @@ function VehicleCapsule({ marker, fallbackTitle, onPress }: VehicleMarkerProps) 
  * by bus. Under the new architecture a `zIndex` prop reorders a view's
  * children when they mount, while the Android map tracks its features by child
  * position; children whose z-indexes are out of order get removed at the wrong
- * position, leaving markers from a map's previous contents behind -- stripped
- * of their custom view, as Google's default red pin. Already in order, the
- * reordering changes nothing.
+ * position. Already in order, the reordering changes nothing.
+ *
+ * A marker removed at the wrong position is never taken off the map: it stays
+ * behind, stripped of its custom view, as Google's default red pin. Before
+ * react-native-maps 1.28.1 (#5859) Android also OVERWROTE a feature on any
+ * insert that was not at the end, which did the same to every changed board --
+ * hence `react-native-maps` is held above Expo's pinned version.
  *
  * Keyed by `tripId` rather than by coordinate, so a moving vehicle UPDATES its
  * markers instead of unmounting and remounting them -- which is what lets the

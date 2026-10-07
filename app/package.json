@@ -1,7 +1,7 @@
 {
   "name": "freebus",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "@aptabase/react-native": "^0.6.0",
     "@gorhom/bottom-sheet": "^5.2.14",
@@ -32,7 +32,7 @@
     "react-native": "0.86.2",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-legal": "^1.8.1",
-    "react-native-maps": "1.27.2",
+    "react-native-maps": "1.29.11",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -58,5 +58,12 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-maps"
+      ]
+    }
+  }
 }
