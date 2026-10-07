@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { DataCredit } from '@/components/data-credit';
 import type { StationKind } from '@/components/station-icon';
-import { MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
+import { MARKER_RING_COLOR, MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
 import { useLocationGranted } from '@/hooks/use-location-granted';
+
+import { PARKED, stopDotSlots, type StopDot, type StopDotSlot } from './route-stops';
 
 export type StationMapProps = {
   center: { latitude: number; longitude: number } | null;
@@ -29,8 +31,17 @@ export type StationMapProps = {
     /** "osm" when the path is OpenStreetMap rail track -- see `routePath`. */
     credit?: 'osm' | null;
   } | null;
+  /** The stops of the line in focus, dotted along its path. */
+  stops?: readonly StopDot[];
   style?: StyleProp<ViewStyle>;
 };
+
+/** How many stop dots the map keeps mounted -- more than nearly any run has.
+ *  See `stopDotSlots` for why the pool is fixed rather than one per stop. */
+const STOP_DOT_POOL = 150;
+/** The journey map's own fade for what the rider is not riding. */
+const DIMMED_DOT_OPACITY = 0.4;
+const NO_STOPS: readonly StopDot[] = [];
 
 /** Half the side of the box framed around the station, in degrees of
  *  latitude: about 700 m either way -- the streets a rider walks, and the
@@ -65,7 +76,7 @@ const DEFAULT_EDGE_PADDING: EdgePadding = { top: 24, right: 24, bottom: 24, left
  */
 export function StationMap({
   center, title, kind = 'bus', vehicles = NO_VEHICLES, onVehiclePress, edgePadding = DEFAULT_EDGE_PADDING, style,
-  route = null,
+  route = null, stops = NO_STOPS,
 }: StationMapProps) {
   const { t } = useTranslation();
   const mapRef = useRef<MapView | null>(null);
@@ -103,6 +114,10 @@ export function StationMap({
     return () => clearTimeout(timer);
   }, [lat, lon, pinLoaded]);
 
+  const hasPath = route !== null && route.coordinates.length >= 2;
+  const slots = useMemo(() => stopDotSlots(stops, STOP_DOT_POOL), [stops]);
+  const dotColor = route?.color ?? null;
+
   if (lat === null || lon === null) return <View style={[styles.map, style]} />;
 
   return (
@@ -128,15 +143,18 @@ export function StationMap({
       initialRegion={{ latitude: lat, longitude: lon, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
     >
       {/* First, so the station and the buses sit on top of it. No `zIndex`:
-          see `VehicleMarkerPins` for what that does to the Android map. */}
-      {route !== null && route.coordinates.length >= 2 && (
-        <Polyline
-          coordinates={[...route.coordinates]}
-          strokeColor={route.color}
-          strokeWidth={5}
-          lineDashPattern={route.dashed ? [8, 6] : undefined}
-        />
-      )}
+          see `VehicleMarkerPins` for what that does to the Android map.
+          ALWAYS mounted, and simply invisible with no line in focus: drawn
+          only when there was one, it was inserted at the front of the
+          map's children every time a line was picked -- the very insert the
+          Android map mishandled before react-native-maps 1.28.1, stranding
+          the station's other markers as red pins. */}
+      <Polyline
+        coordinates={hasPath ? [...route.coordinates] : [{ latitude: lat, longitude: lon }, { latitude: lat, longitude: lon }]}
+        strokeColor={hasPath ? route.color : 'transparent'}
+        strokeWidth={hasPath ? 5 : 0}
+        lineDashPattern={hasPath && route.dashed ? [8, 6] : undefined}
+      />
       <Marker
         coordinate={{ latitude: lat, longitude: lon }}
         title={title}
@@ -154,6 +172,11 @@ export function StationMap({
           onLoad={() => setPinLoaded(true)}
         />
       </Marker>
+      {/* A fixed pool, never one marker per stop -- see `stopDotSlots`. */}
+      {slots.map((slot, index) => (
+        // Keyed by index: a slot IS its position, which is the point of the pool.
+        <StopDotMarker key={index} slot={slot} color={dotColor} />
+      ))}
       {/* Last: see `VehicleMarkerPins` for why nothing may follow it. */}
       <VehicleMarkerPins markers={vehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
@@ -164,7 +187,51 @@ export function StationMap({
   );
 }
 
+/**
+ * One slot of the stop-dot pool: a ring in the line's colour, as the journey
+ * map draws a stop it passes. A parked slot is hidden by the marker's own
+ * opacity, and dimming is the same native opacity, so only a new line
+ * colour changes the view -- and re-arms the one-beat snapshot, as
+ * `StopMarkerPin` in `trip-map.tsx` explains.
+ */
+function StopDotMarker({ slot, color }: { slot: StopDotSlot; color: string | null }) {
+  // Derived, as `useSnapshotTracking` in `vehicle-marker-pin` does it: on
+  // while the colour differs from the one last snapshotted, so a new line
+  // turns tracking back on in the same render and only the timer settles it.
+  const [snapshotted, setSnapshotted] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setSnapshotted(color), MARKER_SNAPSHOT_MS);
+    return () => clearTimeout(timer);
+  }, [color]);
+  const tracksViewChanges = snapshotted !== color;
+
+  const visible = slot.visible && color !== null;
+  const shown = visible ? slot : PARKED;
+
+  return (
+    <Marker
+      coordinate={{ latitude: shown.latitude, longitude: shown.longitude }}
+      title={visible ? shown.name : undefined}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={tracksViewChanges}
+      opacity={!visible ? 0 : shown.dimmed ? DIMMED_DOT_OPACITY : 1}
+      // Google only: a parked slot must not take a tap.
+      tappable={visible}
+    >
+      <View style={[styles.stopDot, { borderColor: color ?? MARKER_RING_COLOR }]} />
+    </Marker>
+  );
+}
+
 const styles = StyleSheet.create({
+  // The journey map's intermediate stop, exactly -- see `trip-map.tsx`.
+  stopDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2.5,
+    backgroundColor: MARKER_RING_COLOR,
+  },
   credit: {
     position: 'absolute',
     alignSelf: 'center',

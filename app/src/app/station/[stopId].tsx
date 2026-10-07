@@ -3,7 +3,7 @@ import { IconMapPin, IconX } from '@tabler/icons-react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { useRouteShape } from '@/api/lines';
@@ -28,6 +28,7 @@ import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts
 import { fastestArrivalKey } from '@/features/stations/destination-board';
 import { takeDestination, type PickedDestination } from '@/features/stations/destination-handoff';
 import { routePath } from '@/features/stations/route-path';
+import { routeStopDots } from '@/features/stations/route-stops';
 import { StationMap } from '@/features/stations/station-map';
 import {
   departureKey, highlightMarkers, lineDepartures, lineKey, runStops,
@@ -447,6 +448,36 @@ export default function StationScreen() {
     return routePath(shape, pathColor);
   }, [highlight, pathColor, shape]);
 
+  // The run the path is drawn for, dotted at each of its stops. The open
+  // departure's own trip is already being fetched for its stop list below, so
+  // this is usually a cache hit, not a second request.
+  const { data: pathTrip } = useTrip(highlight === null ? null : pathDeparture?.tripId ?? null, i18n.language);
+  const stopDots = useMemo(() => {
+    if (highlight === null || pathDeparture === null) return [];
+    const run = runStops(pathTrip, {
+      stopId: pathDeparture.stopId,
+      stopSequence: pathDeparture.stopSequence,
+      departureTime: pathDeparture.departureTime,
+    });
+    return routeStopDots(run.stops, run.boardingIndex);
+  }, [highlight, pathDeparture, pathTrip]);
+
+  // Back lets go of the line in focus before it leaves the board: picking a
+  // line is a step INTO this screen, and the way out of a step is back. The
+  // header chip and Android's own back button agree; iOS's edge swipe stays
+  // the native pop the platform promises.
+  const clearHighlight = useCallback(() => {
+    if (highlight === null) return false;
+    setHighlight(null);
+    return true;
+  }, [highlight]);
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', clearHighlight);
+      return () => subscription.remove();
+    }, [clearHighlight]),
+  );
+
   const vehicles = useMemo(
     () => (highlight === null ? stationVehicles : highlightMarkers(stationVehicles, departures, highlight.key)),
     [stationVehicles, departures, highlight],
@@ -523,6 +554,7 @@ export default function StationScreen() {
 
   return (
     <MapScreen
+      onBack={clearHighlight}
       map={
         <StationMap
           center={center}
@@ -535,6 +567,7 @@ export default function StationScreen() {
           }}
           edgePadding={edgePadding}
           route={route}
+          stops={stopDots}
         />
       }
     >

@@ -17,10 +17,18 @@ import { useTheme } from '@/hooks/use-theme';
  * absolute-filled map receives no touches at all (see `results.tsx`), and on
  * these pages the map is meant to be panned and zoomed.
  */
-export function MapScreen({ map, children }: { map: ReactNode; children: ReactNode }) {
+export function MapScreen({ map, children, onBack }: {
+  map: ReactNode;
+  children: ReactNode;
+  /** A step back within the page, tried first: true when it handled the press,
+   *  and the page is left only when it returns false. Android's hardware back
+   *  is the page's own to wire (`BackHandler`) -- this is the chip. */
+  onBack?: () => boolean;
+}) {
   const theme = useTheme();
 
   function back() {
+    if (onBack?.()) return;
     // A deep link straight into one of these pages has no history to pop.
     if (router.canGoBack()) router.back();
     else router.replace('/');
