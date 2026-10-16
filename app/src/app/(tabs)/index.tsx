@@ -93,9 +93,13 @@ export default function SearchScreen() {
               ? 'search.locationPermissionDenied'
               : 'search.locationUnavailable')}
           </ThemedText>
-          <Pressable onPress={search.retryOrigin} style={styles.retry}>
-            <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-          </Pressable>
+          {/* Not after a denial: iOS will not ask again, and a button that
+              invites the rider to reconsider is what App Review rejects. */}
+          {!(state.status === 'error' && state.message === 'location_permission_denied') && (
+            <Pressable onPress={search.retryOrigin} style={styles.retry}>
+              <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
+            </Pressable>
+          )}
           {/* Retrying is only worth offering while a fix might still arrive.
               Naming a starting point is the way out when it will not -- it
               is what makes this screen a fork rather than a dead end. */}

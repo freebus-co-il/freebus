@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePlanTrip } from '@/api/plan';
+import { confirm, notify } from '@/components/confirm-sheet';
 import { IconBack } from '@/components/directional-icon';
 import { SnapCarousel } from '@/components/snap-carousel';
 import { ThemedText } from '@/components/themed-text';
@@ -117,10 +118,14 @@ export default function TripScreen() {
     // the geofences and get-off alarm out from under a rider who is still
     // relying on them, so the swap is theirs to confirm.
     if (journey) {
-      Alert.alert(t('journey.replace'), undefined, [
-        { text: t('journey.keepGoing'), style: 'cancel' },
-        { text: t('trip.start'), style: 'destructive', onPress: () => void go() },
-      ]);
+      void confirm({
+        title: t('journey.replace'),
+        confirmLabel: t('trip.start'),
+        cancelLabel: t('journey.keepGoing'),
+        destructive: true,
+      }).then((confirmed) => {
+        if (confirmed) void go();
+      });
       return;
     }
     void go();
@@ -140,7 +145,7 @@ export default function TripScreen() {
     void setLeaveReminder(itinerary, signature, departure, label).then((armed) => {
       // Only the rider can grant notifications, so a refusal is theirs to
       // answer: they are told rather than left with a button that did nothing.
-      if (!armed) Alert.alert(t('trip.reminderUnavailable'));
+      if (!armed) notify(t('trip.reminderUnavailable'), t('confirm.ok'));
     });
   };
 

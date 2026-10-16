@@ -189,26 +189,25 @@ export function NearbyStops() {
   const { data, isLoading } = useNearbyStops(here && { lat: here.lat, lon: here.lon }, i18n.language);
   const stops = data?.stops ?? [];
 
+  // A rider who said no to location gets no section asking them to
+  // reconsider -- App Review rejects that (5.1.1(iv)). The rest of the home
+  // screen plans from a place they pick instead.
+  if (originState.status === 'error' && originState.message === 'location_permission_denied') return null;
+
   return (
     <View style={styles.section}>
       <ThemedText type="smallBold" themeColor="textSecondary">
         {t('nearby.title')}
       </ThemedText>
       {originState.status === 'error' ? (
-        originState.message === 'location_permission_denied' ? (
+        <View style={styles.locationError}>
           <ThemedText type="small" themeColor="textSecondary">
-            {t('search.locationPermissionDenied')}
+            {t('search.locationUnavailable')}
           </ThemedText>
-        ) : (
-          <View style={styles.locationError}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t('search.locationUnavailable')}
-            </ThemedText>
-            <Pressable onPress={retryOrigin} style={styles.retry}>
-              <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-            </Pressable>
-          </View>
-        )
+          <Pressable onPress={retryOrigin} style={styles.retry}>
+            <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
+          </Pressable>
+        </View>
       ) : here === null || isLoading ? (
         <ActivityIndicator style={styles.sectionLoader} />
       ) : stops.length === 0 ? (

@@ -401,9 +401,13 @@ export default function LocationPickerScreen() {
                   : 'search.locationUnavailable',
               )}
             </ThemedText>
-            <Pressable onPress={search.retryOrigin} style={styles.retry}>
-              <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-            </Pressable>
+            {/* No retry after a denial -- see the home screen. */}
+            {!(search.originState.status === 'error' &&
+              search.originState.message === 'location_permission_denied') && (
+              <Pressable onPress={search.retryOrigin} style={styles.retry}>
+                <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
+              </Pressable>
+            )}
             <Pressable
               onPress={() =>
                 router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
@@ -416,13 +420,18 @@ export default function LocationPickerScreen() {
         ) : waitingForOrigin ? (
           <ThemedView style={styles.centered}>
             <ActivityIndicator />
-            {search.originState.status === 'error' && (
-              <Pressable onPress={search.retryOrigin} style={styles.retry}>
+            {search.originState.status === 'error' &&
+              (search.originState.message === 'location_permission_denied' ? (
                 <ThemedText type="small" themeColor="textSecondary">
-                  {t(search.originState.message === 'location_permission_denied' ? 'search.locationPermissionDenied' : 'search.locationUnavailable')}
+                  {t('search.locationPermissionDenied')}
                 </ThemedText>
-              </Pressable>
-            )}
+              ) : (
+                <Pressable onPress={search.retryOrigin} style={styles.retry}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t('search.locationUnavailable')}
+                  </ThemedText>
+                </Pressable>
+              ))}
           </ThemedView>
         ) : (
           <>

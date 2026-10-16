@@ -5,7 +5,7 @@
     "noMatches": "לא נמצאו תוצאות",
     "currentLocation": "המיקום הנוכחי",
     "pinnedLocation": "מיקום מסומן",
-    "locationPermissionDenied": "הגישה למיקום חסומה. אפשרו אותה בהגדרות המכשיר כדי להשתמש במיקום הנוכחי.",
+    "locationPermissionDenied": "המיקום שלכם לא זמין, אז בחרו מאיפה יוצאים.",
     "locationUnavailable": "לא הצלחנו לאתר את המיקום שלכם. נסו שוב.",
     "leaveAt": "יציאה בשעה",
     "arriveBy": "הגעה עד",
@@ -351,6 +351,9 @@
     "alertRepeat": "להמשיך להתריע עד שאאשר",
     "about": "אודות ומידע משפטי",
     "aboutRow": "אודות האפליקציה"
+  },
+  "confirm": {
+    "ok": "הבנתי"
   },
   "recentSearches": {
     "title": "חיפושים אחרונים"

@@ -1,6 +1,6 @@
 import { IconMapPin, IconSearch } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,8 +15,10 @@ import { StationIcon, stationKindOf } from '@/components/station-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useRecents } from '@/features/recents/recents-context';
+import { recentDestinationKey } from '@/features/recents/recents';
 import { FieldShell } from '@/features/search/field-shell';
-import { leaveDestination } from '@/features/stations/destination-handoff';
+import { leaveDestination, type PickedDestination } from '@/features/stations/destination-handoff';
 import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { INPUT_ALIGN_START } from '@/i18n/direction';
 import { addressCredit } from '@/lib/attribution';
@@ -32,6 +34,11 @@ const ADDRESS_DEBOUNCE_MS = 450;
 /** See the location picker's own constant -- eight stops sharing a street
  *  name are told apart by the lines calling at each. */
 const MAX_LINE_BADGES = 6;
+
+/** A few more than the trip picker's three: a board is filtered to whichever
+ *  of a rider's regular stops this station serves, and one station can
+ *  serve several. */
+const RECENTS_SHOWN = 5;
 
 type Row =
   | {
@@ -58,6 +65,8 @@ export default function DestinationPickerScreen() {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
   const outline = useControlOutline();
+  const recents = useRecents();
+  const recentDestinations = recents.destinations.slice(0, RECENTS_SHOWN);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [debouncedAddress, setDebouncedAddress] = useState('');
@@ -106,10 +115,19 @@ export default function DestinationPickerScreen() {
   // short of it the list is honestly incomplete rather than empty.
   const placesPending = query.trim().length < ADDRESS_MIN_QUERY_LENGTH;
 
+  /** Every way out of this screen with a pick goes through here, so every
+   *  pick -- a recent one again included -- is remembered on the device. */
+  function pick(destination: PickedDestination) {
+    recents.recordDestination({ kind: 'destination', ...destination });
+    // Left for the board to take on focus, not pushed at it -- see
+    // `destination-handoff`.
+    leaveDestination(destination);
+    router.back();
+  }
+
   async function selectRow(row: Row) {
     if (row.kind === 'stop') {
-      leaveDestination({ name: row.title, lat: row.lat, lon: row.lon });
-      router.back();
+      pick({ name: row.title, lat: row.lat, lon: row.lon });
       return;
     }
 
@@ -132,10 +150,7 @@ export default function DestinationPickerScreen() {
       return;
     }
 
-    // Left for the board to take on focus, not pushed at it -- see
-    // `destination-handoff`.
-    leaveDestination({ name: row.title, lat: position.lat, lon: position.lon });
-    router.back();
+    pick({ name: row.title, lat: position.lat, lon: position.lon });
   }
 
   return (
@@ -236,7 +251,35 @@ export default function DestinationPickerScreen() {
             {t('search.noMatches')}
           </ThemedText>
         )}
-        {!showResults && (
+        {/* Under an empty box only, as on the trip picker: the moment the
+            rider types, what they typed is the better answer. */}
+        {!showResults && recentDestinations.length > 0 && (
+          <View style={styles.recents}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.recentsTitle}>
+              {t('recentSearches.title')}
+            </ThemedText>
+            <View>
+              {recentDestinations.map((destination, index) => (
+                <Fragment key={recentDestinationKey(destination)}>
+                  {index > 0 && <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />}
+                  <Pressable
+                    style={styles.row}
+                    accessibilityRole="button"
+                    onPress={() => pick({ name: destination.name, lat: destination.lat, lon: destination.lon })}
+                  >
+                    <View style={[styles.iconSlot, styles.iconCircle, { backgroundColor: theme.background }, outline]}>
+                      <IconMapPin size={18} color={theme.text} />
+                    </View>
+                    <ThemedText type="default" numberOfLines={1} style={styles.rowText}>
+                      {destination.name}
+                    </ThemedText>
+                  </Pressable>
+                </Fragment>
+              ))}
+            </View>
+          </View>
+        )}
+        {!showResults && recentDestinations.length === 0 && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
             {t('station.destinationHint')}
           </ThemedText>
@@ -299,6 +342,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.one,
   },
+  recents: { marginTop: Spacing.four },
+  // No gap under the heading -- the first row's padding is the space, as in
+  // `RecentSearches`.
+  recentsTitle: { paddingHorizontal: Spacing.four },
   status: { paddingTop: Spacing.four, alignItems: 'center' },
   notice: {
     paddingHorizontal: Spacing.four,

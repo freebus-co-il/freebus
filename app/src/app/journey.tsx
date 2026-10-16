@@ -2,12 +2,13 @@ import { IconCurrentLocation } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
+import { confirm } from '@/components/confirm-sheet';
 import { IconBack } from '@/components/directional-icon';
 import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carousel';
 import { ThemedText } from '@/components/themed-text';
@@ -256,18 +257,17 @@ export default function JourneyScreen() {
     // nothing but ask. Dismissing alongside `end` puts the rider back where
     // they expanded this from; the provider lives above the navigator, so the
     // teardown finishes whether or not this screen is still mounted.
-    Alert.alert(t('journey.endConfirm'), undefined, [
-      { text: t('journey.keepGoing'), style: 'cancel' },
-      {
-        text: t('journey.end'),
-        style: 'destructive',
-        onPress: () => {
-          countEvent('journey_cancelled');
-          void end();
-          dismiss();
-        },
-      },
-    ]);
+    void confirm({
+      title: t('journey.endConfirm'),
+      confirmLabel: t('journey.end'),
+      cancelLabel: t('journey.keepGoing'),
+      destructive: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      countEvent('journey_cancelled');
+      void end();
+      dismiss();
+    });
   }
 
   const offPlan = state.phase === 'off-plan';

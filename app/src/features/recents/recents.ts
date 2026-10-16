@@ -28,6 +28,29 @@ export type RecentStation = { kind: 'station'; stopId: string; name: string; rai
  */
 export type RecentSearch = { kind: 'search'; place: SelectedPlace };
 
+/**
+ * A place a station board was filtered to -- the destination picker's own
+ * pick, not a trip search. Kept apart from `RecentSearch` because it is a
+ * different question: "which lines from HERE go near there", asked of one
+ * board, and what it stores is the bare point the board filters on.
+ */
+export type RecentDestination = { kind: 'destination'; name: string; lat: number; lon: number };
+
+/** Exact, for the reason `recentSearchKey` gives: a pick is chosen, never measured. */
+export function recentDestinationKey(destination: RecentDestination): string {
+  return `${destination.lat},${destination.lon}`;
+}
+
+/** Whatever survived on disk, keeping only entries a board can filter on. */
+export function parseStoredDestinations(value: unknown): RecentDestination[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is RecentDestination => {
+    const d = entry as Partial<RecentDestination> | null;
+    return d?.kind === 'destination' && typeof d.name === 'string'
+      && typeof d.lat === 'number' && typeof d.lon === 'number';
+  });
+}
+
 function placeKey(place: SelectedPlace): string {
   return place.kind === 'stop'
     ? `stop:${place.stopId}`

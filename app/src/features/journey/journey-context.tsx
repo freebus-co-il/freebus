@@ -5,10 +5,11 @@ import { router } from 'expo-router';
 import * as TaskManager from 'expo-task-manager';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, AppState, Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { useRealtimeAvailable } from '@/api/meta';
 import type { Itinerary, Place } from '@/api/types';
+import { confirm } from '@/components/confirm-sheet';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { useSearch } from '@/features/search/search-context';
 import { withLineChosen } from '@/features/trip/line-options';
@@ -35,6 +36,7 @@ import { buildJourneyRail, type JourneyRail } from './journey-rail';
 import {
   addAcknowledgeAlightListener,
   liveSurface,
+  liveSurfaceAlertsLoudly,
   surfaceCopy,
   type JourneySurfaceCopy,
   type LiveSurfaceAlert,
@@ -207,6 +209,23 @@ async function cancelAlertsMatching(prefix: string): Promise<void> {
   }
 }
 
+/** Retires every alert for one leg that the live surface's own alert makes a
+ *  duplicate: still pending, or already in the shade because the timetable
+ *  fired it before GPS placed the rider. */
+async function retireAlertsMatching(prefix: string): Promise<void> {
+  await cancelAlertsMatching(prefix);
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      presented
+        .filter((notification) => notification.request.identifier.startsWith(prefix))
+        .map((notification) => Notifications.dismissNotificationAsync(notification.request.identifier)),
+    );
+  } catch {
+    // Same as above: nothing presented that this app could reach.
+  }
+}
+
 /**
  * The geofence half of the get-off alarm's two triggers.
  *
@@ -255,8 +274,10 @@ TaskManager.defineTask<{ eventType: Location.GeofencingEventType; region: Locati
     // The app being awake means the provider below is already driving every
     // surface from a real GPS fix and owns the alert. Firing here too would
     // buy a second alarm for one event, which is how an alert stops being
-    // read as information and starts being read as noise.
-    if (AppState.currentState === 'active') return;
+    // read as information and starts being read as noise. The PiP window
+    // counts as awake: React Native reports it as backgrounded, but the
+    // provider is running and watching GPS in it.
+    if (AppState.currentState === 'active' || pip.isActive()) return;
 
     // Whichever trigger lands first wins and cancels the other. This one is
     // the accurate one -- it fires because the rider is actually there, not
@@ -292,16 +313,11 @@ async function acceptsBackgroundDisclosure(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
   const current = await Location.getBackgroundPermissionsAsync();
   if (current.granted || !current.canAskAgain) return true;
-  return new Promise((resolve) => {
-    Alert.alert(
-      i18n.t('journey.backgroundDisclosure.title'),
-      i18n.t('journey.backgroundDisclosure.body'),
-      [
-        { text: i18n.t('journey.backgroundDisclosure.decline'), style: 'cancel', onPress: () => resolve(false) },
-        { text: i18n.t('journey.backgroundDisclosure.accept'), onPress: () => resolve(true) },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) },
-    );
+  return confirm({
+    title: i18n.t('journey.backgroundDisclosure.title'),
+    body: i18n.t('journey.backgroundDisclosure.body'),
+    confirmLabel: i18n.t('journey.backgroundDisclosure.accept'),
+    cancelLabel: i18n.t('journey.backgroundDisclosure.decline'),
   });
 }
 
@@ -750,18 +766,22 @@ function useJourneyState() {
       // rider's answer about the alarm.
       if (shouldAlert && settings.vibrate) hapticWarned();
 
-      // Deliberately does NOT cancel this leg's scheduled notifications the way
-      // the geofence path does. Without a native module `liveSurface` is a
-      // no-op, so on those builds the scheduled alert is the ONLY loud thing
-      // that will happen -- cancelling it here would trade a duplicate alarm
-      // for no alarm at all. The rider's acknowledgement is what retires it.
+      // Retires this leg's scheduled notifications the way the geofence path
+      // does, but ONLY where the live surface's alert is itself a notification
+      // (see `liveSurfaceAlertsLoudly`). Anywhere else the scheduled alert may
+      // be the only loud thing that happens, and cancelling it would trade a
+      // duplicate alarm for no alarm at all; there the rider's acknowledgement
+      // is what retires it.
+      if (shouldAlert && liveSurfaceAlertsLoudly && journeyId) {
+        void retireAlertsMatching(`${journeyId}:alight:${facts.legIndex}:`);
+      }
       void liveSurface.update(
         next,
         nextCopy,
         shouldAlert && next.leg ? alightAlert(next.leg.to.stop.name ?? '', settings) : undefined,
       );
     },
-    [settings],
+    [settings, journeyId],
   );
 
   useEffect(() => {

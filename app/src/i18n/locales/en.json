@@ -5,7 +5,7 @@
     "noMatches": "No matches",
     "currentLocation": "Current location",
     "pinnedLocation": "Pinned location",
-    "locationPermissionDenied": "Location access is off. Allow it in your device settings to use your current location.",
+    "locationPermissionDenied": "Your location isn't available, so choose where you're starting from.",
     "locationUnavailable": "Couldn't find your current location. Please try again.",
     "leaveAt": "Leave at",
     "arriveBy": "Arrive by",
@@ -334,6 +334,9 @@
     "alertRepeat": "Keep alerting until I acknowledge",
     "about": "About & legal",
     "aboutRow": "About FreeBus"
+  },
+  "confirm": {
+    "ok": "OK"
   },
   "recentSearches": {
     "title": "Recent searches"

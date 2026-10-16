@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ShareIntentProvider } from 'expo-share-intent';
 
+import { ConfirmHost } from '@/components/confirm-sheet';
 import { JourneyProvider } from '@/features/journey/journey-context';
 import { LeaveReminderGate } from '@/features/journey/leave-reminder-gate';
 import { UpdateSnackbar } from '@/features/updates/update-snackbar';
@@ -97,6 +98,9 @@ function App() {
                   showing instead of taking a row in one. Renders nothing
                   until an update is downloaded. */}
               <UpdateSnackbar />
+              {/* Every yes/no question the app asks, on its own sheet rather
+                  than the system alert -- see `confirm`. */}
+              <ConfirmHost />
             </JourneyProvider>
           </RecentsProvider>
         </SavedLocationsProvider>

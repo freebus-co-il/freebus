@@ -3,7 +3,10 @@ import { test } from 'node:test';
 
 import type { SelectedPlace } from '@/lib/place';
 
-import { migrateStoredSearches, promote, recentSearchKey, type RecentSearch } from './recents';
+import {
+  migrateStoredSearches, parseStoredDestinations, promote, recentDestinationKey, recentSearchKey,
+  type RecentDestination, type RecentSearch,
+} from './recents';
 
 const stop = (stopId: string): SelectedPlace => ({ kind: 'stop', stopId, name: `stop ${stopId}` });
 const at = (lat: number, lon: number): SelectedPlace => ({ kind: 'coordinate', lat, lon, label: 'here' });
@@ -98,4 +101,23 @@ test('migrateStoredSearches skips entries that are not usable places', () => {
 test('migrateStoredSearches degrades to empty when storage holds neither shape', () => {
   assert.deepEqual(migrateStoredSearches(undefined, undefined), []);
   assert.deepEqual(migrateStoredSearches('garbage', 42), []);
+});
+
+const destination = (name: string, lat: number, lon: number): RecentDestination => ({
+  kind: 'destination', name, lat, lon,
+});
+
+test('promote with recentDestinationKey keeps one row per picked point', () => {
+  const list = [destination('Azrieli', 32.07, 34.79), destination('Savidor', 32.08, 34.79)];
+  const again = destination('Azrieli Mall', 32.07, 34.79);
+  assert.deepEqual(promote(list, again, recentDestinationKey), [again, list[1]]);
+});
+
+test('parseStoredDestinations reads what is written and skips anything unusable', () => {
+  const good = destination('Savidor', 32.08, 34.79);
+  assert.deepEqual(parseStoredDestinations([good, null, { kind: 'destination', name: 'x' }, { ...good, kind: 'search' }]), [good]);
+});
+
+test('parseStoredDestinations treats an install from before them as having none', () => {
+  assert.deepEqual(parseStoredDestinations(undefined), []);
 });

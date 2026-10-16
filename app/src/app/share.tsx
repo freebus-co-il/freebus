@@ -114,9 +114,13 @@ export default function ShareScreen() {
                 : 'search.locationUnavailable',
             )}
           </ThemedText>
-          <Pressable onPress={search.retryOrigin} style={styles.action}>
-            <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-          </Pressable>
+          {/* No retry after a denial -- see the home screen. */}
+          {!(search.originState.status === 'error' &&
+            search.originState.message === 'location_permission_denied') && (
+            <Pressable onPress={search.retryOrigin} style={styles.action}>
+              <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
+            </Pressable>
+          )}
           <Pressable
             onPress={() =>
               router.replace({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })

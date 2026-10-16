@@ -2,17 +2,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import {
-  migrateStoredSearches, promote, recentSearchKey,
-  type RecentLine, type RecentSearch, type RecentStation,
+  migrateStoredSearches, parseStoredDestinations, promote, recentDestinationKey, recentSearchKey,
+  type RecentDestination, type RecentLine, type RecentSearch, type RecentStation,
 } from './recents';
 
-export type { RecentLine, RecentSearch, RecentStation };
+export type { RecentDestination, RecentLine, RecentSearch, RecentStation };
 
 const STORAGE_KEY = 'freebus.recents.v1';
 
-type StoredState = { lines: RecentLine[]; stations: RecentStation[]; searches: RecentSearch[] };
+type StoredState = {
+  lines: RecentLine[];
+  stations: RecentStation[];
+  searches: RecentSearch[];
+  destinations: RecentDestination[];
+};
 
-const EMPTY_STATE: StoredState = { lines: [], stations: [], searches: [] };
+const EMPTY_STATE: StoredState = { lines: [], stations: [], searches: [], destinations: [] };
 
 /**
  * Parses whatever is in storage defensively -- a format change or a
@@ -32,6 +37,8 @@ function parseStoredState(raw: string | null): StoredState {
       // destinations are carried across instead -- see
       // `migrateStoredSearches`.
       searches: migrateStoredSearches(parsed?.searches, parsed?.trips),
+      // Absent on every install before boards remembered their filters.
+      destinations: parseStoredDestinations(parsed?.destinations),
     };
   } catch {
     return EMPTY_STATE;
@@ -106,13 +113,23 @@ function useRecentsState() {
     setState((current) => ({ ...current, searches: promote(current.searches, search, recentSearchKey) }));
   }
 
+  function recordDestination(destination: RecentDestination) {
+    markDirty();
+    setState((current) => ({
+      ...current,
+      destinations: promote(current.destinations, destination, recentDestinationKey),
+    }));
+  }
+
   return {
     lines: state.lines,
     stations: state.stations,
     searches: state.searches,
+    destinations: state.destinations,
     recordLine,
     recordStation,
     recordSearch,
+    recordDestination,
   };
 }
 
