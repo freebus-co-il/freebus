@@ -181,6 +181,7 @@ class LiveJourneyModule : Module() {
       JourneyService.onAcknowledge = null
       JourneyPip.detach()
       JourneyPipLocation.stop()
+      JourneyPipMounting.stop(null)
       JourneyPipKeepAlive.stop()
     }
 
@@ -281,11 +282,13 @@ class LiveJourneyModule : Module() {
   private fun onPipModeChanged(inPip: Boolean) {
     if (inPip) {
       JourneyPipKeepAlive.start(appContext.currentActivity)
+      JourneyPipMounting.start(appContext.currentActivity)
       appContext.reactContext?.let { context ->
         JourneyPipLocation.start(context) { fix -> sendEvent("onJourneyPosition", positionBundle(fix)) }
       }
     } else {
       JourneyPipLocation.stop()
+      JourneyPipMounting.stop(appContext.currentActivity)
       JourneyPipKeepAlive.stop()
     }
     sendEvent("onPipModeChanged", Bundle().apply { putBoolean("inPip", inPip) })

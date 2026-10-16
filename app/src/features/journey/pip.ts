@@ -78,6 +78,11 @@ export const pip = {
   available(): boolean {
     return native?.isPipAvailable?.() ?? false;
   },
+  /** Read straight from the activity, for code that runs outside React --
+   *  the geofence task -- and so has no `usePip()` to ask. */
+  isActive(): boolean {
+    return native?.isInPip?.() ?? false;
+  },
   async set(nextArmed: boolean, acknowledge: boolean): Promise<void> {
     armed = nextArmed;
     await native?.setPip?.(nextArmed, acknowledge);

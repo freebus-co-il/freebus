@@ -1,5 +1,6 @@
 import { NativeModule, requireOptionalNativeModule, type EventSubscription } from 'expo-modules-core';
 import type { TFunction } from 'i18next';
+import { Platform } from 'react-native';
 
 import type { JourneyCopy } from './journey-copy';
 import type { JourneyRail } from './journey-rail';
@@ -135,3 +136,14 @@ export function addAcknowledgeAlightListener(listener: () => void): EventSubscri
  *  reads this to explain its absence rather than offering switches that
  *  silently do nothing. */
 export const liveSurfaceAvailable = native !== null;
+
+/**
+ * Whether `update(..., alert)` itself puts a loud notification in the shade.
+ *
+ * Android only: its module posts the alert as a notification of its own, with
+ * "Got it" on it, so the timetable's pre-scheduled alert for the same leg is a
+ * second copy of one event. iOS rings through the Live Activity, which the
+ * rider can switch off in Settings without the app knowing -- there the
+ * scheduled alert stays, because it may be the only one.
+ */
+export const liveSurfaceAlertsLoudly = Platform.OS === 'android' && native !== null;
