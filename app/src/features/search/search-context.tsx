@@ -117,6 +117,7 @@ function useSearchState() {
     setOriginOverride,
     originState,
     retryOrigin,
+    refreshOrigin,
     swapOriginDestination,
     timeMode,
     setTimeMode,

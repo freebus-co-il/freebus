@@ -1,8 +1,9 @@
 import { IconPencil, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
@@ -41,6 +42,27 @@ export default function SearchScreen() {
   // and going back from it would fail outright.
   const { waitingForOrigin, originFailed, selectDestination } = useDestinationNavigation('push');
   const [actionsFor, setActionsFor] = useState<SavedLocation | null>(null);
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  // No pull-to-refresh at all without location: everything it refreshes is
+  // "near me", and with no permission there is nothing to re-read. The
+  // refresh itself never prompts either (see `useCurrentLocation`).
+  const locationDenied =
+    search.originState.status === 'error' && search.originState.message === 'location_permission_denied';
+
+  async function refreshNearby() {
+    setRefreshing(true);
+    try {
+      await search.refreshOrigin();
+      // A fix that moved re-keys the nearby query by itself; one that did not
+      // still owes the rider fresh stops and departures for the pull.
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'nearbyStops' || query.queryKey[0] === 'stopDepartures',
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function selectSavedLocation(location: SavedLocation) {
     if (location.place) {
@@ -156,6 +178,9 @@ export default function SearchScreen() {
           style={styles.pageScroll}
           contentContainerStyle={styles.pageContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            locationDenied ? undefined : <RefreshControl refreshing={refreshing} onRefresh={refreshNearby} />
+          }
         >
           {/* Above Nearby stops on purpose: an answer outranks a list of
               places to look. Renders nothing at all when there is no commute
