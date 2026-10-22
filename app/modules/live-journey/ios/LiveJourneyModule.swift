@@ -111,9 +111,6 @@ class NoActiveJourneyException: Exception {
 }
 
 public class LiveJourneyModule: Module {
-  /// Typed as `Any?` because `Activity` is only available from iOS 16.1 and a
-  /// stored property cannot carry an availability annotation.
-  private var activityStorage: Any?
   /// The rail from `start`, kept because it is the ONLY place the resolved
   /// route colours live. `JourneyState` carries the leg but not its colour --
   /// colour is `routeColor(leg.route)`, an operator lookup this side must
@@ -122,10 +119,15 @@ public class LiveJourneyModule: Module {
   private var rail: RailRecord?
   private var acknowledgeObserver: NSObjectProtocol?
 
+  /// Every journey activity the SYSTEM is showing, not the one this instance
+  /// remembers starting. A Live Activity outlives the process that requested
+  /// it, so a reference held in a property is gone after a relaunch while the
+  /// card is still on the Lock Screen -- and `stop()` would then find nothing
+  /// to end, leaving a Dynamic Island nobody can dismiss. ActivityKit is the
+  /// only source of truth for what is actually up.
   @available(iOS 16.2, *)
-  private var activity: Activity<JourneyAttributes>? {
-    get { activityStorage as? Activity<JourneyAttributes> }
-    set { activityStorage = newValue }
+  private var running: [Activity<JourneyAttributes>] {
+    Activity<JourneyAttributes>.activities
   }
 
   public func definition() -> ModuleDefinition {
@@ -166,9 +168,8 @@ public class LiveJourneyModule: Module {
 
       // One journey at a time, per the spec. A start that finds a stale
       // activity ends it rather than leaving two lock-screen cards arguing.
-      if let running = self.activity {
-        await running.end(nil, dismissalPolicy: .immediate)
-        self.activity = nil
+      for stale in self.running {
+        await stale.end(nil, dismissalPolicy: .immediate)
       }
 
       self.rail = rail
@@ -183,7 +184,7 @@ public class LiveJourneyModule: Module {
         pointSeconds: rail.points.map(\.atSeconds)
       )
 
-      self.activity = try Activity.request(
+      _ = try Activity.request(
         attributes: attributes,
         content: ActivityContent(
           state: self.contentState(from: state, copy: copy, alert: nil, acknowledged: false),
@@ -199,7 +200,7 @@ public class LiveJourneyModule: Module {
       alert: LiveSurfaceAlertRecord?
     ) in
       guard #available(iOS 16.2, *) else { return }
-      guard let activity = self.activity else { throw NoActiveJourneyException() }
+      guard let activity = self.running.first else { throw NoActiveJourneyException() }
 
       // An alert is only ever sent for a leg the rider has NOT acknowledged --
       // `resolveJourneyState` stops reporting `alight-soon` once they have --
@@ -238,12 +239,13 @@ public class LiveJourneyModule: Module {
 
     AsyncFunction("stop") {
       guard #available(iOS 16.2, *) else { return }
-      guard let activity = self.activity else { return }
-      // `.immediate` rather than leaving the card up: the journey is over, and
-      // a finished journey lingering on the Lock Screen is the app failing to
-      // notice something the rider already knows.
-      await activity.end(nil, dismissalPolicy: .immediate)
-      self.activity = nil
+      // Every activity, including one a previous launch of the app started:
+      // `.immediate` rather than leaving the card up, because the journey is
+      // over and a finished journey lingering on the Lock Screen is the app
+      // failing to notice something the rider already knows.
+      for activity in self.running {
+        await activity.end(nil, dismissalPolicy: .immediate)
+      }
       self.rail = nil
     }
   }

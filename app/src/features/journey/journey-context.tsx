@@ -559,6 +559,11 @@ function useJourneyState() {
     // before this resolved would find no record and do nothing.
     Promise.all([readStoredJourney(), readPendingLeave()]).then(([stored, pending]) => {
       if (cancelled) return;
+      // No journey on disk means no Live Activity should be up. One that is --
+      // from a crash between clearing storage and ending it, or a build that
+      // could only end the activity its own process started -- is an orphan the
+      // rider has no other way to dismiss.
+      if (!stored) void liveSurface.stop().catch(() => {});
       setJourney(stored);
       setPendingLeave(pending);
       setHydrated(true);
