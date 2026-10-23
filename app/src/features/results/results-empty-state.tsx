@@ -1,15 +1,14 @@
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button, Card, EmptyState, Layout, Space, type IconName } from '@/design-system';
 
 export type ResultsEmptyStateProps = {
   title: string;
   body: string;
   actionLabel: string;
   onAction: () => void;
+  /** What the state is about: a missing place, an error, no service. */
+  icon?: IconName;
   /** The action is already running -- a refresh in flight. */
   busy?: boolean;
 };
@@ -18,56 +17,29 @@ export type ResultsEmptyStateProps = {
  * What the bottom of the results screen shows when there is no trip to show:
  * never a bare map. It says why, what to change, and offers the one action that
  * moves the rider on -- search again, or pick the place the search is missing.
+ *
+ * The action is its own `Button` rather than `EmptyState`'s, because it has to
+ * show a refresh already in flight (spinner, disabled) without changing width.
  */
-export function ResultsEmptyState({ title, body, actionLabel, onAction, busy = false }: ResultsEmptyStateProps) {
-  const theme = useTheme();
+export function ResultsEmptyState({ title, body, actionLabel, onAction, icon = 'info', busy = false }: ResultsEmptyStateProps) {
   return (
-    <ThemedView type="background" style={[styles.card, { borderColor: theme.borderMuted }]}>
-      <ThemedText type="defaultBold" style={styles.text}>
-        {title}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.text}>
-        {body}
-      </ThemedText>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ busy, disabled: busy }}
-        disabled={busy}
-        onPress={onAction}
-        style={[styles.button, { backgroundColor: theme.text }]}
-      >
-        {busy ? (
-          <ActivityIndicator color={theme.background} />
-        ) : (
-          <ThemedText type="defaultBold" themeColor="background">
-            {actionLabel}
-          </ThemedText>
-        )}
-      </Pressable>
-    </ThemedView>
+    // The same floating card the loading state sits in, so the bottom of the
+    // screen keeps its place whichever state it is in.
+    <Card variant="floating" style={styles.card}>
+      <EmptyState icon={icon} title={title} message={body} style={styles.empty} />
+      <Button label={actionLabel} onPress={onAction} loading={busy} variant="prominent" size="md" fullWidth />
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  // The same card the loading state sits in, so the bottom of the screen keeps
-  // its place whichever state it is in.
   card: {
-    alignItems: 'center',
-    marginHorizontal: Spacing.three,
-    padding: Spacing.four,
-    gap: Spacing.two,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
+    marginHorizontal: Layout.pageInset,
   },
-  text: {
-    textAlign: 'center',
-  },
-  button: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    marginTop: Spacing.two,
-    borderRadius: 999,
+  // A page's empty state is centred in a whole screen of air; over a map it
+  // has to stay a compact block, so most of that padding goes.
+  empty: {
+    paddingHorizontal: Space.none,
+    paddingVertical: Space.sm,
   },
 });

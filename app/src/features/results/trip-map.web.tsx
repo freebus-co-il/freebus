@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { Itinerary } from '@/api/types';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Surface, Text } from '@/design-system';
 
 export type MapEndpoint = { lat: number; lon: number };
 
@@ -31,14 +30,15 @@ export function TripMap({
   if (!itinerary && origin === null && destination === null) return null;
 
   return (
-    <ThemedView
-      type="surface"
+    // `surfaceNested`: the grey stand-in a web build shows where a map would be.
+    <Surface
+      level="surfaceNested"
       style={[styles.placeholder, { paddingTop: edgePadding?.top ?? DEFAULT_TOP_INSET }, style]}
     >
-      <ThemedText type="small" themeColor="textSecondary">
+      <Text variant="footnote" color="textSecondary">
         {t('results.mapWebUnavailable')}
-      </ThemedText>
-    </ThemedView>
+      </Text>
+    </Surface>
   );
 }
 

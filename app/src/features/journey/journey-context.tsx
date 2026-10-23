@@ -9,11 +9,11 @@ import { Alert, AppState, Platform } from 'react-native';
 
 import { useRealtimeAvailable } from '@/api/meta';
 import type { Itinerary, Place } from '@/api/types';
+import { useColors } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { useSearch } from '@/features/search/search-context';
 import { withLineChosen } from '@/features/trip/line-options';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
 import i18n from '@/i18n';
 import type { SelectedPlace } from '@/lib/place';
 
@@ -488,8 +488,11 @@ function useJourneyState() {
   // its own copy would need its own copy of the `journey.*` keys, in every
   // locale, drifting from these.
   const { t } = useTranslation();
-  const theme = useTheme();
-  const palette = useMemo(() => ({ end: theme.text, alert: theme.danger }), [theme.text, theme.danger]);
+  const colors = useColors();
+  const palette = useMemo(
+    () => ({ end: colors.textPrimary, alert: colors.danger }),
+    [colors.textPrimary, colors.danger],
+  );
 
   const now = useNow(journey ? JOURNEY_TICK_MS : IDLE_TICK_MS);
 

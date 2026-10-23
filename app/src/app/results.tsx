@@ -1,16 +1,25 @@
-import { IconArrowsUpDown } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { usePlanTrip } from '@/api/plan';
-import { IconBack } from '@/components/directional-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import {
+  Border,
+  Card,
+  Glass,
+  IconButton,
+  Layout,
+  Loading,
+  MapStyle,
+  Opacity,
+  Radius,
+  Space,
+  Text,
+  useColors,
+} from '@/design-system';
 import { groupItineraries } from '@/features/results/group-itineraries';
 import { ModeFilterChip } from '@/features/results/mode-filter-chip';
 import { TripCarousel } from '@/features/results/trip-carousel';
@@ -21,13 +30,20 @@ import { useVehicles } from '@/api/vehicles';
 import { useRecents } from '@/features/recents/recents-context';
 import { useSearch } from '@/features/search/search-context';
 import { TripTimePicker } from '@/features/search/trip-time-picker';
-import { useTheme } from '@/hooks/use-theme';
 import { countEvent } from '@/lib/analytics';
 import { placeCoordinates, placeLabel } from '@/lib/place';
 
+/** The origin and destination glyphs in the route panel: a ring for where the
+ *  trip starts, a filled square for where it ends, joined by a short rule --
+ *  the same pair the map's pins stand for. Drawn shapes, so sized here. */
+const PLACE_GLYPH = Space.sm;
+const CONNECTOR_HEIGHT = Space.sm + Space.xxs;
+/** Just enough rounding to soften the square without reading as a dot. */
+const DESTINATION_GLYPH_CORNER = 2;
+
 export default function ResultsScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const { planQuery, origin, destination, swapOriginDestination } = useSearch();
   const { recordSearch } = useRecents();
 
@@ -74,10 +90,10 @@ export default function ResultsScreen() {
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
   const mapEdgePadding = useMemo(
     () => ({
-      top: topBarHeight + Spacing.three,
-      right: 50,
-      bottom: bottomBarHeight + Spacing.three,
-      left: 50,
+      top: topBarHeight + Space.lg,
+      right: MapStyle.edgePadding,
+      bottom: bottomBarHeight + Space.lg,
+      left: MapStyle.edgePadding,
     }),
     [topBarHeight, bottomBarHeight],
   );
@@ -132,9 +148,9 @@ export default function ResultsScreen() {
   // missing, or another go at it. A search that genuinely found nothing is
   // usually a time with no service (late at night, Shabbat), so that is what
   // it suggests changing, with the time chip right above the map to do it.
-  const status = isLoading ? <ActivityIndicator /> : null;
   const emptyState = !destination
     ? {
+        icon: 'place' as const,
         title: t('search.destinationPlaceholder'),
         body: t('results.emptyNoDestination'),
         actionLabel: t('results.chooseDestination'),
@@ -142,6 +158,7 @@ export default function ResultsScreen() {
       }
     : !origin
       ? {
+          icon: 'currentLocation' as const,
           title: t('search.chooseOrigin'),
           body: t('results.emptyNoOrigin'),
           actionLabel: t('results.chooseOrigin'),
@@ -149,20 +166,28 @@ export default function ResultsScreen() {
         }
       : isError
         ? {
+            icon: 'error' as const,
             title: t('results.error'),
             body: error instanceof ApiError ? error.message : t('results.errorHint'),
             actionLabel: t('results.refresh'),
             onAction: () => void refetch(),
           }
         : {
+            icon: 'time' as const,
             title: t('results.noTrips'),
             body: t('results.noTripsHint'),
             actionLabel: t('results.refresh'),
             onAction: () => void refetch(),
           };
 
+  // A tapped place row dims on iOS; Android ripples.
+  const placeRowStyle = ({ pressed }: { pressed: boolean }) => [
+    styles.placeRow,
+    pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed },
+  ];
+
   return (
-    <ThemedView type="background" style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
       {/* No `style` at all, so `TripMap`'s own `flex: 1` lays this out as an
           ordinary in-flow child -- which still fills the screen, because the
           two floating bars below are absolutely positioned and take no room
@@ -185,42 +210,48 @@ export default function ResultsScreen() {
         pointerEvents="box-none"
         onLayout={(event) => setTopBarHeight(event.nativeEvent.layout.height)}
       >
-        <ThemedView type="background" style={styles.originDestCard}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={Spacing.two}>
-            <IconBack size={20} color={theme.text} />
-          </Pressable>
+        <View style={styles.routeRow} pointerEvents="box-none">
+          <IconButton icon="chevronBack" accessibilityLabel={t('common.back')} onPress={() => router.back()} />
 
-          <View style={styles.placesColumn}>
-            <Pressable
-              onPress={() => router.push({ pathname: '/location-picker', params: { field: 'origin' } })}
-              style={styles.placeRow}
-            >
-              <View style={[styles.dot, { borderColor: theme.text }]} />
-              <ThemedText type="smallBold" numberOfLines={1} style={styles.placeText}>
-                {origin ? placeLabel(origin) : t('search.originPlaceholder')}
-              </ThemedText>
-            </Pressable>
-            <View style={[styles.connector, { backgroundColor: theme.borderMuted }]} />
-            <Pressable
-              onPress={() => router.push({ pathname: '/location-picker', params: { field: 'destination' } })}
-              style={styles.placeRow}
-            >
-              <View style={[styles.square, { backgroundColor: theme.text }]} />
-              <ThemedText type="smallBold" numberOfLines={1} style={styles.placeText}>
-                {destination ? placeLabel(destination) : t('search.destinationPlaceholder')}
-              </ThemedText>
-            </Pressable>
-          </View>
+          {/* Chrome, not content: the route panel is the search itself, the
+              thing the rider edits, floating over the answer. */}
+          <Glass shape="rounded" style={styles.routePanel}>
+            <View style={styles.placesColumn}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/location-picker', params: { field: 'origin' } })}
+                android_ripple={{ color: colors.fillPressed }}
+                style={placeRowStyle}
+              >
+                <View style={[styles.originGlyph, { borderColor: colors.textPrimary }]} />
+                <Text variant="subheadline" emphasized numberOfLines={1} style={styles.placeText}>
+                  {origin ? placeLabel(origin) : t('search.originPlaceholder')}
+                </Text>
+              </Pressable>
+              <View style={[styles.connector, { backgroundColor: colors.separator }]} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/location-picker', params: { field: 'destination' } })}
+                android_ripple={{ color: colors.fillPressed }}
+                style={placeRowStyle}
+              >
+                <View style={[styles.destinationGlyph, { backgroundColor: colors.textPrimary }]} />
+                <Text variant="subheadline" emphasized numberOfLines={1} style={styles.placeText}>
+                  {destination ? placeLabel(destination) : t('search.destinationPlaceholder')}
+                </Text>
+              </Pressable>
+            </View>
 
-          <Pressable
-            onPress={swapOriginDestination}
-            disabled={!origin || !destination}
-            style={styles.swapButton}
-            hitSlop={Spacing.two}
-          >
-            <IconArrowsUpDown size={18} color={origin && destination ? theme.text : theme.borderMuted} />
-          </Pressable>
-        </ThemedView>
+            <IconButton
+              icon="swap"
+              variant="plain"
+              size="sm"
+              accessibilityLabel={t('results.swap')}
+              onPress={swapOriginDestination}
+              disabled={!origin || !destination}
+            />
+          </Glass>
+        </View>
 
         {/* The vehicle filter sits with the time picker rather than down by
             the results: both narrow the SEARCH, and the bottom of the screen is
@@ -247,10 +278,10 @@ export default function ResultsScreen() {
         pointerEvents="box-none"
         onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
       >
-        {status ? (
-          <ThemedView type="background" style={[styles.statusCard, { borderColor: theme.borderMuted }]}>
-            {status}
-          </ThemedView>
+        {isLoading ? (
+          <Card variant="floating" style={styles.statusCard}>
+            <Loading />
+          </Card>
         ) : groups.length > 0 ? (
           <TripCarousel
             groups={groups}
@@ -262,7 +293,7 @@ export default function ResultsScreen() {
           <ResultsEmptyState {...emptyState} busy={isFetching} />
         )}
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -275,51 +306,52 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: Spacing.two,
-    gap: Spacing.three,
+    paddingTop: Space.sm,
+    gap: Space.md,
   },
-  originDestCard: {
-    marginHorizontal: Spacing.three,
+  routeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.four,
+    gap: Space.sm,
+    paddingHorizontal: Layout.pageInset,
   },
-  backButton: {
-    padding: Spacing.one,
+  routePanel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    paddingStart: Space.lg,
+    paddingEnd: Space.xs,
+    paddingVertical: Space.sm,
   },
   placesColumn: {
     flex: 1,
-    gap: Spacing.one,
+    gap: Space.xxs,
   },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   placeText: {
     flexShrink: 1,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 2,
+  originGlyph: {
+    width: PLACE_GLYPH,
+    height: PLACE_GLYPH,
+    borderRadius: Radius.full,
+    borderWidth: Border.selected,
   },
-  square: {
-    width: 7,
-    height: 7,
-    borderRadius: 2,
+  destinationGlyph: {
+    width: PLACE_GLYPH,
+    height: PLACE_GLYPH,
+    borderRadius: DESTINATION_GLYPH_CORNER,
   },
   connector: {
-    width: 1.5,
-    height: 10,
-    marginStart: 3,
-  },
-  swapButton: {
-    padding: Spacing.one,
+    width: Border.default,
+    height: CONNECTOR_HEIGHT,
+    // Centred under the origin ring.
+    marginStart: (PLACE_GLYPH - Border.default) / 2,
   },
   /** `flexGrow: 0` so the strip is only as tall as a chip -- a `ScrollView`
    *  in a column otherwise claims all the height left over, and this one
@@ -330,22 +362,18 @@ const styles = StyleSheet.create({
   topChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
+    paddingHorizontal: Layout.pageInset,
+    gap: Space.sm,
   },
   bottomBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingBottom: Spacing.three,
-    gap: Spacing.two,
+    paddingBottom: Space.lg,
+    gap: Space.sm,
   },
   statusCard: {
-    alignItems: 'center',
-    marginHorizontal: Spacing.three,
-    padding: Spacing.four,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
+    marginHorizontal: Layout.pageInset,
   },
 });

@@ -1,83 +1,54 @@
-import { IconBusStop, IconHome, IconRoute, IconSettings } from '@tabler/icons-react-native';
-import { Tabs } from 'expo-router';
-import { BottomTabBar } from 'expo-router/js-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
 
-import { JourneyBar } from '@/features/journey/journey-bar';
-import { useTheme } from '@/hooks/use-theme';
+import { glyphFor, useColors } from '@/design-system';
+import { JourneyAccessoryContent, useJourneyAccessoryVisible } from '@/features/journey/journey-bar';
 
 /**
- * The places a rider can be when they are not inside a journey. Everything
- * else -- results, trip, station, line, the pickers -- is pushed by the ROOT
- * stack and covers this bar, so the tabs never compete with a screen that owns
- * the whole display.
+ * The tab bar is the platform's own: a floating Liquid Glass bar on iOS 26 that
+ * minimises as a list scrolls, a Material 3 navigation bar on Android. The live
+ * journey rides in its accessory slot on iOS 26 (see `JourneyAccessoryContent`);
+ * elsewhere each tab root renders a `JourneyDock`.
  */
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const theme = useTheme();
-
+  const colors = useColors();
+  const showJourney = useJourneyAccessoryVisible();
+  const tab = (outline: Parameters<typeof glyphFor>[0], filled: Parameters<typeof glyphFor>[0]) => ({
+    sf: { default: glyphFor(outline).ios, selected: glyphFor(filled).ios },
+    md: glyphFor(outline).android,
+  });
   return (
-    <Tabs
-      // Docked here rather than in a screen, because a running journey belongs
-      // to no screen: this puts it on every tab, and under the root stack's
-      // pushed screens, which is exactly where a now-playing bar lives.
-      tabBar={(props) => (
-        <View>
-          <JourneyBar />
-          <BottomTabBar {...props} />
-        </View>
-      )}
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.text,
-        tabBarInactiveTintColor: theme.textSecondary,
-        // The page colour, so the bar is the bottom of the page rather than
-        // a white ledge laid over it -- but a hairline on top, because the
-        // page is white now and without one the last row of a list simply
-        // stops in mid-air above the tabs. The same `borderMuted` line that
-        // separates two rows, for the same reason: this is a divider, not
-        // the edge of a control.
-        //
-        // `elevation: 0` stays. Android's default gives the bar a shadow,
-        // which would draw that edge a second time and in a way the rest of
-        // the app never does -- see AGENTS.md on shadows.
-        tabBarStyle: {
-          backgroundColor: theme.background,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: theme.borderMuted,
-          elevation: 0,
-        },
-      }}
+    <NativeTabs
+      tintColor={colors.accent}
+      iconColor={{ default: colors.textSecondary, selected: colors.accent }}
+      labelStyle={{ default: { color: colors.textSecondary }, selected: { color: colors.accent } }}
+      indicatorColor={colors.trackFill}
+      rippleColor={colors.fillPressed}
+      labelVisibilityMode="labeled"
+      minimizeBehavior="onScrollDown"
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tabs.home'),
-          tabBarIcon: ({ color, size }) => <IconHome size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="lines"
-        options={{
-          title: t('tabs.lines'),
-          tabBarIcon: ({ color, size }) => <IconRoute size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="stations"
-        options={{
-          title: t('tabs.stations'),
-          tabBarIcon: ({ color, size }) => <IconBusStop size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: t('tabs.settings'),
-          tabBarIcon: ({ color, size }) => <IconSettings size={size} color={color} />,
-        }}
-      />
-    </Tabs>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Icon {...tab('home', 'homeFill')} />
+        <NativeTabs.Trigger.Label>{t('tabs.home')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="lines">
+        <NativeTabs.Trigger.Icon {...tab('lines', 'linesFill')} />
+        <NativeTabs.Trigger.Label>{t('tabs.lines')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="stations">
+        <NativeTabs.Trigger.Icon {...tab('stations', 'stationsFill')} />
+        <NativeTabs.Trigger.Label>{t('tabs.stations')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <NativeTabs.Trigger.Icon {...tab('settings', 'settingsFill')} />
+        <NativeTabs.Trigger.Label>{t('tabs.settings')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      {showJourney && (
+        <NativeTabs.BottomAccessory>
+          <JourneyAccessoryContent />
+        </NativeTabs.BottomAccessory>
+      )}
+    </NativeTabs>
   );
 }

@@ -1,16 +1,11 @@
-import { IconBus, IconCheck, IconChevronDown } from '@tabler/icons-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { useTransitModes } from '@/api/modes';
 import type { TransitMode } from '@/api/types';
-import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button, Chip, Layout, ListRow, ListSection, Sheet } from '@/design-system';
 import { useSearch } from '@/features/search/search-context';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { hapticSelected } from '@/lib/haptics';
 
 /**
@@ -23,9 +18,6 @@ import { hapticSelected } from '@/lib/haptics';
  */
 export function ModeFilterChip() {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
-  const sheetEdge = useSheetEdge();
   const { selectedModes, setSelectedModes } = useSearch();
   const { data } = useTransitModes();
   const [open, setOpen] = useState(false);
@@ -38,7 +30,7 @@ export function ModeFilterChip() {
   // sheet however the rest of the screen reacts.
   //
   // The second is plain waste: committing per tap ran one whole search per
-  // checkbox, so picking three vehicle types fired three of them and churned
+  // tick, so picking three vehicle types fired three of them and churned
   // the map and carousel underneath the sheet between each.
   const [draft, setDraft] = useState<number[]>(selectedModes);
 
@@ -70,8 +62,8 @@ export function ModeFilterChip() {
     setOpen(true);
   }
 
-  // Every way out of the sheet commits -- Done, the backdrop, and Android's
-  // back gesture. Discarding on some of those and keeping on others is the
+  // Every way out of the sheet commits -- Done, the close button, the scrim,
+  // and Android's back gesture (all of which `Sheet` routes to `onClose`). Discarding on some of those and keeping on others is the
   // kind of distinction a rider has to learn by losing work once.
   function closeSheet() {
     setSelectedModes(draft);
@@ -80,134 +72,65 @@ export function ModeFilterChip() {
 
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={summary} onPress={openSheet}>
-        <ThemedView type="background" style={[styles.chip, outline]}>
-          <IconBus size={18} color={theme.text} />
-          <ThemedText type="smallBold">{summary}</ThemedText>
-          <IconChevronDown size={16} color={theme.textSecondary} />
-        </ThemedView>
-      </Pressable>
+      <Chip label={summary} icon="bus" menu glass onPress={openSheet} accessibilityLabel={summary} />
 
-      <Modal transparent animationType="slide" visible={open} onRequestClose={closeSheet}>
-        <SheetBackdrop onPress={closeSheet} />
-        <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-          <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-          <ThemedText type="subtitle">{t('results.modeFilterTitle')}</ThemedText>
-
-          <ScrollView style={styles.list}>
+      <Sheet
+        visible={open}
+        onClose={closeSheet}
+        title={t('results.modeFilterTitle')}
+        closeLabel={t('common.close')}
+        footer={
+          <>
+            {draft.length > 0 && (
+              <Button
+                label={t('results.modeFilterReset')}
+                onPress={() => setDraft([])}
+                variant="secondary"
+                size="lg"
+                style={styles.footerButton}
+              />
+            )}
+            <Button label={t('search.done')} onPress={closeSheet} variant="prominent" size="lg" style={styles.footerButton} />
+          </>
+        }
+      >
+        {/* Bounded by the sheet (which never grows past most of the screen),
+            so a feed with many vehicle types scrolls rather than pushing the
+            footer off the bottom. */}
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <ListSection>
             {modes.map((mode) => {
               // An empty selection means "all", so every row reads as ticked in
-              // that state -- showing six empty checkboxes for a filter that is
+              // that state -- showing six empty checkmarks for a filter that is
               // letting everything through would be a plain lie.
               const checked = draft.length === 0 || draft.includes(mode.type);
               return (
-                <Pressable
+                <ListRow
                   key={mode.type}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked }}
+                  title={label(mode)}
+                  accessory="check"
+                  selection="multiple"
+                  selected={checked}
                   onPress={() => toggle(mode.type)}
-                  style={styles.row}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      { borderColor: theme.borderMuted },
-                      checked && { backgroundColor: theme.text, borderColor: theme.text },
-                    ]}
-                  >
-                    {checked && <IconCheck size={14} color={theme.background} />}
-                  </View>
-                  <ThemedText type="default" style={styles.rowLabel}>
-                    {label(mode)}
-                  </ThemedText>
-                </Pressable>
+                />
               );
             })}
-          </ScrollView>
-
-          <View style={styles.actions}>
-            {draft.length > 0 && (
-              <Pressable
-                onPress={() => setDraft([])}
-                style={[styles.secondaryButton, { borderColor: theme.borderMuted }]}
-              >
-                <ThemedText type="smallBold">{t('results.modeFilterReset')}</ThemedText>
-              </Pressable>
-            )}
-            <Pressable onPress={closeSheet} style={[styles.doneButton, { backgroundColor: theme.text }]}>
-              <ThemedText type="smallBold" themeColor="background">
-                {t('search.done')}
-              </ThemedText>
-            </Pressable>
-          </View>
-        </ThemedView>
-      </Modal>
+          </ListSection>
+        </ScrollView>
+      </Sheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
-  },
-  sheet: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    paddingTop: Spacing.two,
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    gap: Spacing.three,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.two,
-  },
-  // Bounded so a feed with many vehicle types cannot grow the sheet past the
-  // screen; six rows sit well inside this.
   list: {
-    maxHeight: 320,
+    flexGrow: 0,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
+  listContent: {
+    paddingHorizontal: Layout.pageInset,
   },
-  rowLabel: {
-    flexShrink: 1,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: Spacing.one,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  secondaryButton: {
+  // Reset and Done share the footer row evenly.
+  footerButton: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
-    borderWidth: 1.5,
-  },
-  doneButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
   },
 });

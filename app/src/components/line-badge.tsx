@@ -1,8 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { Radius, Space, Text } from '@/design-system';
 import { VehicleIcon } from '@/components/vehicle-icon';
-import { Spacing } from '@/constants/theme';
 import { readableTextColor, routeColor } from '@/lib/route-color';
 
 export type LineBadgeRoute = {
@@ -13,63 +12,41 @@ export type LineBadgeRoute = {
 
 export type LineBadgeProps = {
   route: LineBadgeRoute;
-  /** `small` for a dense strip of them (a stop's line list); `default`
-   *  wherever one badge stands alone and is the thing being read. */
-  size?: 'small' | 'default';
+  /** `small` for a dense strip (a stop's line list, a chip); `default` where a
+   *  badge stands alone in a row; `large` as a screen's identity (a line page). */
+  size?: 'small' | 'default' | 'large';
 };
 
+const SIZES = {
+  small: { minWidth: 24, height: 18, pad: Space.xs, text: 'caption2', glyph: 11 },
+  default: { minWidth: 32, height: 24, pad: Space.sm - Space.xxs, text: 'footnote', glyph: 14 },
+  large: { minWidth: 44, height: 32, pad: Space.sm, text: 'headline', glyph: 18 },
+} as const;
+
 /**
- * One line, as a colour-filled capsule with its number in it.
- *
- * The app's single vocabulary for "which line is this" -- the departure
- * boards, the search results, the journey cards and the trip rail all draw
- * the same object, so a rider learns the shape once. The fill is the
- * OPERATOR's colour (see `lib/route-color`), which is what makes a strip of
- * these scannable: on a stop served by eight lines, the colours group them by
- * company before any number is read.
- *
- * Falls back to the vehicle glyph when a line has no number of its own --
- * every one of this feed's 1,071 rail routes, which would otherwise render
- * as an empty coloured capsule.
+ * One line, as an operator-coloured capsule with its number in it -- the app's
+ * single vocabulary for "which line is this". The fill is the operator's colour,
+ * so a strip of these groups by company before any number is read. Rail routes
+ * have no number in this feed, so they show the vehicle glyph instead.
  */
 export function LineBadge({ route, size = 'default' }: LineBadgeProps) {
   const color = routeColor(route);
-  const textColor = readableTextColor(color);
+  const ink = readableTextColor(color);
   const shortName = route.shortName?.trim() ?? '';
-  const small = size === 'small';
-
+  const spec = SIZES[size];
   return (
-    <View style={[small ? styles.badgeSmall : styles.badge, { backgroundColor: color }]}>
+    <View style={[styles.badge, { backgroundColor: color, minWidth: spec.minWidth, height: spec.height, paddingHorizontal: spec.pad }]}>
       {shortName === '' ? (
-        <VehicleIcon type={route.type} size={small ? 11 : 14} color={textColor} />
+        <VehicleIcon type={route.type} size={spec.glyph} color={ink} />
       ) : (
-        <ThemedText type="smallBold" style={[{ color: textColor }, small && styles.textSmall]}>
+        <Text variant={spec.text} emphasized numeric color={ink} numberOfLines={1}>
           {shortName}
-        </ThemedText>
+        </Text>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    minWidth: 34,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.two,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeSmall: {
-    minWidth: 24,
-    paddingHorizontal: Spacing.one + 2,
-    paddingVertical: 1,
-    borderRadius: Spacing.one + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textSmall: {
-    fontSize: 11,
-    lineHeight: 15,
-  },
+  badge: { borderRadius: Radius.sm - Space.xxs, alignItems: 'center', justifyContent: 'center' },
 });

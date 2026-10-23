@@ -3,9 +3,7 @@ import { Fragment, useState } from 'react';
 import { I18nManager, StyleSheet, View } from 'react-native';
 
 import type { Leg } from '@/api/types';
-import { IconForward } from '@/components/directional-icon';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Icon, Space, useColors, withAlpha } from '@/design-system';
 
 import { LegSummary } from './leg-summary';
 
@@ -15,6 +13,9 @@ import { LegSummary } from './leg-summary';
 const FADE_WIDTH = 40;
 
 export type LegTimelineProps = {
+  /** On glass there is no solid colour to fade into: the overflowing tail is
+   *  clipped instead of faded. */
+  onGlass?: boolean;
   legs: Leg[];
 };
 
@@ -43,8 +44,8 @@ export type LegTimelineProps = {
  * Overflow is then measured from the LAST leg instead of from a content width
  * (see `overflowing` below), which needs no scroll container to observe.
  */
-export function LegTimeline({ legs }: LegTimelineProps) {
-  const theme = useTheme();
+export function LegTimeline({ legs, onGlass = false }: LegTimelineProps) {
+  const colors = useColors();
   const [width, setWidth] = useState(0);
   const [tailStart, setTailStart] = useState(0);
   const [tailWidth, setTailWidth] = useState(0);
@@ -58,11 +59,12 @@ export function LegTimeline({ legs }: LegTimelineProps) {
   // with nothing hidden.
   const overflowing = width > 0 && (tailStart < -1 || tailStart + tailWidth > width + 1);
 
-  // Fades to the page, not to `transparent` -- the shorthand `transparent`
-  // is rgba(0,0,0,0), which reads as a dirty grey smear across the middle of
-  // the ramp on a white page. `${hex}00` is the same colour at zero alpha, so
-  // the ramp stays neutral.
-  const fadeColors = [`${theme.background}00`, theme.background] as const;
+  // Fades to the card the strip sits on (a floating card over the map, on the
+  // results and trip screens alike), not to `transparent` -- the shorthand
+  // `transparent` is rgba(0,0,0,0), which reads as a dirty grey smear across
+  // the middle of the ramp on a white card. The same colour at zero alpha
+  // keeps the ramp neutral.
+  const fadeColors = [withAlpha(colors.surfaceFloating, 0), colors.surfaceFloating] as const;
 
   return (
     <View style={styles.row} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
@@ -74,10 +76,10 @@ export function LegTimeline({ legs }: LegTimelineProps) {
               // Wrapped, and every wrapper pinned at `flexShrink: 0`: an
               // overflowing row must push its tail past the end edge, never
               // squeeze the legs to fit. That is already React Native's
-              // default, but not the web renderer's for a raw SVG -- an
+              // default, but not the web renderer's for a bare glyph -- an
               // unwrapped chevron collapses to nothing there.
               <View style={styles.item}>
-                <IconForward size={14} color={theme.textSecondary} />
+                <Icon name="chevronForward" size="xs" color="textSecondary" weight="semibold" />
               </View>
             )}
             <View
@@ -97,7 +99,7 @@ export function LegTimeline({ legs }: LegTimelineProps) {
         );
       })}
 
-      {overflowing && (
+      {overflowing && !onGlass && (
         <LinearGradient
           // `end: 0` rather than `right: 0`, and the colour ramp reversed
           // under RTL: in Hebrew the strip runs right-to-left, so the hidden
@@ -118,7 +120,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
-    gap: Spacing.two,
+    gap: Space.sm,
     // Bounds the strip to the card's width so an overflowing timeline never
     // pushes the card itself wider inside the carousel, and clips whatever
     // runs past the end edge.

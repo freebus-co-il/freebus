@@ -1,16 +1,12 @@
-import { IconCheck } from '@tabler/icons-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import type { TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { ListRow, ListSection, Sheet, Text, type ColorRole } from '@/design-system';
+import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { currentOption, lineOptions, lineVerdict, type LineVerdict } from '@/features/trip/line-options';
-import { useTheme } from '@/hooks/use-theme';
 import { formatClockTime } from '@/lib/format';
 import { hapticSelected } from '@/lib/haptics';
 
@@ -39,7 +35,7 @@ export function LineSwitchSheet({
 }) {
   // Remember the leg this sheet last opened on, on BOTH edges of the open/close
   // cycle. The caller's `leg` prop becomes null the instant the rider picks a
-  // run, but the Modal is still animating down -- so on the closing edge we
+  // run, but the sheet's Modal is still animating down -- so on the closing edge we
   // hold the remembered leg through the close instead of rendering null and
   // letting the rows vanish mid-animation. Symmetrically, on the OPENING edge,
   // seeding `useState(leg)` and then adjusting during render (rather than in a
@@ -51,13 +47,19 @@ export function LineSwitchSheet({
   const [rememberedLeg, setRememberedLeg] = useState<TransitLeg | null>(leg);
   if (leg !== null && leg !== rememberedLeg) setRememberedLeg(leg);
 
+  const { t } = useTranslation();
+
   return (
-    <Modal transparent animationType="slide" visible={leg !== null} onRequestClose={onClose}>
-      <SheetBackdrop onPress={onClose} />
+    <Sheet
+      visible={leg !== null}
+      onClose={onClose}
+      title={t('journey.switchLine.title')}
+      closeLabel={t('common.close')}
+    >
       {rememberedLeg && (
         <LineSwitchSheetContent leg={rememberedLeg} onChoose={onChoose} onClose={onClose} />
       )}
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -69,18 +71,16 @@ function LineSwitchSheetContent({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const sheetEdge = useSheetEdge();
 
   const options = lineOptions(leg);
   const current = currentOption(leg, options);
 
-  const noteFor = (verdict: LineVerdict): { text: string; color: 'danger' | 'success' } | null => {
+  const noteFor = (verdict: LineVerdict): { text: string; color: Extract<ColorRole, 'danger' | 'live'> } | null => {
     switch (verdict.kind) {
       case 'slower':
         return { text: t('trip.lineLater', { minutes: verdict.minutesLater }), color: 'danger' };
       case 'sooner':
-        return { text: t('trip.lineSooner', { minutes: verdict.minutesSooner }), color: 'success' };
+        return { text: t('trip.lineSooner', { minutes: verdict.minutesSooner }), color: 'live' };
       case 'misses':
         return { text: t('trip.lineMisses'), color: 'danger' };
       case 'same':
@@ -88,12 +88,17 @@ function LineSwitchSheetContent({
     }
   };
 
+  // The sheet bounds its own height (and lets this shrink inside it), so a
+  // busy corridor's twenty runs scroll here instead of growing the sheet past
+  // the screen.
   return (
-    <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-      <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-      <ThemedText type="subtitle">{t('journey.switchLine.title')}</ThemedText>
-
-      <ScrollView style={styles.list}>
+    <ScrollView style={styles.list}>
+      {/* The planned run is a checked row like any other, so "I'm on the one
+          you think" is a visible answer and not an absence. Plain, not
+          grouped: the sheet is already the surface, and a group the same
+          colour as it would only add an inset. The section draws the
+          separators between rows, never under the last one. */}
+      <ListSection variant="plain">
         {options.map((option) => {
           const mine = option.tripId === leg.tripId;
           const note = mine ? null : noteFor(lineVerdict(option, current));
@@ -105,17 +110,37 @@ function LineSwitchSheetContent({
           // its own, so without this fallback a train row reads as nothing
           // but a time to a screen reader.
           const lineName = option.route.shortName?.trim() || t(`results.modeType.${option.route.type}`, { defaultValue: '' });
+          const headsign = option.headsign?.trim() ? formatHeadsign(option.headsign) : '';
           const label = [
             t('trip.lineOption', { line: lineName, time }),
             note?.text,
             mine ? t('journey.switchLine.current') : null,
           ].filter(Boolean).join(', ');
           return (
-            <Pressable
+            <ListRow
               key={option.tripId}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mine }}
               accessibilityLabel={label}
+              leading={<LineBadge route={option.route} />}
+              // Where the run is headed, so two runs of one line read apart;
+              // the badge already says which line.
+              title={headsign === '' ? lineName : t('results.towards', { name: headsign })}
+              titleLines={1}
+              subtitle={
+                note ? (
+                  <Text variant="subheadline" emphasized color={note.color} numeric>
+                    {note.text}
+                  </Text>
+                ) : mine ? (
+                  t('journey.switchLine.current')
+                ) : undefined
+              }
+              trailing={
+                <Text variant="body" emphasized={mine} numeric>
+                  {time}
+                </Text>
+              }
+              accessory="check"
+              selected={mine}
               onPress={() => {
                 // Only when the tap actually changes anything: re-picking the
                 // run already chosen is a no-op (`withLineChosen` returns
@@ -125,69 +150,16 @@ function LineSwitchSheetContent({
                 onChoose(option.tripId);
                 onClose();
               }}
-              style={styles.row}
-            >
-              <LineBadge route={option.route} />
-              <ThemedText type="default" style={styles.time}>
-                {time}
-              </ThemedText>
-              {note && (
-                <ThemedText type="smallBold" themeColor={note.color}>
-                  {note.text}
-                </ThemedText>
-              )}
-              {mine && (
-                <View style={styles.mine}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t('journey.switchLine.current')}
-                  </ThemedText>
-                  <IconCheck size={16} color={theme.text} />
-                </View>
-              )}
-            </Pressable>
+            />
           );
         })}
-      </ScrollView>
-    </ThemedView>
+      </ListSection>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    paddingTop: Spacing.two,
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    gap: Spacing.three,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.two,
-  },
-  // Bounded so a busy corridor's twenty runs cannot grow the sheet past the
-  // screen.
   list: {
-    maxHeight: 320,
-  },
-  // No separator between rows, matching the sibling sheet
-  // (`features/results/mode-filter-chip.tsx`): a per-row bottom border also
-  // draws a line under the LAST row, which nothing else in the sheet does.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-  },
-  time: {
-    flex: 1,
-  },
-  mine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
+    flexGrow: 0,
   },
 });

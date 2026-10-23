@@ -3,7 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-const TIMING = { duration: 260, easing: Easing.out(Easing.cubic) };
+import { Motion } from '@/design-system';
+
+const TIMING = { duration: Motion.smooth.duration, easing: Easing.out(Easing.cubic) };
 
 /**
  * Content that opens by growing to its own height and closes by shrinking

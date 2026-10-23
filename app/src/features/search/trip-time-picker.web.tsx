@@ -1,14 +1,8 @@
-import { IconChevronDown, IconClock, IconX } from '@tabler/icons-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
-import { SegmentedControl } from '@/components/segmented-control';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
+import { Button, Chip, IconButton, Layout, Radius, SegmentedControl, Sheet, Space, Type, useColors } from '@/design-system';
 import { formatPickerDateTime } from '@/lib/format';
 
 import { useSearch, type TimeMode } from './search-context';
@@ -33,9 +27,7 @@ function toInputValue(date: Date): string {
  *  single floating chip rather than a permanently-open panel over the map. */
 export function TripTimePicker() {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
-  const sheetEdge = useSheetEdge();
+  const colors = useColors();
   const { timeMode, setTimeMode, customTime, setCustomTime } = useSearch();
   const [open, setOpen] = useState(false);
 
@@ -47,33 +39,28 @@ export function TripTimePicker() {
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)}>
-        <ThemedView type="background" style={[styles.chip, outline]}>
-          <IconClock size={18} color={theme.text} />
-          <ThemedText type="smallBold" style={styles.chipText}>
-            {summary}
-          </ThemedText>
-          {customTime !== null ? (
-            <Pressable
-              onPress={() => {
-                setCustomTime(null);
-                setTimeMode('departAfter');
-              }}
-              hitSlop={Spacing.two}
-            >
-              <IconX size={16} color={theme.textSecondary} />
-            </Pressable>
-          ) : (
-            <IconChevronDown size={16} color={theme.textSecondary} />
-          )}
-        </ThemedView>
-      </Pressable>
+      <View style={styles.chipRow}>
+        <Chip label={summary} icon="time" menu glass onPress={() => setOpen(true)} />
+        {customTime !== null && (
+          <IconButton
+            icon="close"
+            size="sm"
+            accessibilityLabel={t('common.clear')}
+            onPress={() => {
+              setCustomTime(null);
+              setTimeMode('departAfter');
+            }}
+          />
+        )}
+      </View>
 
-      <Modal transparent animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
-        <SheetBackdrop onPress={() => setOpen(false)} />
-        <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-          <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-
+      <Sheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        closeLabel={t('common.close')}
+        footer={<Button label={t('search.done')} onPress={() => setOpen(false)} variant="prominent" size="lg" fullWidth style={styles.done} />}
+      >
+        <View style={styles.body}>
           <SegmentedControl
             value={timeMode}
             onChange={setTimeMode}
@@ -83,7 +70,7 @@ export function TripTimePicker() {
             ]}
           />
 
-          <ThemedView style={[styles.timeRow, { borderColor: theme.borderMuted }]}>
+          <View style={[styles.field, { backgroundColor: colors.surfaceNested }]}>
             <DateTimeInput
               type="datetime-local"
               value={toInputValue(displayDate)}
@@ -91,67 +78,43 @@ export function TripTimePicker() {
                 if (!event.target.value) return;
                 setCustomTime(new Date(event.target.value));
               }}
+              // A DOM element, so the design system's `Text` cannot style it:
+              // the `headline` style is spelled out from its token instead.
               style={{
-                fontSize: 18,
-                fontWeight: 700,
+                fontSize: Type.headline.fontSize,
+                fontWeight: Type.headline.fontWeight,
+                fontVariantNumeric: 'tabular-nums',
                 fontFamily: 'inherit',
-                color: theme.text,
+                color: colors.textPrimary,
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
                 width: '100%',
               }}
             />
-          </ThemedView>
-
-          <Pressable onPress={() => setOpen(false)} style={[styles.doneButton, { backgroundColor: theme.text }]}>
-            <ThemedText type="smallBold" themeColor="background">
-              {t('search.done')}
-            </ThemedText>
-          </Pressable>
-        </ThemedView>
-      </Modal>
+          </View>
+        </View>
+      </Sheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: {
+  chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
+    gap: Space.xs,
   },
-  chipText: {
-    maxWidth: 180,
+  body: {
+    paddingHorizontal: Layout.pageInset,
+    gap: Space.lg,
   },
-  sheet: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    paddingTop: Spacing.two,
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    gap: Spacing.three,
+  field: {
+    paddingHorizontal: Space.lg,
+    paddingVertical: Space.md,
+    borderRadius: Radius.md,
   },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.two,
-  },
-  timeRow: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-    borderWidth: 1.5,
-  },
-  doneButton: {
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
+  done: {
+    flex: 1,
   },
 });

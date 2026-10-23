@@ -1,15 +1,20 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Border, Layout, MapStyle, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
 import { formatClockTime } from '@/lib/format';
 
 /** The coloured spine's width, and the diameter of the dots that sit on it.
- *  Sized so a dot reads as a bead ON the line rather than a circle beside it. */
-const SPINE_WIDTH = 4;
+ *  Sized so a dot reads as a bead ON the line rather than a circle beside it.
+ *  Geometry of the drawing itself, not spacing. */
+export const SPINE_WIDTH = 4;
 const DOT_SIZE = 10;
 const BOARDING_DOT_SIZE = 16;
+
+/** The spine column: twice the distance to the middle of a row's leading
+ *  slot, so the spine runs straight down under the line badge of the row above
+ *  it (a departure on the board, a line's header). Shared with
+ *  `PreviousStopsRow`, whose dots must sit on the same line. */
+export const SPINE_COLUMN_WIDTH = (Layout.rowPaddingH + Size.leadingTile / 2) * 2;
 
 export type SpineStop = {
   key: string;
@@ -52,10 +57,12 @@ export function StopSpineRow({
   last,
   onPress,
 }: StopSpineRowProps) {
-  const theme = useTheme();
+  const colors = useColors();
+  // A stop behind the rider's own: still on the line, no longer their part of it.
+  const done = passed && !boarding;
 
   const row = (
-    <View style={styles.stopRow}>
+    <>
       <View style={styles.spineColumn}>
         <View
           style={[
@@ -64,10 +71,14 @@ export function StopSpineRow({
             passed && !first && styles.spineSpent,
           ]}
         />
+        {/* An ordinary stop is a hollow bead, filled with the marker ring's
+            colour -- the sheet's own in both themes, the same fill the map's
+            stop dots wear. The rider's stop is a bigger, solid one. */}
         <View
           style={[
             boarding ? styles.boardingDot : styles.dot,
-            { backgroundColor: boarding ? color : theme.background, borderColor: color },
+            { backgroundColor: boarding ? color : colors.mapMarkerRing, borderColor: color },
+            done && styles.done,
           ]}
         />
         <View
@@ -78,37 +89,42 @@ export function StopSpineRow({
         />
       </View>
 
-      <ThemedText
-        type={boarding ? 'smallBold' : 'default'}
-        numberOfLines={2}
-        themeColor={passed && !boarding ? 'textSecondary' : undefined}
-        style={styles.stopName}
-      >
-        {stop.name}
-      </ThemedText>
+      <View style={[styles.text, done && styles.done]}>
+        <Text variant={boarding ? 'headline' : 'body'} numberOfLines={2} style={styles.stopName}>
+          {stop.name}
+        </Text>
 
-      {stop.time !== null && (
-        <ThemedText type="small" themeColor={passed && !boarding ? 'textSecondary' : undefined}>
-          {formatClockTime(stop.time)}
-        </ThemedText>
-      )}
-    </View>
+        {stop.time !== null && (
+          <Text variant="subheadline" emphasized={boarding} numeric>
+            {formatClockTime(stop.time)}
+          </Text>
+        )}
+      </View>
+    </>
   );
 
-  if (onPress === undefined) return row;
-  return <Pressable onPress={onPress}>{row}</Pressable>;
+  if (onPress === undefined) return <View style={styles.stopRow}>{row}</View>;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      android_ripple={{ color: colors.fillPressed }}
+      style={({ pressed }) => [styles.stopRow, pressed && Platform.OS === 'ios' && { backgroundColor: colors.fillPressed }]}
+    >
+      {row}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
   stopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingEnd: Spacing.three,
-    minHeight: 44,
+    paddingEnd: Layout.rowPaddingH,
+    minHeight: Size.row.dense,
   },
   spineColumn: {
-    width: Spacing.six,
+    width: SPINE_COLUMN_WIDTH,
     alignSelf: 'stretch',
     alignItems: 'center',
   },
@@ -119,22 +135,31 @@ const styles = StyleSheet.create({
   /** Dimmed, not hidden: the run really does continue back that way, it just
    *  isn't this rider's part of it. */
   spineSpent: {
-    opacity: 0.3,
+    opacity: Opacity.dimmed,
   },
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
-    borderWidth: 2,
+    borderRadius: Radius.full,
+    borderWidth: Border.selected,
   },
   boardingDot: {
     width: BOARDING_DOT_SIZE,
     height: BOARDING_DOT_SIZE,
-    borderRadius: BOARDING_DOT_SIZE / 2,
-    borderWidth: 3,
+    borderRadius: Radius.full,
+    borderWidth: MapStyle.markerRingWidth,
+  },
+  done: {
+    opacity: Opacity.done,
+  },
+  text: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.md,
   },
   stopName: {
     flex: 1,
-    paddingVertical: Spacing.two,
+    paddingVertical: Space.sm,
   },
 });

@@ -1,4 +1,13 @@
 {
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "clear": "Clear",
+    "done": "Done",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "more": "More"
+  },
   "search": {
     "originPlaceholder": "Where from?",
     "destinationPlaceholder": "Where to?",
@@ -94,7 +103,8 @@
     "towards": "towards {{name}}",
     "trainNumber": "Train {{number}}",
     "walkingTime": "{{duration}} walking",
-    "frequency": "every ~{{minutes}} min"
+    "frequency": "every ~{{minutes}} min",
+    "swap": "Swap origin and destination"
   },
   "nearby": {
     "title": "Nearby stops",
@@ -291,7 +301,6 @@
     "search": "Search lines",
     "recent": "Recent",
     "nearby": "Near you",
-    "all": "All lines",
     "empty": "No lines match that.",
     "operatorFilterTitle": "Operators",
     "operatorFilterAll": "All operators",
@@ -301,14 +310,15 @@
     "vehicleFilterAll": "All vehicles",
     "vehicleFilterCount": "{{count}} vehicle types",
     "vehicleFilterReset": "Show all",
-    "vehicleFilterLockedHint": "The operators you picked run only this kind of vehicle."
+    "vehicleFilterLockedHint": "The operators you picked run only this kind of vehicle.",
+    "searchHint": "Looking for another line? Search by its number or destination."
   },
   "stations": {
     "title": "Stations",
     "search": "Search stations",
     "recent": "Recent",
-    "all": "All stations",
-    "empty": "No stations match that."
+    "empty": "No stations match that.",
+    "searchHint": "Looking for another station? Search by its name."
   },
   "tabs": {
     "home": "Home",
@@ -320,6 +330,7 @@
     "language": "Language",
     "theme": "Appearance",
     "deviceDefault": "Device default",
+    "themeSystem": "System",
     "languageHebrew": "עברית",
     "languageEnglish": "English",
     "themeLight": "Light",

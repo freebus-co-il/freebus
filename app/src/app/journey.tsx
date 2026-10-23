@@ -1,18 +1,14 @@
-import { IconCurrentLocation } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
-import { IconBack } from '@/components/directional-icon';
 import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carousel';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button, EmptyState, IconButton, Layout, MapStyle, Space, useColors } from '@/design-system';
 import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
 import { JourneyLegCard } from '@/features/journey/journey-leg-card';
@@ -29,15 +25,12 @@ import { TripMap, type LineShape } from '@/features/results/trip-map';
 import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from '@/features/trip/step-cards';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
 import { countEvent } from '@/lib/analytics';
 import { routeColor } from '@/lib/route-color';
 
-/** The back chip's height below the safe area, plus breathing room: the part
- *  of the map's top it covers. */
+/** The back button's height below the safe area, plus breathing room: the
+ *  part of the map's top it covers before the header has been measured. */
 const BACK_CHIP_CLEARANCE = 64;
-/** `TripMap`'s own default for the edges nothing floats over. */
-const MAP_EDGE_PADDING = 50;
 
 /** How long a swipe of the rider's own holds the carousel where they put it.
  *  A rider reading ahead to their transfer should not have the card pulled
@@ -59,7 +52,7 @@ const MANUAL_BROWSE_HOLD_MS = 20_000;
  */
 export default function JourneyScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
   const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end } = useJourney();
@@ -73,10 +66,10 @@ export default function JourneyScreen() {
   // whenever this changes identity.
   const mapEdgePadding = useMemo(
     () => ({
-      top: headerHeight > 0 ? headerHeight + Spacing.three : insets.top + BACK_CHIP_CLEARANCE,
-      right: MAP_EDGE_PADDING,
-      bottom: bottomBarHeight + Spacing.three,
-      left: MAP_EDGE_PADDING,
+      top: headerHeight > 0 ? headerHeight + Space.lg : insets.top + BACK_CHIP_CLEARANCE,
+      right: MapStyle.edgePadding,
+      bottom: bottomBarHeight + Space.lg,
+      left: MapStyle.edgePadding,
     }),
     [headerHeight, insets.top, bottomBarHeight],
   );
@@ -228,10 +221,10 @@ export default function JourneyScreen() {
     else router.replace('/');
   }
 
-  const back = (
-    <Pressable accessibilityRole="button" onPress={dismiss} style={styles.backButton} hitSlop={Spacing.three}>
-      <IconBack size={24} color={theme.text} />
-    </Pressable>
+  // Glass over the map; on the empty page below, with no map to float over,
+  // the same control filled.
+  const back = (variant: 'glass' | 'filled') => (
+    <IconButton icon="chevronBack" variant={variant} accessibilityLabel={t('common.back')} onPress={dismiss} />
   );
 
   if (!journey || !state || !rail) {
@@ -239,15 +232,15 @@ export default function JourneyScreen() {
     // rider), and by deep-linking here with nothing running. Says so rather
     // than rendering a journey-shaped screen with nothing in it.
     return (
-      <ThemedView type="background" style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
         <SafeAreaView style={styles.empty}>
-          {back}
+          {back('filled')}
           {/* Nothing at all until the stored journey has been read back: a
               "no journey" line that flashes and is then replaced is a lie the
               rider has time to believe. */}
-          {hydrated && <ThemedText type="default">{t('journey.none')}</ThemedText>}
+          {hydrated && <EmptyState icon="navigate" title={t('journey.none')} />}
         </SafeAreaView>
-      </ThemedView>
+      </View>
     );
   }
 
@@ -317,7 +310,7 @@ export default function JourneyScreen() {
   };
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
       <TripMap
         itinerary={journey.itinerary}
         focusLegIndex={cardFocusLegIndex(cards[activeIndex])}
@@ -360,9 +353,7 @@ export default function JourneyScreen() {
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
       >
         <View style={styles.headerRow} pointerEvents="box-none">
-          <ThemedView type="background" style={styles.backChip}>
-            {back}
-          </ThemedView>
+          {back('glass')}
           <View style={styles.bannerSlot} pointerEvents="box-none">
             <NavigationBanner
               itinerary={journey.itinerary}
@@ -374,14 +365,14 @@ export default function JourneyScreen() {
           </View>
         </View>
         {camera !== null && cameraPaused && (
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            variant="glass"
+            size="md"
+            icon="currentLocation"
+            label={t('journey.nav.recenter')}
             onPress={() => setCameraPaused(false)}
-            style={[styles.recenter, { backgroundColor: theme.background, borderColor: theme.borderMuted }]}
-          >
-            <IconCurrentLocation size={20} color={theme.text} />
-            <ThemedText type="smallBold">{t('journey.nav.recenter')}</ThemedText>
-          </Pressable>
+            style={styles.recenter}
+          />
         )}
       </SafeAreaView>
 
@@ -411,25 +402,9 @@ export default function JourneyScreen() {
               journey away -- is how that goes wrong at the exact moment it must
               not. Ending stays one phase away, and this window is ~90 seconds. */}
           {alighting ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={acknowledgeAlight}
-              style={[styles.ackButton, { backgroundColor: theme.text }]}
-            >
-              <ThemedText type="defaultBold" themeColor="background">
-                {t('journey.alert.gotIt')}
-              </ThemedText>
-            </Pressable>
+            <Button variant="prominent" fullWidth label={t('journey.alert.gotIt')} onPress={acknowledgeAlight} />
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={confirmEnd}
-              style={[styles.endButton, { backgroundColor: theme.background }]}
-            >
-              <ThemedText type="defaultBold" themeColor="danger">
-                {t('journey.end')}
-              </ThemedText>
-            </Pressable>
+            <Button variant="destructive" size="md" label={t('journey.end')} onPress={confirmEnd} style={styles.endButton} />
           )}
         </View>
       </SafeAreaView>
@@ -445,16 +420,11 @@ export default function JourneyScreen() {
         }}
         onClose={() => setSwitchingLegIndex(null)}
       />
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  ackButton: {
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
-  },
   container: {
     flex: 1,
   },
@@ -463,14 +433,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    gap: Spacing.two,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
+    gap: Space.sm,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   bannerSlot: {
     flex: 1,
@@ -478,50 +448,32 @@ const styles = StyleSheet.create({
   // Only while the rider has moved the map off where following would put it.
   recenter: {
     alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  backChip: {
-    borderRadius: 999,
-    padding: Spacing.one,
-  },
-  backButton: {
-    padding: Spacing.one,
   },
   bottomBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingBottom: Spacing.three,
-    gap: Spacing.two,
+    paddingBottom: Space.lg,
+    gap: Space.sm,
   },
   footer: {
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Layout.pageInset,
   },
-  // A compact, centred text button, not a full-width pill -- ending is the
+  // A compact, centred button, not a full-width one -- ending is the
   // destructive option and the one thing a rider never came to this screen
   // to do; `Got it` above is the one that has to be hittable without
-  // looking. It still needs a `background` backing: this sits directly over
-  // live map tiles, and `danger`-coloured text with nothing behind it can
-  // lose contrast against whatever the map is showing underneath. The pill
-  // radius and horizontal padding read it as a chip rather than restoring
-  // the old full-width bordered button.
+  // looking. Solid `destructive` (danger glass on iOS 26) rather than danger
+  // text: this sits directly over live map tiles, and danger-coloured text
+  // with nothing opaque behind it can lose contrast against whatever the map
+  // is showing underneath. Hugging its label at `md` keeps it a chip-sized
+  // control rather than restoring the old full-width bordered button.
   endButton: {
     alignSelf: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
   },
   empty: {
     flex: 1,
-    padding: Spacing.three,
-    gap: Spacing.four,
+    padding: Layout.pageInset,
+    gap: Space.xxl,
   },
 });

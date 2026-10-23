@@ -1,39 +1,88 @@
-import { IconPencil, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react-native';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { SectionGap, Spacing } from '@/constants/theme';
+import {
+  Button,
+  EmptyState,
+  Icon,
+  Layout,
+  ListRow,
+  ListSection,
+  Loading,
+  SearchButton,
+  Size,
+  Sheet,
+  Space,
+  useColors,
+} from '@/design-system';
+import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { MapPickButton } from '@/features/map-picker/map-pick-button';
 import { NearbyStops } from '@/features/nearby/nearby-stops';
 import { Chip, SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
 import type { SavedLocation } from '@/features/saved-locations/types';
-import { FieldShell } from '@/features/search/field-shell';
 import { useSearch } from '@/features/search/search-context';
+import { onSearchMorph, setSearchMorphOrigin, type MorphFrame } from '@/features/search/search-morph';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
 import { SmartSuggestion } from '@/features/smart-suggestion/smart-suggestion';
-import { useTheme } from '@/hooks/use-theme';
 import { hapticWarned } from '@/lib/haptics';
 
-// The page is bare white and everything on it is an inline row; the only
-// filled things are the search field and the saved-location chips, which is
-// what makes them read as controls rather than content. Still just the one
-// "Where to?" prompt, not the results screen's full
-// origin+destination+swap layout, and led by a search glyph rather than that
-// panel's origin/destination markers: this is the entry point to a search,
-// not a trip that already has both sides to show.
+/** iOS pads the first scroll view itself (status bar on top, the floating
+ *  native tab bar below) through `contentInsetAdjustmentBehavior`; Android
+ *  has no such adjustment, so the top inset is added by hand there. */
+const IOS = Platform.OS === 'ios';
+
+// No title: the "Where to?" capsule IS the top of the page. Still just the
+// one prompt, not the results screen's full origin+destination+swap layout,
+// and led by a search glyph rather than that panel's origin/destination
+// markers: this is the entry point to a search, not a trip that already has
+// both sides to show.
 export default function SearchScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const searchRef = useRef<View>(null);
+  const mapRef = useRef<View>(null);
+  const chipsRef = useRef<View>(null);
+  // While the picker draws these two controls in flight, their slots here
+  // are held empty -- unmounted, not faded, since glass faded to nothing never
+  // draws again. The chips under them are hidden too, while the picker's own
+  // row rises from where they sit. Back on focus however the rider returns.
+  const [controlsAway, setControlsAway] = useState(false);
+  useEffect(() => onSearchMorph((event) => setControlsAway(event === 'out')), []);
+  useFocusEffect(useCallback(() => setControlsAway(false), []));
+
+  /** The capsule's frame goes with the rider into the picker, which grows its
+   *  own search field out of it -- see `search-morph`. Measured at the tap, not
+   *  on layout, because the page may have scrolled since. */
+  function openSearch() {
+    const node = searchRef.current;
+    if (!node) {
+      router.push('/location-picker');
+      return;
+    }
+    const measure = (ref: RefObject<View | null>, then: (frame: MorphFrame | null) => void) => {
+      if (!ref.current) then(null);
+      else ref.current.measureInWindow((x, y, width, height) => then({ x, y, width, height }));
+    };
+    node.measureInWindow((x, y, width, height) => {
+      const search = { x, y, width, height };
+      // The map button rides along when there is one (not on web).
+      measure(mapRef, (map) =>
+        measure(chipsRef, (chips) => {
+          setSearchMorphOrigin({ search, map, chips });
+          router.push({ pathname: '/location-picker', params: { morph: '1' } });
+        }),
+      );
+    });
+  }
+
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const dockInset = useJourneyDockInset();
   const savedLocations = useSavedLocations();
   const search = useSearch();
-  const sheetEdge = useSheetEdge();
   // `push`, not the default `replace` -- a saved-location chip is tapped
   // directly on this screen with no transient search screen in between, so
   // `replace`ing here would replace HOME ITSELF (see this hook's own doc
@@ -69,14 +118,19 @@ export default function SearchScreen() {
     savedLocations.removeCustom(location.id);
   }
 
-  if (waitingForOrigin) {
+  // Every state renders inside the same root so the journey dock is always
+  // its LAST child -- it floats over the bottom of whatever is showing.
+  function screen(content: ReactNode) {
     return (
-      <ThemedView type="background" style={styles.container}>
-        <SafeAreaView style={styles.centered} edges={['top']}>
-          <ActivityIndicator />
-        </SafeAreaView>
-      </ThemedView>
+      <View style={[styles.container, { backgroundColor: colors.bgGrouped }]}>
+        {content}
+        <JourneyDock />
+      </View>
     );
+  }
+
+  if (waitingForOrigin) {
+    return screen(<Loading style={styles.centered} />);
   }
 
   // Every shortcut on this screen plans FROM where the rider is, so a failed
@@ -85,173 +139,161 @@ export default function SearchScreen() {
   // trip's manually-picked origin, so this state is reachable.
   if (originFailed) {
     const state = search.originState;
-    return (
-      <ThemedView type="background" style={styles.container}>
-        <SafeAreaView style={styles.centered} edges={['top']}>
-          <ThemedText type="default" style={styles.originErrorText}>
-            {t(state.status === 'error' && state.message === 'location_permission_denied'
-              ? 'search.locationPermissionDenied'
-              : 'search.locationUnavailable')}
-          </ThemedText>
-          <Pressable onPress={search.retryOrigin} style={styles.retry}>
-            <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-          </Pressable>
-          {/* Retrying is only worth offering while a fix might still arrive.
-              Naming a starting point is the way out when it will not -- it
-              is what makes this screen a fork rather than a dead end. */}
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
-            }
-            style={styles.retry}
-          >
-            <ThemedText type="smallBold">{t('search.chooseOrigin')}</ThemedText>
-          </Pressable>
-        </SafeAreaView>
-      </ThemedView>
+    return screen(
+      <View style={styles.centered}>
+        <EmptyState
+          icon="currentLocation"
+          title={t(state.status === 'error' && state.message === 'location_permission_denied'
+            ? 'search.locationPermissionDenied'
+            : 'search.locationUnavailable')}
+          action={{ label: t('search.retryLocation'), onPress: search.retryOrigin }}
+        />
+        {/* Retrying is only worth offering while a fix might still arrive.
+            Naming a starting point is the way out when it will not -- it
+            is what makes this screen a fork rather than a dead end. */}
+        <Button
+          variant="plain"
+          label={t('search.chooseOrigin')}
+          onPress={() =>
+            router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
+          }
+        />
+      </View>,
     );
   }
 
-  return (
-    <ThemedView type="background" style={styles.container}>
-      {/* Top edge only: the tab bar underneath already sits below the home
-          indicator, so taking the bottom inset here too would push this
-          column up by the height of that indicator and leave a dead band
-          above the bar. Same reason `settings.tsx` asks for `top`. */}
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.searchRow}>
-          <Pressable style={styles.searchField} onPress={() => router.push('/location-picker')}>
-            <FieldShell>
-              <IconSearch size={18} color={theme.text} />
-              <ThemedText type="smallBold">{t('search.destinationPlaceholder')}</ThemedText>
-            </FieldShell>
-          </Pressable>
-          <MapPickButton onPress={() => router.push('/map-picker')} />
+  return screen(
+    <>
+      {/* The page scrolls as ONE column -- search, shortcuts, the suggestion
+          and the stations -- and this is the screen's first scroll view on
+          purpose: native tabs on iOS find it to pad it for the floating tab
+          bar and to minimise that bar on scroll. A tall suggestion card can
+          push the stations down without either scrolling inside the other. */}
+      <ScrollView
+        style={styles.pageScroll}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[
+          styles.pageContent,
+          !IOS && { paddingTop: insets.top + Space.lg },
+          // Only the journey dock's room: the tab bar's own inset comes from
+          // the automatic adjustment above (iOS) or the bar sitting outside
+          // this screen's frame (Android).
+          { paddingBottom: Layout.sectionGap + dockInset },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* The search capsule and the shortcut chips are one cluster -- how
+            you leave this screen -- so they sit closer to each other than
+            to the sections below. */}
+        <View style={styles.cluster}>
+          <View style={styles.searchRow}>
+            {controlsAway ? (
+              <>
+                <View style={styles.searchSlot} />
+                <View style={styles.mapSlot} />
+              </>
+            ) : (
+              <>
+                <SearchButton ref={searchRef} label={t('search.destinationPlaceholder')} onPress={openSearch} />
+                <MapPickButton ref={mapRef} onPress={() => router.push('/map-picker')} />
+              </>
+            )}
+          </View>
+
+          {/* Hidden, not unmounted, while away: the row keeps its height, so
+              nothing under it moves. Chips are solid, not glass, so they come
+              back from opacity 0 fine. */}
+          <View ref={chipsRef} collapsable={false} style={controlsAway && styles.away}>
+          <SavedLocationChips
+            locations={savedLocations.locations}
+            onSelect={selectSavedLocation}
+            onLongPress={setActionsFor}
+            footer={
+              <Chip
+                icon="add"
+                label={t('savedLocations.add')}
+                muted
+                onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
+              />
+            }
+          />
+          </View>
         </View>
 
-        <SavedLocationChips
-          locations={savedLocations.locations}
-          onSelect={selectSavedLocation}
-          onLongPress={setActionsFor}
-          footer={
-            <Chip
-              icon={IconPlus}
-              label={t('savedLocations.add')}
-              muted
-              onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
+        {/* Above Nearby stops on purpose: an answer outranks a list of
+            places to look. Renders nothing at all when there is no commute
+            worth suggesting, so the list simply moves up. */}
+        <SmartSuggestion onSelect={selectDestination} />
+
+        <NearbyStops />
+      </ScrollView>
+
+      {/* The long-press actions for one saved place. The chip already fired
+          the "long press recognised" haptic, which is what covers the beat
+          before this sheet animates in. */}
+      <Sheet
+        visible={actionsFor !== null}
+        onClose={() => setActionsFor(null)}
+        title={actionsFor?.label}
+        closeLabel={t('common.close')}
+      >
+        {actionsFor && (
+          <ListSection variant="plain">
+            <ListRow
+              leading={<Icon name="edit" />}
+              title={t('savedLocations.edit')}
+              onPress={() => editLocation(actionsFor)}
             />
-          }
-        />
-
-        {/* Search and the saved-location shortcuts are pinned -- they are how
-            you leave this screen, and both stay one thumb-reach away however
-            far the content below has been scrolled. What scrolls is the
-            answer and the list, as one column, so a tall suggestion card can
-            push the stations down without either scrolling inside the other. */}
-        <ScrollView
-          style={styles.pageScroll}
-          contentContainerStyle={styles.pageContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Above Nearby stops on purpose: an answer outranks a list of
-              places to look. Renders nothing at all when there is no commute
-              worth suggesting, so the list simply moves up. */}
-          <SmartSuggestion onSelect={selectDestination} />
-
-          <NearbyStops />
-        </ScrollView>
-      </SafeAreaView>
-
-
-      <Modal transparent animationType="slide" visible={actionsFor !== null} onRequestClose={() => setActionsFor(null)}>
-        <SheetBackdrop onPress={() => setActionsFor(null)} />
-        <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-          <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-          {actionsFor && (
-            <>
-              <ThemedText type="smallBold" style={styles.sheetTitle}>
-                {actionsFor.label}
-              </ThemedText>
-              <Pressable style={styles.actionRow} onPress={() => editLocation(actionsFor)}>
-                <IconPencil size={20} color={theme.text} />
-                <ThemedText type="default">{t('savedLocations.edit')}</ThemedText>
-              </Pressable>
-              {!actionsFor.isPreset && (
-                <Pressable style={styles.actionRow} onPress={() => removeLocation(actionsFor)}>
-                  <IconTrash size={20} color={theme.danger} />
-                  <ThemedText type="default" themeColor="danger">
-                    {t('savedLocations.remove')}
-                  </ThemedText>
-                </Pressable>
-              )}
-            </>
-          )}
-        </ThemedView>
-      </Modal>
-    </ThemedView>
+            {!actionsFor.isPreset && (
+              <ListRow
+                leading={<Icon name="delete" color="danger" />}
+                title={t('savedLocations.remove')}
+                destructive
+                onPress={() => removeLocation(actionsFor)}
+              />
+            )}
+          </ListSection>
+        )}
+      </Sheet>
+    </>,
   );
 }
 
 const styles = StyleSheet.create({
+  // The empty slots the search controls leave while they are in flight: the
+  // same size, so nothing around them moves.
+  searchSlot: {
+    flex: 1,
+    height: Size.control.md,
+  },
+  mapSlot: {
+    width: Size.control.md,
+    height: Size.control.md,
+  },
   container: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.five,
-    // The search field and the shortcut chips are one cluster, and this is
-    // also what separates that cluster from the scrolling column below it.
-    gap: Spacing.five,
-  },
-  originErrorText: {
-    textAlign: 'center',
-  },
-  retry: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  searchField: {
-    flex: 1,
+    paddingHorizontal: Layout.pageInset,
   },
   pageScroll: {
     flex: 1,
   },
   pageContent: {
-    gap: SectionGap,
-    paddingBottom: SectionGap,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
+    gap: Layout.sectionGap,
   },
-  sheet: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    paddingTop: Spacing.two,
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    gap: Spacing.one,
+  cluster: {
+    gap: Space.lg,
   },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.two,
-  },
-  sheetTitle: {
-    paddingBottom: Spacing.two,
-  },
-  actionRow: {
+  away: { opacity: 0 },
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
+    gap: Space.sm,
   },
 });

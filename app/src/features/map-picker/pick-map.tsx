@@ -5,6 +5,7 @@ import MapView, { Marker } from 'react-native-maps';
 import type { MapStop } from '@/api/types';
 import { DataCredit } from '@/components/data-credit';
 import { stationKindOf } from '@/components/station-icon';
+import { Space } from '@/design-system';
 import { MARKER_SNAPSHOT_MS } from '@/features/results/vehicle-marker-pin';
 import { useLocationGranted } from '@/hooks/use-location-granted';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
@@ -170,7 +171,7 @@ export function PickMap({
       ))}
     </MapView>
       {/* The address under the pin comes from Photon -- OpenStreetMap. */}
-      <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: legalLabelBottomInset + 4 }]} />
+      <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: legalLabelBottomInset + Space.xs }]} />
     </View>
   );
 }

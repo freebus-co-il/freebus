@@ -1,16 +1,12 @@
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Card, Chip, Space, Text } from '@/design-system';
 import { useNow } from '@/hooks/use-now';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
-
 
 import { equallyGoodLines } from '@/features/trip/line-options';
 
@@ -31,7 +27,6 @@ const LEAVE_COUNTDOWN_MAX_MINUTES = 60;
 /** The ride's other lines shown beside its own before the rest collapse into
  *  "+N": the row also carries the stop and direction, and must stay one line. */
 const MAX_OTHER_LINE_BADGES = 3;
-
 
 export type ItineraryCardProps = {
   /** Same-pattern itineraries (see `groupItineraries`), earliest first. */
@@ -63,8 +58,6 @@ export type ItineraryCardProps = {
  */
 export function ItineraryCard({ instances, activeIndex, onSelectTime }: ItineraryCardProps) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
   // Held here rather than threaded down from the screen: a handful of cards
   // means a handful of 30s timers, which is nothing, and prop-drilling a clock
   // through the carousel would be noise.
@@ -127,106 +120,98 @@ export function ItineraryCard({ instances, activeIndex, onSelectTime }: Itinerar
   }
 
   return (
-    <Pressable onPress={openTrip} style={styles.pressable}>
-        <ThemedView type="background" style={[styles.card, { borderColor: theme.borderMuted }]}>
-        <View style={styles.heroRow}>
-          <ThemedText type="subtitle" themeColor={departed ? 'textSecondary' : undefined}>
-            {leaveLabel}
-          </ThemedText>
-          <ThemedText type="default" themeColor="textSecondary">
-            {t('results.arriveAt', { time: formatClockTime(itinerary.arrivalTime) })}
-          </ThemedText>
+    <Card variant="glass" onPress={openTrip} style={styles.card}>
+      <View style={styles.heroRow}>
+        <Text variant="title3" numeric color={departed ? 'textSecondary' : 'textPrimary'} style={styles.heroLeave}>
+          {leaveLabel}
+        </Text>
+        <Text variant="subheadline" color="textSecondary" numeric>
+          {t('results.arriveAt', { time: formatClockTime(itinerary.arrivalTime) })}
+        </Text>
+      </View>
+
+      {ride && (
+        <View style={styles.rideRow}>
+          <LineBadge route={ride.route} />
+          {otherLines.slice(0, MAX_OTHER_LINE_BADGES).map((option) => (
+            <View key={option.tripId} style={styles.otherLine}>
+              <Text variant="subheadline" color="textSecondary">/</Text>
+              <LineBadge route={option.route} size="small" />
+            </View>
+          ))}
+          {otherLines.length > MAX_OTHER_LINE_BADGES && (
+            <Text variant="subheadline" color="textSecondary" numeric>
+              +{otherLines.length - MAX_OTHER_LINE_BADGES}
+            </Text>
+          )}
+          {rideDetail !== '' && (
+            <Text variant="subheadline" numberOfLines={1} style={styles.rideDetail}>
+              {rideDetail}
+            </Text>
+          )}
         </View>
+      )}
 
-        {ride && (
-          <View style={styles.rideRow}>
-            <LineBadge route={ride.route} />
-            {otherLines.slice(0, MAX_OTHER_LINE_BADGES).map((option) => (
-              <View key={option.tripId} style={styles.otherLine}>
-                <ThemedText type="small" themeColor="textSecondary">/</ThemedText>
-                <LineBadge route={option.route} size="small" />
-              </View>
-            ))}
-            {otherLines.length > MAX_OTHER_LINE_BADGES && (
-              <ThemedText type="small" themeColor="textSecondary">
-                +{otherLines.length - MAX_OTHER_LINE_BADGES}
-              </ThemedText>
-            )}
-            {rideDetail !== '' && (
-              <ThemedText type="small" numberOfLines={1} style={styles.rideDetail}>
-                {rideDetail}
-              </ThemedText>
-            )}
-          </View>
-        )}
+      <LegTimeline legs={itinerary.legs} onGlass />
 
-        <LegTimeline legs={itinerary.legs} />
+      <Text variant="subheadline" color="textSecondary" numeric>
+        {meta}
+      </Text>
 
-        <ThemedText type="small" themeColor="textSecondary">
-          {meta}
-        </ThemedText>
+      {/* Only where there is a transfer to be at risk of. `transferAtRisk` is
+          an itinerary-level flag, not a per-transfer one, so it cannot be
+          pinned to a specific interchange -- but on a zero-transfer journey it
+          is answering a question nobody asked. */}
+      {itinerary.transfers > 0 && <RiskBadge transferAtRisk={itinerary.transferAtRisk} />}
 
-        {/* Only where there is a transfer to be at risk of. `transferAtRisk` is
-            an itinerary-level flag, not a per-transfer one, so it cannot be
-            pinned to a specific interchange -- but on a zero-transfer journey it
-            is answering a question nobody asked. */}
-        {itinerary.transfers > 0 && <RiskBadge transferAtRisk={itinerary.transferAtRisk} />}
-
-        {(times.length > 1 || cadence !== null) && (
-          <View style={styles.timesRow}>
-            {times.length > 1 &&
-              times.map((instance, index) => {
-                const active = index === activeIndex;
-                return (
-                  <Pressable key={instance.departureTime} onPress={() => onSelectTime(index)}>
-                    <View style={[styles.timeChip, { backgroundColor: active ? theme.text : theme.background }, active ? null : outline]}>
-                      {mixedLines && firstTransitLeg(instance) && (
-                        <LineBadge route={firstTransitLeg(instance)!.route} size="small" />
-                      )}
-                      <ThemedText type="small" themeColor={active ? 'background' : 'textSecondary'}>
-                        {formatClockTime(instance.departureTime)}
-                      </ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            {cadence !== null && (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.cadence}>
-                {t('results.frequency', { minutes: cadence })}
-              </ThemedText>
-            )}
-          </View>
-        )}
-        </ThemedView>
-    </Pressable>
+      {(times.length > 1 || cadence !== null) && (
+        <View style={styles.timesRow}>
+          {times.length > 1 &&
+            times.map((instance, index) => {
+              const line = mixedLines ? firstTransitLeg(instance) : null;
+              return (
+                // Pressable, so a `filter`-style chip rather than an `info`
+                // one: picking a departure re-routes the map. The one on
+                // screen is the selected one.
+                <Chip
+                  key={instance.departureTime}
+                  label={formatClockTime(instance.departureTime)}
+                  selected={index === activeIndex}
+                  onPress={() => onSelectTime(index)}
+                  leading={line ? <LineBadge route={line.route} size="small" /> : undefined}
+                />
+              );
+            })}
+          {cadence !== null && (
+            <Text variant="footnote" color="textSecondary" numeric style={styles.cadence}>
+              {t('results.frequency', { minutes: cadence })}
+            </Text>
+          )}
+        </View>
+      )}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  // Carries the stretched carousel height down to the card itself, so wrapping
-  // the card in a Pressable does not leave it short inside the row.
-  pressable: {
-    flex: 1,
-  },
   card: {
     // `flex: 1` so the card fills the carousel's stretched row height rather
     // than sitting short inside it.
     flex: 1,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
-    padding: Spacing.three,
-    gap: Spacing.two,
   },
   heroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    gap: Spacing.two,
+    gap: Space.sm,
+  },
+  heroLeave: {
+    flexShrink: 1,
   },
   rideRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   rideDetail: {
     flexShrink: 1,
@@ -234,7 +219,7 @@ const styles = StyleSheet.create({
   otherLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
+    gap: Space.xs,
   },
   // Deliberately not wrapping: a card that grew a second row of chips would
   // drag every other card in the carousel up to its height.
@@ -243,16 +228,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'nowrap',
     overflow: 'hidden',
-    gap: Spacing.one,
-    paddingTop: Spacing.one,
-  },
-  timeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-    borderRadius: 999,
+    gap: Space.xs,
+    paddingTop: Space.xs,
   },
   cadence: {
     flexShrink: 1,

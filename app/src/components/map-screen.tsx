@@ -1,13 +1,11 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IconBack } from '@/components/directional-icon';
-import { MAP_BACK_CHIP_GAP, MAP_BACK_CHIP_SIZE, MapSheet } from '@/components/map-sheet';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { MAP_BACK_CHIP_GAP, MapSheet } from '@/components/map-sheet';
+import { IconButton, Layout, Surface } from '@/design-system';
+import { useTranslation } from 'react-i18next';
 
 /**
  * A page that is a map first: the map fills the screen, a back chip floats
@@ -25,7 +23,7 @@ export function MapScreen({ map, children, onBack }: {
    *  is the page's own to wire (`BackHandler`) -- this is the chip. */
   onBack?: () => boolean;
 }) {
-  const theme = useTheme();
+  const { t } = useTranslation();
 
   function back() {
     if (onBack?.()) return;
@@ -35,23 +33,16 @@ export function MapScreen({ map, children, onBack }: {
   }
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <Surface level="bgPlain" style={styles.container}>
       {map}
       <MapSheet>{children}</MapSheet>
       {/* After the drawer, so the chip is drawn -- and takes touches -- above
           it. The drawer stops just below the chip at full height, but the
           way back must never be covered, even mid-drag. */}
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
-        <Pressable
-          accessibilityRole="button"
-          onPress={back}
-          hitSlop={Spacing.two}
-          style={[styles.backChip, { backgroundColor: theme.background }]}
-        >
-          <IconBack size={22} color={theme.text} />
-        </Pressable>
+        <IconButton icon="chevronBack" accessibilityLabel={t('common.back')} onPress={back} variant="glass" />
       </SafeAreaView>
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -64,14 +55,6 @@ const styles = StyleSheet.create({
     top: 0,
     start: 0,
     paddingTop: MAP_BACK_CHIP_GAP,
-    paddingHorizontal: Spacing.three,
-  },
-  // Flat, like every chip in this app: background only, no shadow.
-  backChip: {
-    width: MAP_BACK_CHIP_SIZE,
-    height: MAP_BACK_CHIP_SIZE,
-    borderRadius: MAP_BACK_CHIP_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: Layout.pageInset,
   },
 });

@@ -1,34 +1,54 @@
-import { IconCurrentLocation, IconMapPin, IconSearch } from '@tabler/icons-react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { I18nManager, Keyboard, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent, type TextInput } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { newGeocodeSession, resolvePlace, reverseGeocode, useAddressSearch } from '@/api/geocode';
 import { useStopSearch } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
 import { DataCredit } from '@/components/data-credit';
-import { IconBack } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { MapPickButton } from '@/features/map-picker/map-pick-button';
+import {
+  Banner,
+  Button,
+  Chip,
+  EmptyState,
+  GlassMorphLayer,
+  GlassMorphShape,
+  Icon,
+  IconButton,
+  Layout,
+  LeadingIcon,
+  ListRow,
+  ListSection,
+  Loading,
+  Motion,
+  Opacity,
+  SearchHeader,
+  Size,
+  Space,
+  Surface,
+  Text,
+  useColors,
+  useReduceMotion,
+} from '@/design-system';
 import { takeMapPick } from '@/features/map-picker/map-pick-handoff';
 import { RecentSearches } from '@/features/recents/recent-searches';
-import { Chip, SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
+import { SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
-import { FieldShell } from '@/features/search/field-shell';
+import { LOCATION_ICON_NAMES } from '@/features/saved-locations/location-icons';
+import type { SavedLocation } from '@/features/saved-locations/types';
 import { useSearch } from '@/features/search/search-context';
+import { emitSearchMorph, takeSearchMorphOrigin, type MorphFrame, type MorphOrigin } from '@/features/search/search-morph';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { addressCredit } from '@/lib/attribution';
 import { haversineMeters } from '@/lib/geo';
 import type { SelectedPlace } from '@/lib/place';
 import { placeToRouteParams } from '@/lib/place';
-import { INPUT_ALIGN_START } from '@/i18n/direction';
 
 /** How long typing has to pause before `/stops/search` is hit. */
 const SEARCH_DEBOUNCE_MS = 275;
@@ -81,8 +101,9 @@ function distanceFrom(here: { lat: number; lon: number }, row: Row): number {
 
 export default function LocationPickerScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const morph = useSearchMorph();
   const search = useSearch();
   const savedLocations = useSavedLocations();
   // Absent entirely (not just falsy) only for the home screen's single
@@ -326,303 +347,650 @@ export default function LocationPickerScreen() {
     });
   }
 
+  const originMessage = t(
+    search.originState.status === 'error' && search.originState.message === 'location_permission_denied'
+      ? 'search.locationPermissionDenied'
+      : 'search.locationUnavailable',
+  );
+
   return (
-    <ThemedView type="background" style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={Spacing.two} style={styles.back}>
-            <IconBack
-              size={26}
-              color={theme.text}
-            />
-          </Pressable>
-          <ThemedView style={styles.fieldWrap}>
-            <FieldShell>
-              <IconSearch size={18} color={theme.text} />
-              <TextInput
-                autoFocus
-                style={[styles.input, { color: theme.text }, Platform.OS === 'web' && styles.inputWebNoOutline]}
-                placeholder={t(
-                  field === 'origin'
-                    ? 'search.originPlaceholder'
-                    : field?.startsWith('saved-')
-                      ? 'search.savedLocationPlaceholder'
-                      : 'search.destinationPlaceholder',
-                )}
-                placeholderTextColor={theme.textSecondary}
-                value={query}
-                onChangeText={(text) => {
-                  setQuery(text);
-                  // A failed pick's message is about the list it was picked from.
-                  setResolveFailed(false);
+    <Surface level={morph.morphing ? undefined : 'bgGrouped'} style={styles.container}>
+      {morph.morphing && (
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgGrouped }, morph.pageStyle]} />
+      )}
+      {/* No title: the field's own prompt ("Where to?", "Where from?") already
+          says what this picker is for. The back button sits beside the field
+          as one row of glass, the way a search screen reads on iOS 26. */}
+      {/* Top inset from the hook, not `SafeAreaView`: presented transparent
+          (the morph), the view reports no top inset and the field would sit
+          under the status bar. */}
+      <SafeAreaView edges={['bottom']} style={[styles.safeArea, { paddingTop: insets.top }]}>
+        <View style={styles.top}>
+          <SearchHeader
+            ref={morph.inputRef}
+            fieldHidden={morph.fieldHidden}
+            backStyle={morph.backStyle}
+            onBack={morph.goBack}
+            backLabel={t('common.back')}
+            // Focused once the morph lands, not while the capsule is still
+            // flying: the keyboard rising mid-morph shoves the page around.
+            autoFocus={!morph.active}
+            placeholder={t(
+              field === 'origin'
+                ? 'search.originPlaceholder'
+                : field?.startsWith('saved-')
+                  ? 'search.savedLocationPlaceholder'
+                  : 'search.destinationPlaceholder',
+            )}
+            value={query}
+            onChangeText={(text) => {
+              setQuery(text);
+              // A failed pick's message is about the list it was picked from.
+              setResolveFailed(false);
+            }}
+            onClear={() => {
+              setQuery('');
+              setResolveFailed(false);
+            }}
+            clearLabel={t('common.clear')}
+            // The way into choosing on the map, inside the field it is an
+            // alternative to. Absent on web, where there is no map to choose on.
+            trailing={Platform.OS === 'web' ? null : (
+              <IconButton
+                icon="map"
+                variant="plain"
+                size="sm"
+                accessibilityLabel={t('mapPicker.open')}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  router.push({ pathname: '/map-picker', params: { from: 'picker' } });
                 }}
               />
-            </FieldShell>
-          </ThemedView>
-          <MapPickButton
-            onPress={() => {
-              Keyboard.dismiss();
-              router.push({ pathname: '/map-picker', params: { from: 'picker' } });
-            }}
+            )}
           />
-        </ThemedView>
 
-        {/* "Current location" leads the same row as the saved shortcuts
-            rather than sitting under it as a row of its own: the three are
-            one kind of thing -- a place the rider can pick without typing
-            -- and splitting them put a full-width row between the chips and
-            the list for what is the shortest answer of the lot. First,
-            because it needs no setting up and is the likeliest of them. */}
-        {(showCurrentLocation || savedShortcuts.length > 0) && (
-          <ThemedView style={styles.chips}>
+        </View>
+
+        <View style={styles.body}>
+        {/* Not faded with the rest of the page during the morph: the row
+            rises from the home screen's own chips, drawn as they were there,
+            and turns into this screen's row on the way (see `useSearchMorph`). */}
+        <Animated.View style={[styles.chips, morph.chipsStyle]}>
+          {/* "Current location" leads the same row as the saved shortcuts
+              rather than sitting under it as a row of its own: the three are
+              one kind of thing -- a place the rider can pick without typing
+              -- and splitting them put a full-width row between the chips and
+              the list for what is the shortest answer of the lot. First,
+              because it needs no setting up and is the likeliest of them. */}
+          {morph.chipsFlying ? (
+            <ChipsFlight
+              progress={morph.progress}
+              locations={savedLocations.locations}
+              currentLocationLabel={showCurrentLocation ? t('search.currentLocation') : null}
+              addLabel={t('savedLocations.add')}
+            />
+          ) : (showCurrentLocation || savedShortcuts.length > 0) && (
             <SavedLocationChips
               locations={savedShortcuts}
               // Non-null by construction: `savedShortcuts` is filtered on it.
               onSelect={(location) => location.place && commitPlace(location.place)}
               leading={showCurrentLocation ? (
                 <Chip
-                  icon={IconCurrentLocation}
+                  icon="currentLocation"
                   label={t('search.currentLocation')}
                   busy={resolvingCurrentLocation}
                   onPress={() => void selectCurrentLocation()}
                 />
               ) : null}
             />
-          </ThemedView>
-        )}
+          )}
+        </Animated.View>
+
+        <Animated.View style={[styles.body, morph.contentStyle]}>
 
         {originFailed ? (
-          <ThemedView style={styles.centered}>
-            <ThemedText type="default" style={styles.originErrorText}>
-              {t(
-                search.originState.status === 'error' &&
-                  search.originState.message === 'location_permission_denied'
-                  ? 'search.locationPermissionDenied'
-                  : 'search.locationUnavailable',
-              )}
-            </ThemedText>
-            <Pressable onPress={search.retryOrigin} style={styles.retry}>
-              <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-            </Pressable>
-            <Pressable
+          <View style={styles.centered}>
+            <EmptyState
+              icon="currentLocation"
+              title={originMessage}
+              action={{ label: t('search.retryLocation'), onPress: search.retryOrigin }}
+            />
+            <Button
+              variant="plain"
+              size="md"
+              label={t('search.chooseOrigin')}
               onPress={() =>
                 router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
               }
-              style={styles.retry}
-            >
-              <ThemedText type="smallBold">{t('search.chooseOrigin')}</ThemedText>
-            </Pressable>
-          </ThemedView>
+              style={styles.centeredAction}
+            />
+          </View>
         ) : waitingForOrigin ? (
-          <ThemedView style={styles.centered}>
-            <ActivityIndicator />
+          <View style={styles.centered}>
+            <Loading />
             {search.originState.status === 'error' && (
-              <Pressable onPress={search.retryOrigin} style={styles.retry}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t(search.originState.message === 'location_permission_denied' ? 'search.locationPermissionDenied' : 'search.locationUnavailable')}
-                </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                onPress={search.retryOrigin}
+                android_ripple={{ color: colors.fillPressed }}
+                style={({ pressed }) => [styles.retry, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }]}
+              >
+                <Text variant="subheadline" color="textSecondary" align="center">
+                  {originMessage}
+                </Text>
               </Pressable>
             )}
-          </ThemedView>
+          </View>
         ) : (
-          <>
-            {resolveFailed && (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.noMatches}>
-                {t('search.placeUnavailable')}
-              </ThemedText>
-            )}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            // The field above is autofocused, so the keyboard is up: the
+            // default would spend the first tap on dismissing it and never
+            // fire the row underneath.
+            keyboardShouldPersistTaps="handled"
+          >
+            {resolveFailed && <Banner tone="danger" icon="error" title={t('search.placeUnavailable')} />}
+            {/* At most eight stops and eight places (`limit: 8` each), so a
+                plain group rather than a virtualised list. */}
             {showResults && rows.length > 0 && (
-              <FlatList
-                data={rows}
-                keyExtractor={(item) => item.key}
-                style={styles.list}
-                keyboardShouldPersistTaps="handled"
-                ListFooterComponent={credit ? <DataCredit source={credit} /> : null}
-                ItemSeparatorComponent={() => (
-                  <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-                )}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.row}
-                    onPress={() => void selectRow(item)}
-                    disabled={resolvingKey !== null}
-                  >
-                    {/* A stop's sign is a square of its own, so it goes without
-                        the circle; its slot stays, keeping every row's text
-                        on one edge. */}
-                    <View
-                      style={[
-                        styles.iconCircle,
-                        item.kind === 'address' || item.key === resolvingKey
-                          ? [{ backgroundColor: theme.background }, outline]
-                          : null,
-                      ]}
-                    >
-                      {item.key === resolvingKey ? (
-                        <ActivityIndicator size="small" />
-                      ) : item.kind === 'stop' ? (
-                        <StationIcon kind={stationKindOf(item)} />
-                      ) : (
-                        <IconMapPin size={18} color={theme.text} />
-                      )}
-                    </View>
-                    <View style={styles.rowText}>
-                      <ThemedText type="default">{item.title}</ThemedText>
-                      {item.kind === 'address' && item.subtitle !== null && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {item.subtitle}
-                        </ThemedText>
-                      )}
-                      {item.kind === 'stop' && item.routes.length > 0 && (
-                        <View style={styles.lineRow}>
-                          {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
-                            <LineBadge key={route.shortName} route={route} size="small" />
-                          ))}
-                          {item.routes.length > MAX_LINE_BADGES && (
-                            <ThemedText type="small" themeColor="textSecondary">
-                              {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
-                            </ThemedText>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  </Pressable>
-                )}
-              />
+              <View style={styles.results}>
+                <ListSection>
+                  {rows.map((item) => (
+                    <ListRow
+                      key={item.key}
+                      // Ignored rather than `disabled` while one address is
+                      // being positioned: disabling would dim the whole list.
+                      onPress={() => {
+                        if (resolvingKey === null) void selectRow(item);
+                      }}
+                      leading={
+                        item.key === resolvingKey ? (
+                          <LeadingIcon>
+                            <Loading style={styles.rowSpinner} />
+                          </LeadingIcon>
+                        ) : item.kind === 'stop' ? (
+                          // A stop's sign is a square of its own, so it goes
+                          // without the tile; the slot stays, keeping every
+                          // row's text on one edge.
+                          <StationIcon kind={stationKindOf(item)} />
+                        ) : (
+                          <LeadingIcon>
+                            <Icon name="place" size="sm" weight="medium" />
+                          </LeadingIcon>
+                        )
+                      }
+                      title={item.title}
+                      subtitle={
+                        item.kind === 'address'
+                          ? item.subtitle ?? undefined
+                          : item.routes.length > 0
+                            ? (
+                              <View style={styles.lineRow}>
+                                {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
+                                  <LineBadge key={route.shortName} route={route} size="small" />
+                                ))}
+                                {item.routes.length > MAX_LINE_BADGES && (
+                                  <Text variant="footnote" color="textSecondary" numeric>
+                                    {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
+                                  </Text>
+                                )}
+                              </View>
+                            )
+                            : undefined
+                      }
+                    />
+                  ))}
+                </ListSection>
+                {credit && <DataCredit source={credit} />}
+              </View>
             )}
             {showResults && !isFetching && rows.length === 0 && (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.noMatches}>
-                {t('search.noMatches')}
-              </ThemedText>
+              <EmptyState icon="search" title={t('search.noMatches')} />
             )}
             {/* What fills this screen before the rider types. Gated on
                 `showResults` rather than on `query`, so it does not blink
                 out during the debounce pause and back in again when a
-                one-character query turns out not to search anything. */}
-            {!showResults && (
-              <View style={styles.recents}>
-                {/* Straight into `commitPlace`, exactly where a tapped
-                    search result ends up -- which is what lets these rows
-                    stand in every mode this screen has. As a destination,
-                    as an origin, or as the address being pinned to a saved
-                    location, somewhere the rider looked up before is a
-                    reasonable answer, and each mode already knows what to
-                    do with a place. */}
-                <RecentSearches onSelect={commitPlace} />
-              </View>
-            )}
-          </>
+                one-character query turns out not to search anything.
+                Straight into `commitPlace`, exactly where a tapped search
+                result ends up -- which is what lets these rows stand in
+                every mode this screen has. As a destination, as an origin,
+                or as the address being pinned to a saved location,
+                somewhere the rider looked up before is a reasonable answer,
+                and each mode already knows what to do with a place. */}
+            {!showResults && <RecentSearches onSelect={commitPlace} />}
+          </ScrollView>
         )}
+        </Animated.View>
+        </View>
       </SafeAreaView>
-    </ThemedView>
+      {morph.overlay(
+        t(
+          field === 'origin'
+            ? 'search.originPlaceholder'
+            : field?.startsWith('saved-')
+              ? 'search.savedLocationPlaceholder'
+              : 'search.destinationPlaceholder',
+        ),
+      )}
+    </Surface>
   );
 }
 
+/**
+ * The chips row in flight, turning from the home screen's row into this
+ * screen's as `progress` runs 0 to 1 (and back). Home's row has every saved
+ * place and "Add"; this screen's leads with "Current location" and keeps only
+ * the places with an address. So every chip slides from where it sits in
+ * home's row to where it sits in this one, all together as one row; the ones
+ * only home has slide along with their neighbours and fade; and "Current
+ * location" slides in from the start edge to lead the row. Both ends match
+ * the real rows exactly, so neither hand-over shows.
+ *
+ * A plain row, not the shared `SavedLocationChips`: that one scrolls, and a
+ * scroll view clips whatever slides in from beyond its edge.
+ */
+function ChipsFlight({ progress, locations, currentLocationLabel, addLabel }: {
+  progress: SharedValue<number>;
+  locations: SavedLocation[];
+  /** Null while there is no fix to offer as "here" (the row has no lead). */
+  currentLocationLabel: string | null;
+  addLabel: string;
+}) {
+  // Each chip's width, from layout: the slide distances are built from them.
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const measure = (id: string) => (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    setWidths((known) => (known[id] === width ? known : { ...known, [id]: width }));
+  };
+  const leadWidth = currentLocationLabel ? (widths[LEAD_ID] ?? 0) : 0;
+  // How far toward the end every chip moves to make room for the lead.
+  const leadRoom = currentLocationLabel ? leadWidth + Space.sm : 0;
+
+  const chips = [
+    ...locations.map((location) => ({ id: location.id, location, stays: location.place !== null })),
+    { id: ADD_ID, location: null, stays: false },
+  ];
+  let goneBefore = 0;
+  let lastStayingShift = leadRoom;
+  return (
+    <View pointerEvents="none" style={styles.flightRow}>
+      {chips.map(({ id, location, stays }) => {
+        // A chip that stays closes up behind the leaving ones: it moves back
+        // by the room every leaving chip before it took. A leaving chip
+        // travels with the staying chip in front of it, so the leavers move as
+        // one block with it and never slide into each other.
+        let shift = lastStayingShift;
+        if (stays) {
+          shift = leadRoom - goneBefore;
+          lastStayingShift = shift;
+        } else {
+          goneBefore += (widths[id] ?? 0) + Space.sm;
+        }
+        return (
+          <FlightChip key={id} progress={progress} shift={shift} fades={!stays} onLayout={measure(id)}>
+            {location ? (
+              <Chip
+                icon={LOCATION_ICON_NAMES[location.icon]}
+                label={location.label}
+                filled={location.place !== null}
+                muted={location.place === null}
+                onPress={() => {}}
+              />
+            ) : (
+              <Chip icon="add" label={addLabel} muted onPress={() => {}} />
+            )}
+          </FlightChip>
+        );
+      })}
+      {currentLocationLabel && (
+        <LeadChip progress={progress} width={leadWidth} onLayout={measure(LEAD_ID)}>
+          <Chip icon="currentLocation" label={currentLocationLabel} onPress={() => {}} />
+        </LeadChip>
+      )}
+    </View>
+  );
+}
+
+const LEAD_ID = '__current-location';
+const ADD_ID = '__add';
+/** Toward the row's end, in physical x: left under RTL. */
+const END_X = I18nManager.isRTL ? -1 : 1;
+
+function FlightChip({ progress, shift, fades, onLayout, children }: {
+  progress: SharedValue<number>;
+  shift: number;
+  fades: boolean;
+  onLayout: (event: LayoutChangeEvent) => void;
+  children: ReactNode;
+}) {
+  const style = useAnimatedStyle(() => {
+    const p = progress.get();
+    return {
+      transform: [{ translateX: END_X * shift * p }],
+      // Gone by mid-flight, so a leaving chip is never seen under one that
+      // slides over the place it had.
+      opacity: fades ? Math.max(0, 1 - p * 2) : 1,
+    };
+  });
+  return (
+    <Animated.View onLayout={onLayout} style={style}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function LeadChip({ progress, width, onLayout, children }: {
+  progress: SharedValue<number>;
+  width: number;
+  onLayout: (event: LayoutChangeEvent) => void;
+  children: ReactNode;
+}) {
+  // From just beyond the screen's start edge to the head of the row.
+  const offscreen = width + Layout.pageInset;
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: -END_X * offscreen * (1 - progress.get()) }],
+  }));
+  return (
+    <Animated.View onLayout={onLayout} style={[styles.flightLead, style]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/** The box the flying map glyph is centred in: the larger of its two sizes. */
+const MORPH_GLYPH_BOX = Size.icon.md;
+
 const styles = StyleSheet.create({
+  morphRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    paddingHorizontal: Space.lg,
+  },
+  morphLabel: {
+    flex: 1,
+  },
+  morphCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+  },
+  flightLead: {
+    position: 'absolute',
+    start: 0,
+  },
+  morphGlyph: {
+    position: 'absolute',
+    width: MORPH_GLYPH_BOX,
+    height: MORPH_GLYPH_BOX,
+  },
   container: {
     flex: 1,
   },
   safeArea: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.five,
-    gap: Spacing.two,
+  top: {
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
   },
-  back: {
-    padding: Spacing.one,
-  },
-  fieldWrap: {
+  body: {
     flex: 1,
-  },
-  // The home screen's prompt is `smallBold`, and this is that same line in
-  // that same shell one screen later -- so the placeholder has to land on
-  // the identical metrics, or the field reads as changing size when tapped.
-  //
-  // `smallBold`'s `lineHeight` is deliberately NOT copied across: a `Text`
-  // centers its glyphs inside that line box, but a `TextInput` offsets them
-  // within it, so the same 20 that centers the home prompt pushes this one
-  // off-center against the search glyph beside it. The rest of the row's
-  // vertical centering is the shell's `alignItems`, which only works if the
-  // input contributes no padding of its own -- hence the zeroes below, and
-  // `includeFontPadding`, which is Android's own invisible extra.
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: INPUT_ALIGN_START,
-    // `smallBold`'s line box as a HEIGHT rather than as `lineHeight`: a
-    // single-line input centers its glyphs inside its frame, so this keeps
-    // the field exactly as tall as the home screen's prompt while leaving
-    // the text on the icon's centerline. As `lineHeight` it did the
-    // opposite -- right height, text riding above center.
-    height: 20,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  inputWebNoOutline: {
-    outlineWidth: 0,
   },
   chips: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.md,
   },
-  list: {
-    marginTop: Spacing.four,
-  },
-  // Carries the page inset for the rows inside it -- `RecentSearches` lays out
-  // a bare column, the way the list above it does.
-  recents: {
-    marginTop: Spacing.four,
-    paddingHorizontal: Spacing.four,
-  },
-  // Deliberately shorter than the home screen's rows: this list runs to
-  // hundreds of entries and is scanned, not read.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.four,
-  },
-  rowText: {
+
+  scroll: {
     flex: 1,
-    gap: Spacing.one,
+  },
+  content: {
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.xxl,
+    paddingBottom: Layout.sectionGap,
+    gap: Layout.sectionGap,
+  },
+  results: {
+    gap: Space.md,
+  },
+  // `Loading` centres itself in padding meant for a page; in a row's tile it
+  // has only the tile to fill.
+  rowSpinner: {
+    paddingVertical: Space.none,
   },
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-  },
-  noMatches: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+    gap: Space.xs,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.three,
+    paddingHorizontal: Layout.pageInset,
   },
-  originErrorText: {
-    textAlign: 'center',
+  centeredAction: {
+    alignSelf: 'center',
   },
   retry: {
-    paddingHorizontal: Spacing.four,
+    paddingHorizontal: Layout.pageInset,
   },
 });
+
+/**
+ * The home screen's search capsule growing into this screen's field -- the
+ * iOS 26 glass morph, for the one hand-off where both ends are ours. See
+ * `search-morph` for how the frame arrives.
+ *
+ * A glass capsule is drawn where the home capsule was and springs to where the
+ * field sits, while the back button and the page fade in under it; the real
+ * field takes over (and the keyboard rises) once it lands. Back runs it in
+ * reverse before leaving. Opened any other way, or with Reduce Motion on, none
+ * of this happens and the picker simply appears.
+ */
+function useSearchMorph() {
+  const [origin] = useState<MorphOrigin | null>(() => takeSearchMorphOrigin());
+  const reduceMotion = useReduceMotion();
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // `active`: the flight stands in for the field (the field is not mounted).
+  const [active, setActive] = useState(origin !== null);
+  // Whether the flight is drawn. Glass is see-through, so the home screen's
+  // controls, the flight and the field must never be on screen together:
+  // every hand-over happens inside ONE synchronous step, which React commits
+  // as one frame.
+  const [flying, setFlying] = useState(false);
+  const progress = useSharedValue(origin ? 0 : 1);
+  const inputRef = useRef<TextInput>(null);
+
+  // Where the field sits, worked out rather than measured: measuring mid-
+  // transition returned frames from before the safe-area inset applied. The
+  // header's geometry is fixed -- page inset, back button, gap -- so the
+  // field's frame follows from it. Physical x, like the origin.
+  const field: MorphFrame = {
+    x: I18nManager.isRTL ? Layout.pageInset : Layout.pageInset + Size.control.md + Space.sm,
+    y: insets.top + Space.sm,
+    width: windowWidth - Layout.pageInset * 2 - Size.control.md - Space.sm,
+    height: Size.control.md,
+  };
+  // The field's own map button: a small circle at its end edge.
+  const mapSize = Size.control.sm;
+  const mapSlot: MorphFrame = {
+    x: I18nManager.isRTL ? field.x + Space.xs : field.x + field.width - Space.xs - mapSize,
+    y: field.y + (field.height - mapSize) / 2,
+    width: mapSize,
+    height: mapSize,
+  };
+
+  // The flight has landed on the field: the field mounts and the flight goes,
+  // in one commit. The field's `autoFocus` then raises the keyboard.
+  const land = () => {
+    progress.set(1);
+    setActive(false);
+  };
+
+  // The morph runs once, as the screen arrives: home empties its slots and the
+  // flight appears at the home controls' frames in the same commit.
+  useEffect(() => {
+    if (!origin) return;
+    const frame = requestAnimationFrame(() => {
+      emitSearchMorph('out');
+      if (reduceMotion) {
+        land();
+        return;
+      }
+      setFlying(true);
+      progress.set(withSpring(1, Motion.morph, (finished) => {
+        if (finished) scheduleOnRN(land);
+      }));
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function leave() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  }
+
+  // The flight is back on the home screen's controls: they return and the
+  // flight goes, in the same commit, as the picker lifts away.
+  function arriveHome() {
+    emitSearchMorph('back');
+    setFlying(false);
+    leave();
+  }
+
+  function goBack() {
+    Keyboard.dismiss();
+    if (!origin || reduceMotion) {
+      leave();
+      return;
+    }
+    // The field gives way to the flight in one commit (see `flying`).
+    setActive(true);
+    progress.set(withSpring(0, Motion.morph, (finished) => {
+      if (finished) scheduleOnRN(arriveHome);
+    }));
+  }
+
+  // Absolute positions run from the reading edge under RTL, while frames are
+  // physical x -- so a shape's start offset is measured from the right in
+  // Hebrew. Plain numbers, worked out here: the styles below run on the UI
+  // thread, where only worklets and captured values exist.
+  const box = (frame: MorphFrame) => ({
+    start: I18nManager.isRTL ? windowWidth - frame.x - frame.width : frame.x,
+    top: frame.y,
+    width: frame.width,
+    height: frame.height,
+  });
+  const searchFrom = origin ? box(origin.search) : box(field);
+  const searchTo = box(field);
+  const mapFrom = origin?.map ? box(origin.map) : box(mapSlot);
+  const mapTo = box(mapSlot);
+
+  const searchStyle = useAnimatedStyle(() => {
+    const p = progress.get();
+    const mix = (from: number, to: number) => from + (to - from) * p;
+    return {
+      start: mix(searchFrom.start, searchTo.start),
+      top: mix(searchFrom.top, searchTo.top),
+      width: mix(searchFrom.width, searchTo.width),
+      height: mix(searchFrom.height, searchTo.height),
+    };
+  });
+  // The map button is absorbed by the capsule as it stretches over it: the
+  // glass circle stays put and shrinks ahead of the capsule's near edge, gone
+  // by the time the edge reaches its centre -- and grows back out of it on the
+  // way back. Never under the capsule: glass on glass reads as two layers.
+  const mapCenter = { start: mapFrom.start + mapFrom.width / 2, top: mapFrom.top + mapFrom.height / 2 };
+  const mapRadius = mapFrom.width / 2;
+  const mapAfterSearch = mapCenter.start > searchFrom.start;
+  const mapStyle = useAnimatedStyle(() => {
+    const p = progress.get();
+    const mix = (from: number, to: number) => from + (to - from) * p;
+    const start = mix(searchFrom.start, searchTo.start);
+    const width = mix(searchFrom.width, searchTo.width);
+    const room = mapAfterSearch ? mapCenter.start - (start + width) : start - mapCenter.start;
+    const r = Math.min(mapRadius, Math.max(0, room));
+    return { start: mapCenter.start - r, top: mapCenter.top - r, width: r * 2, height: r * 2 };
+  });
+  // The map glyph is not glass, so it flies on its own, above the capsule,
+  // from the home button's centre into the field's map button.
+  const mapGlyphStyle = useAnimatedStyle(() => {
+    const p = progress.get();
+    const mix = (from: number, to: number) => from + (to - from) * p;
+    return {
+      start: mix(mapCenter.start, mapTo.start + mapTo.width / 2) - MORPH_GLYPH_BOX / 2,
+      top: mix(mapCenter.top, mapTo.top + mapTo.height / 2) - MORPH_GLYPH_BOX / 2,
+    };
+  });
+  // The chips row rises from the home screen's chips to its place under the
+  // field. Worked out like the field's frame: the row starts a fixed gap
+  // under it.
+  const chipsShift = origin?.chips ? origin.chips.y - (field.y + field.height + Space.md) : 0;
+  const chipsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: chipsShift * (1 - progress.get()) }] }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
+  const fromStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.get() }));
+  const toStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
+  // The page itself, faded in behind everything: the picker is presented
+  // transparent over the home screen when it morphs.
+  const pageStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
+  // Never fully transparent: glass inside a view at opacity 0 stops rendering
+  // and does not come back (see `Glass`).
+  const backStyle = useAnimatedStyle(() => ({
+    opacity: 0.05 + 0.95 * progress.get(),
+    transform: [{ scale: 0.6 + 0.4 * progress.get() }],
+  }));
+
+  return {
+    active,
+    inputRef,
+    progress,
+    chipsStyle,
+    // The chips row is drawn by `ChipsFlight` for as long as the field is.
+    chipsFlying: active && origin?.chips != null,
+    goBack,
+    contentStyle,
+    backStyle,
+    morphing: origin !== null,
+    pageStyle,
+    // The real field mounts when the flight lands -- see `fieldHidden`.
+    fieldHidden: active && origin !== null,
+    overlay: (placeholder: string) =>
+      active && flying && origin ? (
+        <>
+        <GlassMorphLayer>
+          <GlassMorphShape style={searchStyle}>
+            <View style={styles.morphRow}>
+              {/* Drawn exactly like Home's capsule and the glass field, which
+                  match each other, so neither end of the flight snaps. */}
+              <Icon name="search" size="md" weight="medium" />
+              <Text variant="body" color="textSecondary" numberOfLines={1} style={styles.morphLabel}>
+                {placeholder}
+              </Text>
+            </View>
+          </GlassMorphShape>
+          {origin.map && <GlassMorphShape shape="circle" style={mapStyle} />}
+        </GlassMorphLayer>
+        {origin.map && (
+          <Animated.View pointerEvents="none" style={[styles.morphGlyph, mapGlyphStyle]}>
+            <Animated.View style={[StyleSheet.absoluteFill, styles.morphCenter, fromStyle]}>
+              <Icon name="map" size="md" weight="medium" />
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, styles.morphCenter, toStyle]}>
+              <Icon name="map" size="sm" weight="medium" />
+            </Animated.View>
+          </Animated.View>
+        )}
+        </>
+      ) : null,
+  };
+}

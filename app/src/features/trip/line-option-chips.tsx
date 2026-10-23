@@ -3,9 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
+import { Chip, Separator, Space, Text } from '@/design-system';
 import { formatClockTime } from '@/lib/format';
 
 import { currentOption, laterOptions, lineVerdict, type LineVerdict } from './line-options';
@@ -21,25 +19,24 @@ import { currentOption, laterOptions, lineVerdict, type LineVerdict } from './li
  * Read-only, and always later runs than the planned one -- a preview must not
  * suggest a bus already gone. On a running journey the same question --
  * which bus is the rider actually on -- is asked through `LineSwitchSheet`
- * instead, which offers every run, earlier ones included.
+ * instead, which offers every run, earlier ones included. Hence `info` chips:
+ * nothing here is a control.
  *
  * Nothing at all when there is no other bus.
  */
 export function LineOptionChips({ leg }: { leg: TransitLeg }) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
   const options = laterOptions(leg);
   const current = currentOption(leg, options);
   const others = options.filter((option) => option.tripId !== leg.tripId);
   if (others.length === 0) return null;
 
-  const noteFor = (verdict: LineVerdict): { text: string; color: 'danger' | 'success' } | null => {
+  const noteFor = (verdict: LineVerdict): { text: string; color: 'danger' | 'live' } | null => {
     switch (verdict.kind) {
       case 'slower':
         return { text: t('trip.lineLater', { minutes: verdict.minutesLater }), color: 'danger' };
       case 'sooner':
-        return { text: t('trip.lineSooner', { minutes: verdict.minutesSooner }), color: 'success' };
+        return { text: t('trip.lineSooner', { minutes: verdict.minutesSooner }), color: 'live' };
       case 'misses':
         return { text: t('trip.lineMisses'), color: 'danger' };
       case 'same':
@@ -48,10 +45,13 @@ export function LineOptionChips({ leg }: { leg: TransitLeg }) {
   };
 
   return (
-    <View style={[styles.block, { borderTopColor: theme.borderMuted }]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    // Under a separator at the foot of the card: a fallback, read after the
+    // ride itself, not a competitor for the top of it.
+    <View style={styles.block}>
+      <Separator />
+      <Text variant="footnote" color="textSecondary">
         {t('trip.laterLines')}
-      </ThemedText>
+      </Text>
       <View style={styles.chips}>
         {others.map((option) => {
           const time = formatClockTime(option.from.departureTime);
@@ -59,15 +59,15 @@ export function LineOptionChips({ leg }: { leg: TransitLeg }) {
           const note = noteFor(lineVerdict(option, current));
           const label = [t('trip.lineOption', { line, time }), note?.text].filter(Boolean).join(', ');
           return (
-            <View key={option.tripId} accessible accessibilityLabel={label} style={[styles.chip, { backgroundColor: theme.background }, outline]}>
-              <LineBadge route={option.route} size="small" />
-              <ThemedText type="small" themeColor="textSecondary">
-                {time}
-              </ThemedText>
+            // The verdict sits beside the chip rather than in it: it carries
+            // its own colour (later in danger, sooner in live), and a chip's
+            // label has one ink.
+            <View key={option.tripId} accessible accessibilityLabel={label} style={styles.option}>
+              <Chip variant="info" label={time} leading={<LineBadge route={option.route} size="small" />} />
               {note && (
-                <ThemedText type="smallBold" themeColor={note.color}>
+                <Text variant="footnote" emphasized numeric color={note.color}>
                   {note.text}
-                </ThemedText>
+                </Text>
               )}
             </View>
           );
@@ -78,26 +78,18 @@ export function LineOptionChips({ leg }: { leg: TransitLeg }) {
 }
 
 const styles = StyleSheet.create({
-  // Under a hairline at the foot of the card: a fallback, read after the
-  // ride itself, not a competitor for the top of it.
   block: {
-    gap: Spacing.one,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.two,
+    gap: Space.sm,
+    paddingTop: Space.xs,
   },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.one,
+    gap: Space.sm,
   },
-  // The same pill as the results card's departure chips.
-  chip: {
+  option: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-    paddingStart: Spacing.one,
-    paddingEnd: Spacing.two,
-    paddingVertical: Spacing.half,
-    borderRadius: 999,
+    gap: Space.xs,
   },
 });

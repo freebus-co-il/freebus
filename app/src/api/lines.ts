@@ -29,6 +29,7 @@ function list(values: (string | number)[]): string | undefined {
 export function useRouteSearch(
   q: string,
   filters: { agencies: string[]; types: number[]; excludeTypes?: number[] },
+  { enabled = true }: { enabled?: boolean } = {},
 ) {
   const trimmed = q.trim();
   // Comma-joined, and the param dropped entirely when the list is empty: an
@@ -52,6 +53,7 @@ export function useRouteSearch(
       const loaded = pages.reduce((n, page) => n + page.routes.length, 0);
       return loaded < last.total ? loaded : undefined;
     },
+    enabled,
     staleTime: LINE_STALE_TIME_MS,
   });
 }

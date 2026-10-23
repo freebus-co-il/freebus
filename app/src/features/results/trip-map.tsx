@@ -8,13 +8,13 @@ import { DataCredit } from '@/components/data-credit';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
 import { useLocationGranted } from '@/hooks/use-location-granted';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
+import { Border, MapStyle, Radius, Space, useColors } from '@/design-system';
 import { cameraKey, type NavigationCamera } from '@/features/journey/navigation/navigation-camera';
 import { decodePolyline } from '@/lib/polyline';
 import { routeColor, WALK_LEG_COLOR, withAlpha } from '@/lib/route-color';
 
 import { legFocusCoordinates, withMinimumSpan } from './map-focus';
-import { MARKER_RING_COLOR, MARKER_SNAPSHOT_MS, VehicleMarkerPins } from './vehicle-marker-pin';
+import { useSnapshotTracking, VehicleMarkerPins } from './vehicle-marker-pin';
 import { ARROW_BOX, CARD_MARGIN, cardPanTarget, cardPlacement, type ScreenPoint } from './vehicle-card-placement';
 import { vehicleMarkers, type LegPredictions } from './vehicle-markers';
 
@@ -40,18 +40,28 @@ export type LineShape = {
   coordinates: { latitude: number; longitude: number }[];
 };
 
-/** Faint enough that the rider's own leg, drawn over it at full strength, is
- *  unmistakably the part that is theirs. */
-const LINE_SHAPE_OPACITY = 0.3;
+// The map's opacities (`MapStyle`), and why each is what it is:
+//
+// - `lineShapeOpacity`: a line's backdrop path. Faint enough that the rider's
+//   own leg, drawn over it at full strength, is unmistakably the part that is
+//   theirs.
+// - `unfocusedLegOpacity`: the legs a focused map is NOT about. Stronger than a
+//   line's backdrop path, because these are still the rider's journey -- just
+//   not the part of it they are looking at.
+// - `focusedLineShapeOpacity`: a line's backdrop while one leg is in focus.
+//   Fainter than usual: a faded leg drawn over its own line's backdrop stacks
+//   the two alphas, and would otherwise read nearly as strong as the leg in
+//   focus.
 
-/** The legs a focused map is NOT about. Stronger than a line's backdrop path,
- *  because these are still the rider's journey -- just not the part of it
- *  they are looking at. */
-const UNFOCUSED_LEG_OPACITY = 0.4;
-/** A line's backdrop while one leg is in focus. Fainter than usual: a faded
- *  leg drawn over its own line's backdrop stacks the two alphas, and would
- *  otherwise read nearly as strong as the leg in focus. */
-const FOCUSED_LINE_SHAPE_OPACITY = 0.12;
+/** A walk is drawn a step lighter than a ride: it is the connective tissue
+ *  between rides, not a line the rider has to identify. */
+const WALK_WIDTH = MapStyle.routeWidthSecondary - 1;
+/** How much thinner a leg gets when another one is in focus. */
+const DIMMED_WIDTH_STEP = 1;
+/** The stop dots: a rider's boarding/alighting stop, and a stop the vehicle
+ *  merely passes. Marker geometry, sized against the route's stroke. */
+const BOARDING_DOT = 16;
+const INTERMEDIATE_DOT = 10;
 
 /** A bare position for the map to pin. */
 export type MapEndpoint = { lat: number; lon: number };
@@ -152,7 +162,12 @@ type StopMarker = LatLng & {
   kind: 'board' | 'alight' | 'intermediate';
 };
 
-const DEFAULT_EDGE_PADDING: EdgePadding = { top: 50, right: 50, bottom: 50, left: 50 };
+const DEFAULT_EDGE_PADDING: EdgePadding = {
+  top: MapStyle.edgePadding,
+  right: MapStyle.edgePadding,
+  bottom: MapStyle.edgePadding,
+  left: MapStyle.edgePadding,
+};
 
 /** A stable identity for "no vehicles", so the default value of the `vehicles`
  *  prop is not a fresh array on every render -- which would invalidate the
@@ -261,12 +276,9 @@ function legStrokeStyle(leg: Leg): { color: string; dashed: boolean } {
  * effect having to reach back in and reset it.
  */
 function StopMarkerPin({ marker, fallbackTitle, dimmed }: { marker: StopMarker; fallbackTitle: string; dimmed: boolean }) {
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setTracksViewChanges(false), MARKER_SNAPSHOT_MS);
-    return () => clearTimeout(timer);
-  }, []);
+  const colors = useColors();
+  // The ring follows the theme, so a theme change re-arms the snapshot too.
+  const tracksViewChanges = useSnapshotTracking(colors.mapMarkerRing);
 
   const boardingOrAlighting = marker.kind !== 'intermediate';
 
@@ -282,12 +294,14 @@ function StopMarkerPin({ marker, fallbackTitle, dimmed }: { marker: StopMarker; 
       // The marker's own native opacity rather than a style on the view
       // inside it: that view is a snapshot, and fading it would mean
       // re-snapshotting every dot on every swipe.
-      opacity={dimmed ? UNFOCUSED_LEG_OPACITY : 1}
+      opacity={dimmed ? MapStyle.unfocusedLegOpacity : 1}
     >
       <View
         style={[
           boardingOrAlighting ? styles.boardingDot : styles.intermediateDot,
-          boardingOrAlighting ? { backgroundColor: marker.color } : { borderColor: marker.color },
+          boardingOrAlighting
+            ? { backgroundColor: marker.color, borderColor: colors.mapMarkerRing }
+            : { backgroundColor: colors.mapMarkerRing, borderColor: marker.color },
         ]}
       />
     </Marker>
@@ -303,7 +317,7 @@ export function TripMap({
   vehiclePredictions, vehiclesTowardsAlighting = false,
 }: TripMapProps) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const mapRef = useRef<MapView | null>(null);
   const { userInterfaceStyle, remountKey, customMapStyle } = useMapAppearance({ monochrome });
   const showsUserLocation = useLocationGranted();
@@ -571,8 +585,8 @@ export function TripMap({
         <Polyline
           key={`line:${shape.key}`}
           coordinates={shape.coordinates}
-          strokeColor={withAlpha(shape.color, focusedLeg ? FOCUSED_LINE_SHAPE_OPACITY : LINE_SHAPE_OPACITY)}
-          strokeWidth={4}
+          strokeColor={withAlpha(shape.color, focusedLeg ? MapStyle.focusedLineShapeOpacity : MapStyle.lineShapeOpacity)}
+          strokeWidth={MapStyle.routeWidthSecondary}
         />
       ))}
       {(drawnItinerary?.legs ?? []).map((leg, index) => {
@@ -589,9 +603,9 @@ export function TripMap({
           <Polyline
             key={index}
             coordinates={coordinates}
-            strokeColor={dimmed ? withAlpha(color, UNFOCUSED_LEG_OPACITY) : color}
-            strokeWidth={(leg.type === 'walk' ? 3 : 5) - (dimmed ? 1 : 0)}
-            lineDashPattern={dashed ? [8, 6] : undefined}
+            strokeColor={dimmed ? withAlpha(color, MapStyle.unfocusedLegOpacity) : color}
+            strokeWidth={(leg.type === 'walk' ? WALK_WIDTH : MapStyle.routeWidth) - (dimmed ? DIMMED_WIDTH_STEP : 0)}
+            lineDashPattern={dashed ? [...MapStyle.dashPattern] : undefined}
             // No `zIndex` here, deliberately. Under the new architecture a
             // top-level `zIndex` is read as the view's stacking order and
             // reorders the map's children when they mount, while the Android
@@ -629,7 +643,7 @@ export function TripMap({
           the middle, because Apple and Google both keep their labels in the
           bottom corners. */}
       {showCredit && (
-        <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+        <DataCredit source="osm" variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + Space.xs }]} />
       )}
       {vehicleCard !== null && selectedVehicleTripId !== null && (
         <Animated.View
@@ -640,12 +654,14 @@ export function TripMap({
           onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
         >
           {vehicleCard}
-          {/* After the card, so it covers the card's hairline where it joins. */}
+          {/* After the card, so it covers the card's hairline where it joins.
+              Painted as a floating card (`Card variant="floating"`): the
+              same surface and the same hairline edge. */}
           <View
             style={[
               styles.cardArrow,
               SWAPS_LEFT_RIGHT ? { right: placement?.arrowLeft ?? 0 } : { left: placement?.arrowLeft ?? 0 },
-              { backgroundColor: theme.background, borderColor: theme.borderMuted },
+              { backgroundColor: colors.surfaceFloating, borderColor: colors.separator },
             ]}
           />
         </Animated.View>
@@ -678,26 +694,24 @@ const styles = StyleSheet.create({
     // Physical on purpose: the arrow points at a map POINT, which is physical,
     // and `SWAPS_LEFT_RIGHT` above already undoes React Native's mirroring.
     // eslint-disable-next-line no-restricted-syntax
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
+    borderRightWidth: Border.hairline,
+    borderBottomWidth: Border.hairline,
     transform: [{ rotate: SWAPS_LEFT_RIGHT ? '-45deg' : '45deg' }],
   },
-  // Filled with the route's own color and ringed in white -- it has to stay
-  // legible sitting directly on top of a stroke of that same color.
+  // Filled with the route's own color and ringed in the marker ring -- it has
+  // to stay legible sitting directly on top of a stroke of that same color.
   boardingDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: MARKER_RING_COLOR,
+    width: BOARDING_DOT,
+    height: BOARDING_DOT,
+    borderRadius: Radius.full,
+    borderWidth: MapStyle.markerRingWidth,
   },
-  // The inverse: white fill, route-colored ring. Reads as a bead threaded onto
-  // the line rather than a stop the rider has to do something at.
+  // The inverse: ring-coloured fill, route-coloured ring. Reads as a bead
+  // threaded onto the line rather than a stop the rider has to do something at.
   intermediateDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2.5,
-    backgroundColor: MARKER_RING_COLOR,
+    width: INTERMEDIATE_DOT,
+    height: INTERMEDIATE_DOT,
+    borderRadius: Radius.full,
+    borderWidth: MapStyle.markerRingWidthSecondary,
   },
 });

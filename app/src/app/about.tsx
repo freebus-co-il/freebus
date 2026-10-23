@@ -1,15 +1,9 @@
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IconBack } from '@/components/directional-icon';
-import { Hairline } from '@/components/hairline';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Layout, ListRow, ListSection, NativeHeader, Space, Surface, Text } from '@/design-system';
 import { GOOGLE_MAPS_TEXT, OSM_COPYRIGHT_URL } from '@/lib/attribution';
 
 const REPO_URL = 'https://github.com/freebus-co-il/freebus';
@@ -33,17 +27,28 @@ function openLicenses(title: string) {
   }
 }
 
-/** One data source: what it covers, and whose it is. */
+/** One data source: what it covers, and whose it is. A source with a page of
+ *  its own opens it; the credit line itself is the licence's wording, so it
+ *  is never truncated. */
 function Source({ title, body, url }: { title: string; body: string; url?: string }) {
-  const content = (
-    <View style={styles.block}>
-      <ThemedText type="defaultBold">{title}</ThemedText>
-      <ThemedText type={url ? 'link' : 'default'}>{body}</ThemedText>
-    </View>
+  return (
+    <ListRow
+      title={title}
+      titleLines={0}
+      subtitle={
+        <Text variant="footnote" color="textSecondary">
+          {body}
+        </Text>
+      }
+      accessory={url ? 'chevron' : 'none'}
+      onPress={url ? () => void Linking.openURL(url) : undefined}
+    />
   );
-  return url
-    ? <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(url)}>{content}</Pressable>
-    : content;
+}
+
+/** A row that opens a page outside the app. */
+function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  return <ListRow title={label} accessory="chevron" onPress={onPress} />;
 }
 
 /**
@@ -53,61 +58,44 @@ function Source({ title, body, url }: { title: string; body: string; url?: strin
  */
 export default function AboutScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const version = Constants.expoConfig?.version ?? '';
 
   return (
-    <ThemedView type="background" style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-            hitSlop={Spacing.two}
-            style={styles.back}
-          >
-            <IconBack size={26} color={theme.text} />
-          </Pressable>
-          <ThemedText type="default" style={styles.headerTitle}>{t('about.title')}</ThemedText>
-        </View>
+    <Surface level="bgGrouped" style={styles.container}>
+      <NativeHeader title={t('about.title')} />
+      {/* Bottom edge only: the native header already clears the top. */}
+      <SafeAreaView edges={['bottom']} style={styles.container}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ThemedText type="small" themeColor="textSecondary">{t('about.version', { version })}</ThemedText>
-          <ThemedText type="default">{t('about.openSource')}</ThemedText>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(REPO_URL)}>
-            <ThemedText type="link">{t('about.sourceCode')}</ThemedText>
-          </Pressable>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)}>
-            <ThemedText type="link">{t('about.privacy')}</ThemedText>
-          </Pressable>
+          <ListSection footer={t('about.openSource')}>
+            <LinkRow label={t('about.sourceCode')} onPress={() => void Linking.openURL(REPO_URL)} />
+            <LinkRow label={t('about.privacy')} onPress={() => void Linking.openURL(PRIVACY_URL)} />
+            {/* Native only: the licence list is generated into the iOS and
+                Android builds, and there is no web equivalent. */}
+            {Platform.OS !== 'web' && (
+              <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
+            )}
+          </ListSection>
 
-          <Hairline />
-          <ThemedText type="smallBold" themeColor="textSecondary">{t('about.dataSources')}</ThemedText>
-          <Source title={t('about.motTitle')} body={t('about.motBody')} url={MOT_URL} />
-          <Source title={t('about.osmTitle')} body={t('about.osmBody')} url={OSM_COPYRIGHT_URL} />
-          {/* Listed whatever the server's GEOCODER is: it is switched back and
-              forth, and this page cannot know which one answered. */}
-          <Source title={t('about.googleTitle')} body={GOOGLE_MAPS_TEXT} />
+          <ListSection title={t('about.dataSources')}>
+            <Source title={t('about.motTitle')} body={t('about.motBody')} url={MOT_URL} />
+            <Source title={t('about.osmTitle')} body={t('about.osmBody')} url={OSM_COPYRIGHT_URL} />
+            {/* Listed whatever the server's GEOCODER is: it is switched back and
+                forth, and this page cannot know which one answered. */}
+            <Source title={t('about.googleTitle')} body={GOOGLE_MAPS_TEXT} />
+          </ListSection>
 
-          <Hairline />
-          <ThemedText type="smallBold" themeColor="textSecondary">{t('about.disclaimerTitle')}</ThemedText>
-          <ThemedText type="default">{t('about.disclaimer')}</ThemedText>
+          <ListSection title={t('about.disclaimerTitle')}>
+            <View style={styles.textRow}>
+              <Text variant="subheadline">{t('about.disclaimer')}</Text>
+            </View>
+          </ListSection>
 
-          {/* Native only: the licence list is generated into the iOS and
-              Android builds, and there is no web equivalent. */}
-          {Platform.OS !== 'web' && (
-            <>
-              <Hairline />
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => openLicenses(t('about.licenses'))}
-              >
-                <ThemedText type="link">{t('about.licenses')}</ThemedText>
-              </Pressable>
-            </>
-          )}
+          <Text variant="footnote" color="textSecondary" align="center" numeric>
+            {t('about.version', { version })}
+          </Text>
         </ScrollView>
       </SafeAreaView>
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -115,26 +103,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  back: {
-    padding: Spacing.one,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
   content: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.lg,
+    paddingBottom: Layout.sectionGap,
+    gap: Layout.sectionGap,
   },
-  block: {
-    gap: Spacing.one,
+  // Prose inside a group: a row's padding, no row behaviour.
+  textRow: {
+    paddingVertical: Layout.rowPaddingV,
+    paddingHorizontal: Layout.rowPaddingH,
   },
 });

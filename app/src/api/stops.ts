@@ -16,11 +16,15 @@ export function useStopSearch(q: string, lang: string) {
 const NEARBY_STOPS_LIMIT = 5;
 const NEARBY_STOPS_RADIUS_METERS = 1000;
 
-export function useNearbyStops(coords: { lat: number; lon: number } | null, lang: string) {
+export function useNearbyStops(
+  coords: { lat: number; lon: number } | null,
+  lang: string,
+  limit: number = NEARBY_STOPS_LIMIT,
+) {
   return useQuery({
-    queryKey: ['nearbyStops', coords, lang],
+    queryKey: ['nearbyStops', coords, lang, limit],
     queryFn: () => apiGet<NearbyStopsResponse>('/stops/nearby', {
-      lat: coords!.lat, lon: coords!.lon, radius: NEARBY_STOPS_RADIUS_METERS, limit: NEARBY_STOPS_LIMIT, lang,
+      lat: coords!.lat, lon: coords!.lon, radius: NEARBY_STOPS_RADIUS_METERS, limit, lang,
     }),
     enabled: coords !== null,
     staleTime: 30_000,
@@ -32,12 +36,11 @@ export function useNearbyStops(coords: { lat: number; lon: number } | null, lang
 export const STOPS_PAGE_SIZE = 50;
 
 /**
- * The Stations tab's list: search when there is a query, and an alphabetical
- * browse when there is not. One hook rather than two because the screen
- * renders the two identically and switching hooks on keystroke would
- * unmount the list.
+ * The Stations tab's search. `enabled` is off while the field is empty: the
+ * tab offers recents and nearby stops then, and asks the rider to search for
+ * anything else rather than paging through the whole feed.
  */
-export function useStopBrowse(q: string, lang: string) {
+export function useStopBrowse(q: string, lang: string, { enabled = true }: { enabled?: boolean } = {}) {
   const trimmed = q.trim();
   return useInfiniteQuery({
     queryKey: ['stopBrowse', trimmed, lang],
@@ -52,6 +55,7 @@ export function useStopBrowse(q: string, lang: string) {
     // is the only signal available.
     getNextPageParam: (last, pages) =>
       last.stops.length < STOPS_PAGE_SIZE ? undefined : pages.length * STOPS_PAGE_SIZE,
+    enabled,
     staleTime: 30_000,
   });
 }

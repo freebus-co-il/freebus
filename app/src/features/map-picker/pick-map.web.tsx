@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { MapStop } from '@/api/types';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Space, Surface, Text } from '@/design-system';
 
 import type { MapRegion } from './map-tiles';
 
@@ -25,11 +24,11 @@ export const INITIAL_DELTA = 0.008;
 export function PickMap({ style }: PickMapProps) {
   const { t } = useTranslation();
   return (
-    <ThemedView type="surface" style={[styles.placeholder, style]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Surface level="surfaceNested" style={[styles.placeholder, style]}>
+      <Text variant="subheadline" color="textSecondary" align="center">
         {t('results.mapWebUnavailable')}
-      </ThemedText>
-    </ThemedView>
+      </Text>
+    </Surface>
   );
 }
 
@@ -38,5 +37,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: Space.lg,
   },
 });

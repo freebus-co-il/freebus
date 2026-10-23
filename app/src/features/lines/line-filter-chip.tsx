@@ -1,21 +1,20 @@
-import { IconCheck, IconChevronDown, IconLock } from '@tabler/icons-react-native';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
-import { SheetBackdrop, useSheetEdge } from '@/components/sheet-backdrop';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
+import { Button, Chip, Layout, ListRow, ListSection, Sheet, type IconName } from '@/design-system';
 import { hapticSelected } from '@/lib/haptics';
 
 export type FilterOption<T extends string | number> = { value: T; label: string };
 
+/** The checklist's ceiling inside the sheet: a feed with many operators
+ *  scrolls inside the sheet rather than growing it past the screen. A measured
+ *  height (about seven rows), not a spacing step. */
+const CHECKLIST_MAX_HEIGHT = 320;
+
 type Props<T extends string | number> = {
   /** Drawn inside the chip, before the label. */
-  icon: ReactNode;
+  icon: IconName;
   /** The sheet's heading. */
   title: string;
   options: FilterOption<T>[];
@@ -34,7 +33,7 @@ type Props<T extends string | number> = {
 
 /**
  * The Lines tab's filter chip: a pill that opens a bottom sheet of
- * checkboxes, exactly as `ModeFilterChip` does over the results map. Same
+ * checkmarks, exactly as `ModeFilterChip` does over the results map. Same
  * idiom on purpose -- one sheet pattern in the app, not two.
  *
  * Generic over the value because the tab wants two of these, one keyed by
@@ -54,9 +53,6 @@ export function LineFilterChip<T extends string | number>({
   lockedHint,
 }: Props<T>) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
-  const sheetEdge = useSheetEdge();
   const [open, setOpen] = useState(false);
   // What the sheet is editing, held locally and only committed on close.
   //
@@ -86,174 +82,84 @@ export function LineFilterChip<T extends string | number>({
     setOpen(true);
   }
 
-  // Every way out commits -- Done, the backdrop, and Android's back gesture.
-  // Discarding on some of those and keeping on others is the kind of
-  // distinction a rider has to learn by losing work once.
+  // Every way out commits -- Done, the close button, the backdrop, and
+  // Android's back gesture. Discarding on some of those and keeping on others
+  // is the kind of distinction a rider has to learn by losing work once.
   function closeSheet() {
     onCommit(draft);
     setOpen(false);
   }
 
   // Locked: the other filter has already decided this one, so there is
-  // nothing to open. Rendered as a plain view rather than a disabled
-  // Pressable so there is no press target at all, with the reason in the
-  // accessibility hint and a padlock where the chevron would be.
+  // nothing to open. `locked` disables the chip's press target outright (the
+  // handler never runs), swaps the chevron for a padlock and drains the ink,
+  // and the reason travels in the accessibility hint.
   if (lockedLabel !== undefined) {
     return (
-      <ThemedView
-        type="background"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
+      <Chip
+        icon={icon}
+        label={lockedLabel}
+        locked
+        onPress={openSheet}
         accessibilityLabel={lockedLabel}
         accessibilityHint={lockedHint}
-        style={[styles.chip, styles.chipLocked, outline]}
-      >
-        {icon}
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          {lockedLabel}
-        </ThemedText>
-        <IconLock size={14} color={theme.textSecondary} />
-      </ThemedView>
+      />
     );
   }
 
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={summary} onPress={openSheet}>
-        <ThemedView type="background" style={[styles.chip, outline]}>
-          {icon}
-          <ThemedText type="smallBold">{summary}</ThemedText>
-          <IconChevronDown size={16} color={theme.textSecondary} />
-        </ThemedView>
-      </Pressable>
+      {/* Filled while it narrows the list, so a rider can see from the chip
+          row alone that what is below is not everything. */}
+      <Chip icon={icon} label={summary} menu selected={selected.length > 0} onPress={openSheet} />
 
-      <Modal transparent animationType="slide" visible={open} onRequestClose={closeSheet}>
-        <SheetBackdrop onPress={closeSheet} />
-        <ThemedView type="background" style={[styles.sheet, sheetEdge]}>
-          <ThemedView style={[styles.grabber, { backgroundColor: theme.borderMuted }]} />
-          <ThemedText type="subtitle">{title}</ThemedText>
-
-          <ScrollView style={styles.list}>
+      <Sheet
+        visible={open}
+        onClose={closeSheet}
+        title={title}
+        closeLabel={t('common.close')}
+        footer={
+          <>
+            {draft.length > 0 && (
+              <Button label={resetLabel} variant="secondary" size="lg" onPress={() => setDraft([])} style={styles.action} />
+            )}
+            <Button label={t('common.done')} variant="prominent" size="lg" onPress={closeSheet} style={styles.action} />
+          </>
+        }
+      >
+        <ScrollView style={styles.list}>
+          <ListSection style={styles.group}>
             {options.map((option) => {
               // An empty selection means "all", so every row reads as ticked
-              // in that state -- showing a column of empty checkboxes for a
+              // in that state -- showing a column of empty checks for a
               // filter letting everything through would be a plain lie.
               const checked = draft.length === 0 || draft.includes(option.value);
               return (
-                <Pressable
+                <ListRow
                   key={String(option.value)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked }}
+                  title={option.label}
+                  accessory="check"
+                  selection="multiple"
+                  selected={checked}
                   onPress={() => toggle(option.value)}
-                  style={styles.row}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      { borderColor: theme.borderMuted },
-                      checked && { backgroundColor: theme.text, borderColor: theme.text },
-                    ]}
-                  >
-                    {checked && <IconCheck size={14} color={theme.background} />}
-                  </View>
-                  <ThemedText type="default" style={styles.rowLabel}>
-                    {option.label}
-                  </ThemedText>
-                </Pressable>
+                />
               );
             })}
-          </ScrollView>
-
-          <View style={styles.actions}>
-            {draft.length > 0 && (
-              <Pressable
-                onPress={() => setDraft([])}
-                style={[styles.secondaryButton, { borderColor: theme.borderMuted }]}
-              >
-                <ThemedText type="smallBold">{resetLabel}</ThemedText>
-              </Pressable>
-            )}
-            <Pressable onPress={closeSheet} style={[styles.doneButton, { backgroundColor: theme.text }]}>
-              <ThemedText type="smallBold" themeColor="background">
-                {t('search.done')}
-              </ThemedText>
-            </Pressable>
-          </View>
-        </ThemedView>
-      </Modal>
+          </ListSection>
+        </ScrollView>
+      </Sheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  /** `alignSelf` is load-bearing: as a child of a row the chip otherwise
-   *  stretches and shrinks with its neighbour, which squeezes the label down
-   *  to a single clipped glyph. Same as `ModeFilterChip`. */
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
-  },
-  // Inert, and it has to look it: the same pill, drained of contrast.
-  chipLocked: {
-    opacity: 0.6,
-  },
-  sheet: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    paddingTop: Spacing.two,
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    gap: Spacing.three,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.two,
-  },
-  // Bounded so a feed with many operators cannot grow the sheet past the
-  // screen; it scrolls inside instead.
   list: {
-    maxHeight: 320,
+    maxHeight: CHECKLIST_MAX_HEIGHT,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
+  group: {
+    marginHorizontal: Layout.pageInset,
   },
-  rowLabel: {
-    flexShrink: 1,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: Spacing.one,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  secondaryButton: {
+  action: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
-    borderWidth: 1.5,
-  },
-  doneButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
   },
 });

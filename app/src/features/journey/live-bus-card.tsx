@@ -1,18 +1,13 @@
-import { IconX } from '@tabler/icons-react-native';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTrip } from '@/api/trips';
 import type { LiveVehicle, TransitLeg } from '@/api/types';
-import { IconForward } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Card, Icon, IconButton, Opacity, Space, Text, useColors } from '@/design-system';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { agedness } from '@/features/results/vehicle-markers';
-import { useTheme } from '@/hooks/use-theme';
 import { formatClockTime } from '@/lib/format';
 
 import { legBusProgress, type LiveBusProgress } from './live-bus';
@@ -38,7 +33,7 @@ export type LiveBusCardProps = {
  */
 export function LiveBusCard({ leg, vehicle, now, onClose, onOpenRoute }: LiveBusCardProps) {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const { data: trip } = useTrip(leg.tripId, i18n.language);
 
   const headsign = leg.headsign?.trim() ? formatHeadsign(leg.headsign) : leg.to.stop.name ?? '';
@@ -60,35 +55,44 @@ export function LiveBusCard({ leg, vehicle, now, onClose, onOpenRoute }: LiveBus
   }
 
   return (
-    <ThemedView type="background" style={[styles.card, { borderColor: theme.borderMuted }]}>
+    <Card variant="floating">
       <View style={styles.titleRow}>
         <LineBadge route={leg.route} size="small" />
-        <ThemedText type="smallBold" numberOfLines={1} style={styles.title}>
+        <Text variant="subheadline" emphasized numberOfLines={1} style={styles.title}>
           {headsign === '' ? '' : t('results.towards', { name: headsign })}
-        </ThemedText>
-        <Pressable
-          accessibilityRole="button"
+        </Text>
+        <IconButton
+          icon="close"
+          variant="plain"
+          size="sm"
+          color="textSecondary"
           accessibilityLabel={t('journey.bus.close')}
           onPress={onClose}
-          hitSlop={Spacing.three}
-        >
-          <IconX size={20} color={theme.textSecondary} />
-        </Pressable>
+        />
       </View>
 
       <View>
-        <ThemedText type="small" themeColor="textSecondary">{report}</ThemedText>
+        <Text variant="subheadline" color="textSecondary" numeric>{report}</Text>
         {movedOn && (
-          <ThemedText type="small" themeColor="textSecondary">{t('journey.bus.movedOn')}</ThemedText>
+          <Text variant="subheadline" color="textSecondary">{t('journey.bus.movedOn')}</Text>
         )}
-        {progress !== null && <ThemedText type="smallBold">{progressLine(progress, t)}</ThemedText>}
+        {progress !== null && <Text variant="subheadline" emphasized numeric>{progressLine(progress, t)}</Text>}
       </View>
 
-      <Pressable accessibilityRole="button" onPress={onOpenRoute} style={styles.link} hitSlop={Spacing.two}>
-        <ThemedText type="smallBold">{t('journey.bus.route')}</ThemedText>
-        <IconForward size={16} color={theme.text} />
+      {/* A link, not a button: the card's facts are the point, and this is the
+          way to more of them. Text plus a forward chevron, the platform's
+          "goes somewhere" shape. */}
+      <Pressable
+        accessibilityRole="button"
+        onPress={onOpenRoute}
+        hitSlop={Space.sm}
+        android_ripple={{ color: colors.fillPressed, borderless: true }}
+        style={({ pressed }) => [styles.link, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }]}
+      >
+        <Text variant="subheadline" emphasized color="accent">{t('journey.bus.route')}</Text>
+        <Icon name="chevronForward" size="sm" color="accent" weight="semibold" />
       </Pressable>
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -100,17 +104,10 @@ function progressLine(progress: LiveBusProgress, t: TFunction): string {
 }
 
 const styles = StyleSheet.create({
-  // Flat like every card here: a background and a hairline, no shadow.
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   title: {
     flex: 1,
@@ -119,6 +116,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: Spacing.one,
+    gap: Space.xs,
   },
 });

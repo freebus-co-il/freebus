@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales, useLocales } from 'expo-localization';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Appearance } from 'react-native';
 
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
 import i18n from '@/i18n';
@@ -169,6 +170,16 @@ function usePreferencesState() {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, language: preference }));
     setState((current) => ({ ...current, language: preference }));
   }
+
+  /**
+   * The in-app light/dark choice, pushed down to the native layer so native
+   * tabs, headers, sheets, menus, date pickers and Liquid Glass follow it
+   * instead of the phone's setting. `'device'` hands control back.
+   */
+  useEffect(() => {
+    if (!loaded) return;
+    Appearance.setColorScheme(state.theme === 'device' ? 'unspecified' : state.theme);
+  }, [loaded, state.theme]);
 
   function setTheme(preference: ThemePreference) {
     setState((current) => ({ ...current, theme: preference }));

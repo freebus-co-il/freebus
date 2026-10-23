@@ -1,22 +1,31 @@
-import { IconSearch } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useStopBrowse } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { SectionGap, Spacing } from '@/constants/theme';
+import {
+  EmptyState,
+  GroupedItemSeparator,
+  Layout,
+  ListRow,
+  ListSection,
+  Loading,
+  PageTitle,
+  SearchField,
+  Space,
+  Surface,
+  Text,
+  useGroupedItemStyle,
+} from '@/design-system';
+import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { NearbyStops } from '@/features/nearby/nearby-stops';
 import { useRecents } from '@/features/recents/recents-context';
-import { FieldShell } from '@/features/search/field-shell';
-import { useTheme } from '@/hooks/use-theme';
-import { INPUT_ALIGN_START } from '@/i18n/direction';
 
 /** The same pause the location picker waits before it queries `/stops/search`
  *  -- long enough that typing a stop name is one request rather than one per
@@ -31,59 +40,69 @@ const SEARCH_DEBOUNCE_MS = 275;
  *  tells them apart. Six fits one unwrapped row at the narrowest width. */
 const MAX_LINE_BADGES = 6;
 
+/** Nearby is the whole browse list on this tab -- anything further away is a
+ *  search -- so it lists more than the home screen's handful. */
+const NEARBY_STOPS = 10;
+
 /** One stop, in the list and in the recents strip above it. Recents carry a
  *  name and nothing else, so `routes` is optional rather than a second row
- *  component that would drift from this one. */
-function StationRow({ name, routes, rail = false, stationKind, onPress }: {
+ *  component that would drift from this one. `dense` in the catalogue: it
+ *  runs to thousands of entries and is scanned, not read. */
+function StationRow({ name, routes, rail = false, stationKind, onPress, dense = false, style }: {
   name: string;
   routes?: StopRouteBrief[];
   rail?: boolean;
   stationKind?: string;
   onPress: () => void;
+  dense?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const { t } = useTranslation();
   const badges = routes ?? [];
 
   return (
-    <Pressable style={styles.row} onPress={onPress}>
-      <StationIcon kind={stationKindOf({ rail, stationKind })} />
-      <View style={styles.rowText}>
-        <ThemedText type="default">{name}</ThemedText>
-        {badges.length > 0 && (
+    <ListRow
+      leading={<StationIcon kind={stationKindOf({ rail, stationKind })} />}
+      title={name}
+      subtitle={
+        badges.length > 0 ? (
           <View style={styles.lineRow}>
             {badges.slice(0, MAX_LINE_BADGES).map((route) => (
               <LineBadge key={route.shortName} route={route} size="small" />
             ))}
             {badges.length > MAX_LINE_BADGES && (
-              <ThemedText type="small" themeColor="textSecondary">
+              <Text variant="footnote" color="textSecondary" numeric>
                 {t('search.moreLines', { count: badges.length - MAX_LINE_BADGES })}
-              </ThemedText>
+              </Text>
             )}
           </View>
-        )}
-      </View>
-    </Pressable>
+        ) : undefined
+      }
+      dense={dense}
+      onPress={onPress}
+      style={style}
+    />
   );
 }
 
 /**
- * Every stop in the feed, searchable and browsable.
+ * Every stop in the feed, by search; the ones that matter, without one.
  *
  * The counterpart to the Lines tab: a rider who knows where they want to
- * stand rather than which line they want to catch. Typing filters the whole
- * feed; typing nothing browses it alphabetically, with the stops they have
- * opened before and the ones they are standing next to offered first, since
- * those two answer the question far more often than the A-to-Z does.
+ * stand rather than which line they want to catch. With the field empty the
+ * tab offers the stops they have opened before and the ones they are standing
+ * next to -- the two that answer the question nearly every time. Anything
+ * else is a search.
  *
- * One `FlatList` rather than a `ScrollView` holding a list: the alphabetical
- * browse is tens of thousands of stops deep and has to be virtualised, and
- * nesting it inside a scroll view would both trap the gesture and defeat that
- * windowing. So recents and nearby ride along as the list's header and the
- * whole screen scrolls as one column.
+ * One `FlatList` rather than a `ScrollView` holding a list: a search can run
+ * many pages deep and has to stay virtualised. So recents and nearby ride
+ * along as the list's header and the whole screen scrolls as one column.
  */
 export default function StationsScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const dockInset = useJourneyDockInset();
+  // The end of the content scrolls clear of the tab bar (see the hook).
+  const tabBarInset = useTabBarInset();
   const { stations: recents, recordStation } = useRecents();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -93,9 +112,14 @@ export default function StationsScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data, fetchNextPage, hasNextPage, isFetching } = useStopBrowse(debouncedQuery, i18n.language);
-  const stops = data?.pages.flatMap((page) => page.stops) ?? [];
   const searching = debouncedQuery.trim() !== '';
+  // Only while searching: browsing is recents and nearby, not an A-to-Z of
+  // tens of thousands of stops nobody scrolled through.
+  const { data, fetchNextPage, hasNextPage, isFetching } = useStopBrowse(debouncedQuery, i18n.language, {
+    enabled: searching,
+  });
+  const stops = searching ? (data?.pages.flatMap((page) => page.stops) ?? []) : [];
+  const groupedItem = useGroupedItemStyle();
 
   /** The visit is recorded BEFORE the push, so the row that sent us there is
    *  already at the top of the recents strip when the rider comes back. */
@@ -109,63 +133,52 @@ export default function StationsScreen() {
   const header = searching ? null : (
     <View style={styles.header}>
       {recents.length > 0 && (
-        <View style={styles.section}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
-            {t('stations.recent')}
-          </ThemedText>
-          <View>
-            {recents.map((station, index) => (
-              <Fragment key={station.stopId}>
-                {index > 0 && <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />}
-                <StationRow
-                  name={station.name}
-                  rail={station.rail}
-                  stationKind={station.stationKind}
-                  onPress={() => openStation(station.stopId, station.name, station.rail === true, station.stationKind)}
-                />
-              </Fragment>
-            ))}
-          </View>
-        </View>
+        <ListSection title={t('stations.recent')} style={styles.groupedSection}>
+          {recents.map((station) => (
+            <StationRow
+              key={station.stopId}
+              name={station.name}
+              rail={station.rail}
+              stationKind={station.stationKind}
+              onPress={() => openStation(station.stopId, station.name, station.rail === true, station.stationKind)}
+            />
+          ))}
+        </ListSection>
       )}
 
-      {/* Renders nothing at all without a GPS fix, so the "All stations"
-          heading below simply moves up. Padded here rather than inside it:
-          the section is shared with the home screen, which pads its whole
-          column instead. */}
-      <View style={styles.nearby}>
-        <NearbyStops />
+      {/* Inset here rather than inside it: the section is shared with the
+          home screen, which insets its whole column instead. */}
+      <View style={styles.groupedSection}>
+        <NearbyStops limit={NEARBY_STOPS} footer={t('stations.searchHint')} />
       </View>
-
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.allHeading}>
-        {t('stations.all')}
-      </ThemedText>
     </View>
   );
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <Surface level="bgGrouped" style={styles.container}>
       {/* Top edge only, like the other tabs: the tab bar already clears the
           home indicator, and taking the bottom inset here too would leave a
-          dead band above it. */}
+          dead band above it. Tab roots have no native header, so the title is
+          drawn in content. */}
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedText type="title" style={styles.heading}>
-          {t('stations.title')}
-        </ThemedText>
+        <PageTitle>{t('stations.title')}</PageTitle>
 
-        <View style={styles.field}>
-          <FieldShell>
-            <IconSearch size={18} color={theme.text} />
-            <TextInput
-              style={[styles.input, { color: theme.text }, Platform.OS === 'web' && styles.inputWebNoOutline]}
-              placeholder={t('stations.search')}
-              placeholderTextColor={theme.textSecondary}
-              value={query}
-              onChangeText={setQuery}
-            />
-          </FieldShell>
-        </View>
+        <SearchField
+          style={styles.field}
+          placeholder={t('stations.search')}
+          value={query}
+          onChangeText={setQuery}
+          // Clearing is an answer, not typing: drop the debounce so the
+          // browse list comes straight back.
+          onClear={() => {
+            setQuery('');
+            setDebouncedQuery('');
+          }}
+          clearLabel={t('common.clear')}
+        />
 
+        {/* The screen's first scrollable view, so the native tab bar on iOS
+            finds it and applies its automatic content insets. */}
         <FlatList
           data={stops}
           keyExtractor={(item) => item.stopId}
@@ -173,36 +186,37 @@ export default function StationsScreen() {
           ListHeaderComponent={header}
           // The journey bar docks above the tab bar, so the list has to end
           // clear of both or its last row is unreachable mid-journey.
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => (
-            <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-          )}
+          contentContainerStyle={{ paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
+          ItemSeparatorComponent={GroupedItemSeparator}
           onEndReachedThreshold={0.5}
           onEndReached={() => {
             if (hasNextPage && !isFetching) fetchNextPage();
           }}
           ListEmptyComponent={
-            isFetching ? (
-              <ActivityIndicator style={styles.emptyLoader} />
-            ) : searching ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                {t('stations.empty')}
-              </ThemedText>
-            ) : null
+            !searching ? null : isFetching ? (
+              <Loading />
+            ) : (
+              <EmptyState icon="search" title={t('stations.empty')} />
+            )
           }
-          renderItem={({ item }) => (
+          // One grouped section, drawn a slice per item so the list stays
+          // virtualised -- see `useGroupedItemStyle`.
+          renderItem={({ item, index }) => (
             <StationRow
               name={item.name ?? item.stopId}
               routes={item.routes}
               rail={item.rail}
               stationKind={item.stationKind}
               onPress={() => openStation(item.stopId, item.name ?? item.stopId, item.rail === true, item.stationKind)}
+              dense
+              style={groupedItem(index, stops.length)}
             />
           )}
         />
       </SafeAreaView>
 
-    </ThemedView>
+      <JourneyDock />
+    </Surface>
   );
 }
 
@@ -213,85 +227,24 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  heading: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.four,
-  },
   field: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
+    marginHorizontal: Layout.pageInset,
+    marginBottom: Space.lg,
   },
-  // Matches the location picker's field exactly -- see its own comment for
-  // why the line box is a `height` and not a `lineHeight`, and why the input
-  // contributes no padding of its own.
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: INPUT_ALIGN_START,
-    height: 20,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  inputWebNoOutline: {
-    outlineWidth: 0,
-  },
-  // No horizontal padding of its own: the rows inside carry theirs, so
-  // padding here would inset them twice.
   // This column is what holds the page's sections apart, so the gap lives
   // here and each section carries none of its own -- the two stacked would
   // double it.
   header: {
-    gap: SectionGap,
+    gap: Layout.sectionGap,
+    paddingTop: Space.sm,
   },
-  // No gap under a list heading: the first row's own vertical padding is
-  // the space. A gap on top of that padding reads as a bigger break than
-  // the one between the rows themselves, which says the heading is not
-  // attached to the list it names.
-  section: {
-    gap: 0,
-  },
-  sectionTitle: {
-    paddingHorizontal: Spacing.four,
-  },
-  nearby: {
-    paddingHorizontal: Spacing.four,
-  },
-  allHeading: {
-    paddingHorizontal: Spacing.four,
-  },
-  listContent: {
-    paddingBottom: Spacing.five,
-  },
-  // Deliberately shorter than the home screen's rows: this list runs to
-  // hundreds of entries and is scanned, not read.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  rowText: {
-    flex: 1,
-    gap: Spacing.one,
+  // Grouped sections sit inset from the screen edge.
+  groupedSection: {
+    marginHorizontal: Layout.pageInset,
   },
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.four,
-  },
-  empty: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
-  },
-  emptyLoader: {
-    paddingTop: Spacing.four,
+    gap: Space.xs,
   },
 });
