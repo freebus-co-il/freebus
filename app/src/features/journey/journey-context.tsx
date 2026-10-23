@@ -32,6 +32,7 @@ import { liveLabelFor } from './journey-labels';
 import { journeyEndsAt, resolveJourneyState } from './journey-machine';
 import { reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
+import { withBackbone } from './replan/restore';
 import {
   addAcknowledgeAlightListener,
   liveSurface,
@@ -136,7 +137,7 @@ async function readStoredJourney(): Promise<ActiveJourney | null> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ActiveJourney;
-    return Array.isArray(parsed?.itinerary?.legs) ? parsed : null;
+    return Array.isArray(parsed?.itinerary?.legs) ? withBackbone(parsed) : null;
   } catch {
     return null;
   }
@@ -879,7 +880,7 @@ function useJourneyState() {
       // `withEarlierRunAtStart`).
       const plan = withEarlierRunAtStart(itinerary, Date.now());
 
-      const draft: ActiveJourney = {
+      const draft: ActiveJourney = withBackbone({
         id: newJourneyId(),
         itinerary: plan,
         signature,
@@ -887,7 +888,7 @@ function useJourneyState() {
         startedAt: new Date().toISOString(),
         destinationLabel,
         acknowledgedAlightLegIndex: null,
-      };
+      });
       const opening = resolveJourneyState(draft, position, new Date(), settings);
       // Placed by the fix the rider started with, if there is one: a rider
       // standing still at their stop sends no new fix for `recordFix` to
@@ -970,9 +971,11 @@ function useJourneyState() {
     router.push('/results');
   }, [journey, state, position, setOriginOverride, setDestination, setTimeMode, setCustomTime]);
 
-  const acknowledgeAlight = useCallback(async () => {
-    if (!journey || !state) return;
-    const legIndex = state.legIndex;
+  /** Marks one leg's get-off alert as answered: it never re-fires, and its
+   *  pending repeats are cancelled. Takes the leg explicitly so it can answer
+   *  for a ride the rider has already stepped off (see the effect below). */
+  const acknowledgeAlightLeg = useCallback(async (legIndex: number) => {
+    if (!journey) return;
 
     const next = { ...journey, acknowledgedAlightLegIndex: legIndex };
     setJourney(next);
@@ -982,9 +985,82 @@ function useJourneyState() {
     await writeStoredJourney(next);
 
     // Only THIS leg's alerts. A journey with a second ride still needs its own
-    // get-off alarm, and "Got it" was an answer to one stop, not to the trip.
+    // get-off alarm, and an answer to one stop is not an answer to the trip.
     await cancelAlertsMatching(`${journey.id}:alight:${legIndex}:`);
-  }, [journey, state]);
+  }, [journey]);
+
+  const acknowledgeAlight = useCallback(async () => {
+    if (!state) return;
+    await acknowledgeAlightLeg(state.legIndex);
+  }, [state, acknowledgeAlightLeg]);
+
+  /**
+   * Getting off IS the answer to "get off at the next stop".
+   *
+   * The journey sheet has no "Got it" button: the get-off moment is an
+   * instruction, not a dialogue. So the moment the journey moves past a ride
+   * whose alarm fired and was never silenced, that alarm is acknowledged for
+   * the rider -- otherwise a "repeat until acknowledged" alarm would keep
+   * ringing at someone already on the pavement.
+   */
+  const lastLegIndex = useRef<number | null>(null);
+  useEffect(() => {
+    const legIndex = state?.legIndex ?? null;
+    const previous = lastLegIndex.current;
+    lastLegIndex.current = legIndex;
+    if (!journey || previous === null || legIndex === null || legIndex <= previous) return;
+    if (!alertedLegs.current.has(previous) || journey.acknowledgedAlightLegIndex === previous) return;
+    void acknowledgeAlightLeg(previous);
+  }, [journey, state?.legIndex, acknowledgeAlightLeg]);
+
+  /**
+   * Swaps the journey onto a re-planned itinerary without ending it.
+   *
+   * The live re-planner (`replan/use-live-replan`) calls this with the
+   * current itinerary's done legs spliced onto the new way (`spliceItinerary`),
+   * so every leg up to `keepThroughLegIndex` is the same leg at the same
+   * index. Same journey id, same backbone. What the OS holds was armed for the
+   * old way -- get-off alarms, stop regions, the Live Activity's rail -- so all
+   * of it is rebuilt, as `chooseLine` does for a single leg.
+   */
+  const replaceItinerary = useCallback(
+    async (itinerary: Itinerary, keepThroughLegIndex: number) => {
+      if (!journey) return;
+      const gps = journey.gpsLegIndex;
+      const acknowledged = journey.acknowledgedAlightLegIndex;
+      const next: ActiveJourney = {
+        ...journey,
+        itinerary,
+        gpsLegIndex: gps === null || gps === undefined ? gps : Math.min(gps, keepThroughLegIndex + 1),
+        acknowledgedAlightLegIndex: acknowledged !== null && acknowledged > keepThroughLegIndex ? null : acknowledged,
+      };
+
+      setJourney(next);
+      armedWith.current = { journeyId: next.id, settings };
+      for (const legIndex of [...alertedLegs.current]) {
+        if (legIndex > keepThroughLegIndex) alertedLegs.current.delete(legIndex);
+      }
+      await writeStoredJourney(next);
+
+      await cancelAlertsMatching(`${next.id}:alight:`);
+      await scheduleAlightAlerts(next, settings);
+      await armGeofences(next);
+
+      const resolved = resolveJourneyState(next, position, new Date(), settings);
+      const copy = copyFor(next, resolved);
+      pushedFacts.current = surfaceFacts(resolved, copy);
+      // Restarted rather than updated: the rail is fixed when a surface starts.
+      // Both platforms replace a running surface on start. A surface that
+      // cannot start (Live Activities turned off) costs the Island, not the
+      // switch, which has already happened.
+      try {
+        await liveSurface.start(next, resolved, buildJourneyRail(itinerary), copy);
+      } catch {
+        // See above.
+      }
+    },
+    [journey, position, settings, copyFor],
+  );
 
   /**
    * The rider saying which bus they are actually on.
@@ -1146,7 +1222,7 @@ function useJourneyState() {
   );
 
   return {
-    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replanFromHere, end,
+    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replanFromHere, end,
     pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
   };
 }
