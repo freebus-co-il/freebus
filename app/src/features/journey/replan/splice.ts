@@ -69,5 +69,13 @@ export function replanOriginFor(
 
   const nextRide = itinerary.legs.slice(state.legIndex).find(isTransit);
   if (!nextRide?.from.stop.stopId) return null;
-  return { from: `stop:${nextRide.from.stop.stopId}`, keepThroughLegIndex };
+  // Still walking there: plan from the stop at when the walk gets the rider
+  // to it, or a bus leaving it in a minute would look catchable.
+  const walking = itinerary.legs[state.legIndex];
+  const departAfter = walking?.type === 'walk'
+    ? new Date(nowMs + walking.durationSeconds * 1000).toISOString()
+    : undefined;
+  return departAfter
+    ? { from: `stop:${nextRide.from.stop.stopId}`, departAfter, keepThroughLegIndex }
+    : { from: `stop:${nextRide.from.stop.stopId}`, keepThroughLegIndex };
 }

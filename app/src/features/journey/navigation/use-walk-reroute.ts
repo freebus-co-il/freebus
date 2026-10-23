@@ -6,6 +6,7 @@ import { decodePolyline } from '@/lib/polyline';
 
 import type { RiderPosition } from '../types';
 import { shouldReroute } from './reroute';
+import { rerouteApplies } from './reroute-applies';
 import { walkGuidance, type Point } from './walk-guidance';
 
 export type WalkRoute = {
@@ -17,7 +18,7 @@ export type WalkRoute = {
   rerouting: boolean;
 };
 
-type Reroute = { legIndex: number; geometry: string; steps: WalkStep[] };
+type Reroute = { legIndex: number; to: { lat: number; lon: number }; geometry: string; steps: WalkStep[] };
 
 /** How often an off-route rider with no new fix is looked at again. */
 const RECHECK_MS = 3_000;
@@ -55,7 +56,7 @@ export function useWalkReroute({ legIndex, leg, fix }: {
   const lastRerouteAt = useRef<string | null>(null);
   const currentLegIndex = useRef(legIndex);
 
-  const active = reroute !== null && reroute.legIndex === legIndex ? reroute : null;
+  const active = reroute !== null && rerouteApplies(reroute, legIndex, leg) ? reroute : null;
 
   useEffect(() => {
     currentLegIndex.current = legIndex;
@@ -88,7 +89,7 @@ export function useWalkReroute({ legIndex, leg, fix }: {
       .then((walk) => {
         // A leg finished while the request was out: its re-route is no use now.
         if (currentLegIndex.current !== requestedFor || walk.estimated || !walk.geometry) return;
-        setReroute({ legIndex: requestedFor, geometry: walk.geometry, steps: walk.steps });
+        setReroute({ legIndex: requestedFor, to: { lat: leg.to.lat, lon: leg.to.lon }, geometry: walk.geometry, steps: walk.steps });
         offRouteSince.current = null;
       })
       .catch(() => {

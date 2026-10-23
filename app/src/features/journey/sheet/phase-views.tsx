@@ -12,6 +12,7 @@ import { haversineMeters } from '@/lib/geo';
 import { routeColor } from '@/lib/route-color';
 
 import { minutesLeft, nextTransitAfter, stopName, vehicleInPlay } from '../journey-labels';
+import type { Backbone } from '../replan/backbone';
 import type { JourneyState, RiderPosition } from '../types';
 import { BusSign } from './bus-sign';
 import { alsoLines, stopLadder, walkVerdict } from './sheet-copy';
@@ -84,8 +85,8 @@ export function WalkingView({ state, itinerary, position, transfer }: {
 }
 
 /** At the stop. "Is this my bus?" */
-export function WaitingView({ state, leg, candidates, nowMs }: {
-  state: JourneyState; leg: TransitLeg; candidates: readonly Itinerary[]; nowMs: number;
+export function WaitingView({ state, leg, candidates, nowMs, backbone }: {
+  state: JourneyState; leg: TransitLeg; candidates: readonly Itinerary[]; nowMs: number; backbone: Backbone | null;
 }) {
   const { t } = useTranslation();
   const minutes = minutesLeft(state.timer);
@@ -95,7 +96,7 @@ export function WaitingView({ state, leg, candidates, nowMs }: {
   const nextRun = laterOptions(leg).find((option) =>
     option.route.shortName === leg.route.shortName &&
     Date.parse(option.realtime?.predictedDeparture ?? option.from.departureTime) > heroDeparts);
-  const others = alsoLines(leg, candidates, nowMs);
+  const others = alsoLines(leg, candidates, nowMs, backbone);
   const where = [
     state.busStopsAway !== null ? t('journey.sheet.busStopsAway', { count: state.busStopsAway }) : null,
     nextRun ? t('journey.sheet.nextRun', { time: formatClockTime(nextRun.realtime?.predictedDeparture ?? nextRun.from.departureTime) }) : null,

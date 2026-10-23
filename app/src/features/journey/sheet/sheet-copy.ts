@@ -1,7 +1,7 @@
 import type { Itinerary, Place, TransitAlternative, TransitLeg } from '@/api/types';
 import { equallyGoodLines } from '@/features/trip/line-options';
 
-import { sameStation, stationOf } from '../replan/backbone';
+import { respectsBackbone, sameStation, stationOf, type Backbone } from '../replan/backbone';
 
 /** Slack below this is "hurry": a red light or a slow lift eats two minutes. */
 const PLENTY_SECONDS = 120;
@@ -27,10 +27,17 @@ function departs(leg: Pick<TransitLeg, 'from' | 'realtime'>): string {
  * any fresh way that boards at this same station. One per line, none already
  * gone, never the hero's own line.
  */
-export function alsoLines(leg: TransitLeg, candidates: readonly Itinerary[], nowMs: number): AlsoLine[] {
+export function alsoLines(
+  leg: TransitLeg,
+  candidates: readonly Itinerary[],
+  nowMs: number,
+  backbone: Backbone | null = null,
+): AlsoLine[] {
   const here = stationOf(leg.from.stop);
   const pool: AlsoLine[] = equallyGoodLines(leg).map((alt) => ({ ...alt, departureTime: departs(alt) }));
   for (const candidate of candidates) {
+    // A line that drops the rider's own kind of trip is not "one that works".
+    if (backbone !== null && !respectsBackbone(candidate, backbone)) continue;
     const first = candidate.legs.find((l): l is TransitLeg => l.type === 'transit');
     if (first && sameStation(stationOf(first.from.stop), here)) pool.push({ ...first, departureTime: departs(first) });
   }

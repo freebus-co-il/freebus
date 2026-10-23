@@ -19,6 +19,7 @@ import { useCompassHeading } from '@/features/journey/navigation/use-compass-hea
 import { useNavigationFix } from '@/features/journey/navigation/use-navigation-fix';
 import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
+import { backboneAhead } from '@/features/journey/replan/backbone';
 import { EtaHeader } from '@/features/journey/sheet/eta-header';
 import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
 import { JourneyMenu } from '@/features/journey/sheet/journey-menu';
@@ -249,14 +250,20 @@ export default function JourneyScreen() {
   const body = (() => {
     switch (state.phase) {
       case 'off-plan':
-        return replan.offer
-          ? <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
-          : <RecalculatingView stuck={replan.status !== 'recalculating'} />;
+        return replan.offer ? null : <RecalculatingView stuck={replan.status !== 'recalculating'} />;
       case 'walking-to-stop':
       case 'transferring':
         return <WalkingView state={state} itinerary={journey.itinerary} position={position} transfer={state.phase === 'transferring'} />;
       case 'waiting':
-        return state.leg && <WaitingView state={state} leg={state.leg} candidates={replan.candidates} nowMs={nowMs} />;
+        return state.leg && (
+          <WaitingView
+            state={state}
+            leg={state.leg}
+            candidates={replan.candidates}
+            nowMs={nowMs}
+            backbone={backboneAhead(journey.backbone ?? null, journey.itinerary.legs.slice(0, state.legIndex))}
+          />
+        );
       case 'riding':
         return state.leg && <RidingView state={state} leg={state.leg} />;
       case 'alight-soon':
@@ -354,6 +361,11 @@ export default function JourneyScreen() {
           live={state.timeSource === 'live'}
           color={alighting ? colors.onAlightFill : undefined}
         />
+        {/* A different kind of trip, offered because the rider's own way broke
+            -- in whatever phase that was found, above what the phase says. */}
+        {replan.offer && (
+          <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
+        )}
         {body}
       </FloatingSheet>
 

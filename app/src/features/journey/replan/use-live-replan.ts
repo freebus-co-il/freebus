@@ -6,6 +6,8 @@ import { useAppActive } from '@/hooks/use-app-active';
 import { hapticRerouted } from '@/lib/haptics';
 
 import type { ActiveJourney, JourneyState, LiveJourneyInput, RiderPosition } from '../types';
+import { responseApplies } from './apply';
+import { backboneAhead, backboneOf, type Backbone } from './backbone';
 import { decideSwitch } from './decide';
 import { replanOriginFor, spliceItinerary } from './splice';
 import { replanReason, type ReplanMemory } from './triggers';
@@ -68,7 +70,11 @@ export function useLiveReplan(args: {
   /** The journey's destination as a `/plan` place, or null if it has none. */
   destination: string | null;
   lang: string;
-  replaceItinerary: (itinerary: Itinerary, keepThroughLegIndex: number) => Promise<void>;
+  replaceItinerary: (
+    itinerary: Itinerary,
+    keepThroughLegIndex: number,
+    options?: { backbone?: Backbone | null },
+  ) => Promise<void>;
 }): LiveReplan {
   const { journey, state, live, position, destination, lang, replaceItinerary } = args;
   const active = useAppActive();
@@ -92,8 +98,14 @@ export function useLiveReplan(args: {
   useEffect(() => {
     if (!journey || !state || !active || destination === null) return;
     if (memoryFor.current !== journey.id) {
+      // A new journey starts clean: nothing it inherits from the last one --
+      // an offer, its candidates, a dismissal -- is about this trip.
       memoryFor.current = journey.id;
       memory.current = { ...EMPTY_MEMORY, arrivalAtLastPlan: state.arrivalTime };
+      dismissedTripId.current = null;
+      setOffer(null);
+      setCandidates([]);
+      setLastSwitch(null);
     }
     const nowMs = Date.now();
     const reason = replanReason({ state, live, memory: memory.current, nowMs });
@@ -115,12 +127,16 @@ export function useLiveReplan(args: {
       results: REPLAN_RESULTS,
     })
       .then(async (response) => {
-        if (latest.current.journey?.id !== journeyId) return;
+        // Dropped if the itinerary moved on while the request was out -- a line
+        // the rider picked, a run they boarded, an offer they took.
+        if (!responseApplies(journeyId, before, latest.current.journey)) return;
         setCandidates(response.itineraries);
         const decision = decideSwitch({
           currentArrival: state.arrivalTime,
           broken,
-          backbone: journey.backbone ?? null,
+          // Once the backbone ride is kept -- ridden, or being ridden -- only the
+          // destination is fixed for what comes after it.
+          backbone: backboneAhead(journey.backbone ?? null, before.legs.slice(0, origin.keepThroughLegIndex + 1)),
           candidates: response.itineraries,
           nowMs,
           lastSwitchAt: memory.current.lastSwitchAt,
@@ -142,8 +158,14 @@ export function useLiveReplan(args: {
           memory.current = { ...memory.current, lastSwitchAt: Date.now(), arrivalAtLastPlan: spliced.arrivalTime };
           return;
         }
-        if (decision.kind === 'offer' && firstRide(decision.itinerary)?.tripId !== dismissedTripId.current) {
-          setOffer({ itinerary: decision.itinerary, keep: origin.keepThroughLegIndex, journeyId });
+        if (decision.kind === 'offer') {
+          if (firstRide(decision.itinerary)?.tripId !== dismissedTripId.current) {
+            setOffer({ itinerary: decision.itinerary, keep: origin.keepThroughLegIndex, journeyId });
+          }
+        } else {
+          // The rider's own way works again (or there is nothing to offer):
+          // an old offer would only be noise now.
+          setOffer(null);
         }
         memory.current = { ...memory.current, arrivalAtLastPlan: state.arrivalTime };
       })
@@ -160,14 +182,25 @@ export function useLiveReplan(args: {
   const acceptOffer = useCallback(() => {
     const current = latest.current.journey;
     if (!offer || !current || current.id !== offer.journeyId) return;
+    // Still catchable? An offer read a minute too late is not one to take.
+    const first = firstRide(offer.itinerary);
+    if (first && Date.parse(first.realtime?.predictedDeparture ?? first.from.departureTime) < Date.now()) {
+      setOffer(null);
+      return;
+    }
     const spliced = spliceItinerary(current.itinerary, offer.keep, offer.itinerary);
     setOffer(null);
-    void latest.current.replaceItinerary(spliced, offer.keep);
+    // The rider chose a different kind of trip: it becomes the trip, so its
+    // own backbone is what later re-plans respect -- and the choice stands
+    // against being switched straight back.
+    memory.current = { ...memory.current, lastSwitchAt: Date.now(), arrivalAtLastPlan: spliced.arrivalTime };
+    void latest.current.replaceItinerary(spliced, offer.keep, { backbone: backboneOf(spliced)?.backbone ?? null });
   }, [offer]);
   const dismissOffer = useCallback(() => {
     dismissedTripId.current = offer ? firstRide(offer.itinerary)?.tripId ?? null : null;
     setOffer(null);
   }, [offer]);
 
-  return { status, lastSwitch, offer: offer?.itinerary ?? null, acceptOffer, dismissOffer, candidates };
+  const liveOffer = offer !== null && offer.journeyId === journey?.id ? offer.itinerary : null;
+  return { status, lastSwitch, offer: liveOffer, acceptOffer, dismissOffer, candidates };
 }

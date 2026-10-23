@@ -69,10 +69,13 @@ test('waiting origin uses a fresh fix, else the boarding stop', () => {
   assert.deepEqual(replanOriginFor(state('waiting', 1), current, fix(t(8), 300), ms(8)), { from: 'stop:a', keepThroughLegIndex: 0 });
 });
 
-test('walking origin replaces everything from the walk on', () => {
-  assert.deepEqual(replanOriginFor(state('walking-to-stop', 0), current, null, ms(2)), { from: 'stop:a', keepThroughLegIndex: -1 });
-});
 
 test('no origin once arriving', () => {
   assert.equal(replanOriginFor(state('arriving', 3), current, fix(t(56)), ms(56)), null);
+});
+
+test('walking without a usable fix plans from the stop at when the walk gets there', () => {
+  assert.deepEqual(replanOriginFor(state('walking-to-stop', 0), current, null, ms(2)), {
+    from: 'stop:a', departAfter: t(7), keepThroughLegIndex: -1,
+  });
 });

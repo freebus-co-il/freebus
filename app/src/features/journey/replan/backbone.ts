@@ -1,4 +1,4 @@
-import type { Itinerary, Place, TransitLeg } from '@/api/types';
+import type { Itinerary, Leg, Place, TransitLeg } from '@/api/types';
 import { haversineMeters } from '@/lib/geo';
 
 /**
@@ -69,7 +69,7 @@ export function backboneOf(itinerary: Itinerary): { backbone: Backbone; legIndex
   };
 }
 
-export function respectsBackbone(candidate: Itinerary, backbone: Backbone): boolean {
+export function respectsBackbone(candidate: Pick<Itinerary, 'legs'>, backbone: Backbone): boolean {
   return candidate.legs.some(
     (leg) =>
       leg.type === 'transit' &&
@@ -77,4 +77,15 @@ export function respectsBackbone(candidate: Itinerary, backbone: Backbone): bool
       sameStation(stationOf(leg.from.stop), backbone.board) &&
       sameStation(stationOf(leg.to.stop), backbone.alight),
   );
+}
+
+/**
+ * The boundary a re-plan has to respect, given the legs it keeps. Before the
+ * rider reaches the backbone ride, it is the backbone; once that ride is among
+ * the kept legs -- they are on it, or past it -- what follows is free, and only
+ * the destination is fixed.
+ */
+export function backboneAhead(backbone: Backbone | null, keptLegs: readonly Leg[]): Backbone | null {
+  if (backbone === null) return null;
+  return respectsBackbone({ legs: [...keptLegs] }, backbone) ? null : backbone;
 }

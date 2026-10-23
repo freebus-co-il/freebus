@@ -63,3 +63,12 @@ test('stopLadder with one stop left is just the alighting stop', () => {
 test('stopLadder is null without a stop count', () => {
   assert.equal(stopLadder(riding, null), null);
 });
+
+test('alsoLines leaves out a fresh line that would drop the trip\'s backbone', () => {
+  const backbone = { mode: 'bus' as const, board: { stopId: 'a', lat: A.lat, lon: A.lon, name: null }, alight: { stopId: 'b', lat: B.lat, lon: B.lon, name: null } };
+  const candidates = [
+    itin([ride({ line: '61', tripId: 'c61', from: A2, to: B, dep: 11, arr: 29 })]),
+    itin([ride({ line: '7', tripId: 'c7', from: A, to: FAR, dep: 11, arr: 20 })]),
+  ];
+  assert.deepEqual(alsoLines(leg, candidates, ms(5), backbone).map((line) => line.route.shortName), ['61', '189']);
+});

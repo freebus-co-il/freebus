@@ -32,6 +32,8 @@ import { liveLabelFor } from './journey-labels';
 import { journeyEndsAt, resolveJourneyState } from './journey-machine';
 import { reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
+import { legToAcknowledge } from './replan/apply';
+import type { Backbone } from './replan/backbone';
 import { withBackbone } from './replan/restore';
 import { useLiveReplan } from './replan/use-live-replan';
 import {
@@ -307,15 +309,24 @@ async function acceptsBackgroundDisclosure(): Promise<boolean> {
   });
 }
 
-async function armGeofences(journey: ActiveJourney): Promise<void> {
+/** `prompt: false` re-arms only with what the rider already granted: a
+ *  journey that re-plans itself must never put a permission dialog in front of
+ *  them -- they did not do anything to be asked. */
+async function armGeofences(journey: ActiveJourney, { prompt = true }: { prompt?: boolean } = {}): Promise<void> {
   try {
-    // Foreground first: iOS will not even offer the always-on prompt until
-    // when-in-use has been granted.
-    const foreground = await Location.requestForegroundPermissionsAsync();
-    if (!foreground.granted) return;
-    if (!(await acceptsBackgroundDisclosure())) return;
-    const background = await Location.requestBackgroundPermissionsAsync();
-    if (!background.granted) return;
+    if (prompt) {
+      // Foreground first: iOS will not even offer the always-on prompt until
+      // when-in-use has been granted.
+      const foreground = await Location.requestForegroundPermissionsAsync();
+      if (!foreground.granted) return;
+      if (!(await acceptsBackgroundDisclosure())) return;
+      const background = await Location.requestBackgroundPermissionsAsync();
+      if (!background.granted) return;
+    } else {
+      const foreground = await Location.getForegroundPermissionsAsync();
+      const background = await Location.getBackgroundPermissionsAsync();
+      if (!foreground.granted || !background.granted) return;
+    }
 
     await Location.startGeofencingAsync(
       GEOFENCE_TASK,
@@ -345,11 +356,16 @@ async function disarmGeofences(): Promise<void> {
   }
 }
 
-async function scheduleAlightAlerts(journey: ActiveJourney, settings: AlertSettings): Promise<void> {
+async function scheduleAlightAlerts(
+  journey: ActiveJourney,
+  settings: AlertSettings,
+  { prompt = true }: { prompt?: boolean } = {},
+): Promise<void> {
   try {
-    const permission = await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowSound: true },
-    });
+    // See `armGeofences` for `prompt: false`.
+    const permission = prompt
+      ? await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true } })
+      : await Notifications.getPermissionsAsync();
     if (!permission.granted) return;
 
     if (Platform.OS === 'android') {
@@ -1012,9 +1028,11 @@ function useJourneyState() {
     const legIndex = state?.legIndex ?? null;
     const previous = lastLegIndex.current;
     lastLegIndex.current = legIndex;
-    if (!journey || previous === null || legIndex === null || legIndex <= previous) return;
-    if (!alertedLegs.current.has(previous) || journey.acknowledgedAlightLegIndex === previous) return;
-    void acknowledgeAlightLeg(previous);
+    if (!journey) return;
+    // Whether or not the in-app alert fired: the app may have been asleep
+    // while the OS rang, and cancelling an alarm that never sounded is harmless.
+    const leg = legToAcknowledge(previous, legIndex, journey.itinerary, journey.acknowledgedAlightLegIndex);
+    if (leg !== null) void acknowledgeAlightLeg(leg);
   }, [journey, state?.legIndex, acknowledgeAlightLeg]);
 
   /**
@@ -1028,13 +1046,20 @@ function useJourneyState() {
    * of it is rebuilt, as `chooseLine` does for a single leg.
    */
   const replaceItinerary = useCallback(
-    async (itinerary: Itinerary, keepThroughLegIndex: number) => {
+    async (
+      itinerary: Itinerary,
+      keepThroughLegIndex: number,
+      { backbone }: { backbone?: Backbone | null } = {},
+    ) => {
       if (!journey) return;
       const gps = journey.gpsLegIndex;
       const acknowledged = journey.acknowledgedAlightLegIndex;
       const next: ActiveJourney = {
         ...journey,
         itinerary,
+        // Only an explicit choice -- an offer the rider accepted -- redefines
+        // what the trip is; an automatic switch keeps the one they chose.
+        ...(backbone !== undefined ? { backbone } : {}),
         gpsLegIndex: gps === null || gps === undefined ? gps : Math.min(gps, keepThroughLegIndex + 1),
         acknowledgedAlightLegIndex: acknowledged !== null && acknowledged > keepThroughLegIndex ? null : acknowledged,
       };
@@ -1047,8 +1072,8 @@ function useJourneyState() {
       await writeStoredJourney(next);
 
       await cancelAlertsMatching(`${next.id}:alight:`);
-      await scheduleAlightAlerts(next, settings);
-      await armGeofences(next);
+      await scheduleAlightAlerts(next, settings, { prompt: false });
+      await armGeofences(next, { prompt: false });
 
       const resolved = resolveJourneyState(next, position, new Date(), settings);
       const copy = copyFor(next, resolved);
