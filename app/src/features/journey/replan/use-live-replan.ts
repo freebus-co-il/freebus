@@ -27,6 +27,9 @@ export type ReplanSwitch = {
 
 export type LiveReplan = {
   status: 'idle' | 'recalculating';
+  /** The last re-plan ran and found no way at all -- said only after a search,
+   *  never before one has happened. */
+  stuck: boolean;
   lastSwitch: ReplanSwitch | null;
   /** A way outside the trip the rider chose, offered only after theirs broke. */
   offer: Itinerary | null;
@@ -81,6 +84,7 @@ export function useLiveReplan(args: {
   const memory = useRef<ReplanMemory>(EMPTY_MEMORY);
   const memoryFor = useRef<string | null>(null);
   const [status, setStatus] = useState<LiveReplan['status']>('idle');
+  const [stuck, setStuck] = useState(false);
   const [lastSwitch, setLastSwitch] = useState<ReplanSwitch | null>(null);
   const [offer, setOffer] = useState<{ itinerary: Itinerary; keep: number; journeyId: string } | null>(null);
   const [candidates, setCandidates] = useState<Itinerary[]>([]);
@@ -106,6 +110,7 @@ export function useLiveReplan(args: {
       setOffer(null);
       setCandidates([]);
       setLastSwitch(null);
+      setStuck(false);
     }
     const nowMs = Date.now();
     const reason = replanReason({ state, live, memory: memory.current, nowMs });
@@ -142,6 +147,7 @@ export function useLiveReplan(args: {
           lastSwitchAt: memory.current.lastSwitchAt,
           readyAtMs: readyAt(nowMs, origin.departAfter),
         });
+        setStuck(decision.kind === 'stuck');
         if (decision.kind === 'switch') {
           const spliced = spliceItinerary(before, origin.keepThroughLegIndex, decision.itinerary);
           await latest.current.replaceItinerary(spliced, origin.keepThroughLegIndex);
@@ -202,5 +208,5 @@ export function useLiveReplan(args: {
   }, [offer]);
 
   const liveOffer = offer !== null && offer.journeyId === journey?.id ? offer.itinerary : null;
-  return { status, lastSwitch, offer: liveOffer, acceptOffer, dismissOffer, candidates };
+  return { status, stuck, lastSwitch, offer: liveOffer, acceptOffer, dismissOffer, candidates };
 }

@@ -10,24 +10,18 @@ import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled } from '
  *  step list can still be read whole. */
 const MAX_HEIGHT_RATIO = 0.72;
 
-export type SheetTone = 'default' | 'alight';
-
 /**
  * The one sheet the trip preview and the running journey share: floating
  * over the map, inset from the screen's edges with concentric corners, sized
- * to its content. Liquid Glass on iOS 26, a solid floating surface elsewhere
- * -- and a solid high-visibility fill for the get-off moment, which must read
- * the same over any map.
+ * to its content. Liquid Glass on iOS 26, a solid floating surface elsewhere.
  *
  * Never closes: it is the page, not a popup.
  */
 export function FloatingSheet({
   children,
-  tone = 'default',
   onHeightChange,
 }: {
   children: ReactNode;
-  tone?: SheetTone;
   /** The sheet's resting height including its bottom gap, for a map to keep
    *  what it frames above it. */
   onHeightChange?: (height: number) => void;
@@ -42,9 +36,6 @@ export function FloatingSheet({
   // every tick of the journey's clock, and glass that remounts flickers.
   const Background = useMemo(() => {
     function SheetBackground({ style }: BottomSheetBackgroundProps) {
-      if (tone === 'alight') {
-        return <View pointerEvents="none" style={[style, styles.shape, { backgroundColor: colors.alightFill }]} />;
-      }
       if (glass) return <Glass variant="regular" shape="none" pointerEvents="none" style={[style, styles.shape]} />;
       return (
         <View
@@ -54,7 +45,7 @@ export function FloatingSheet({
       );
     }
     return SheetBackground;
-  }, [tone, glass, colors]);
+  }, [glass, colors]);
 
   return (
     <BottomSheet
@@ -67,7 +58,7 @@ export function FloatingSheet({
       enablePanDownToClose={false}
       backgroundComponent={Background}
       handleIndicatorStyle={{
-        backgroundColor: tone === 'alight' ? colors.onAlightFill : colors.textTertiary,
+        backgroundColor: colors.textTertiary,
         width: Size.grabber.width,
         height: Size.grabber.height,
       }}

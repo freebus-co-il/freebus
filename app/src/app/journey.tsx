@@ -81,7 +81,6 @@ export default function JourneyScreen() {
     [headerHeight, insets.top, sheetHeight],
   );
 
-  const alighting = state?.phase === 'alight-soon';
   // The leg index whose line switcher is open, or null. By index rather than
   // by leg, so a `chooseLine` that swaps the leg underneath cannot leave the
   // sheet holding the run the rider just moved off.
@@ -250,7 +249,7 @@ export default function JourneyScreen() {
   const body = (() => {
     switch (state.phase) {
       case 'off-plan':
-        return replan.offer ? null : <RecalculatingView stuck={replan.status !== 'recalculating'} />;
+        return replan.offer ? null : <RecalculatingView stuck={replan.stuck && replan.status !== 'recalculating'} />;
       case 'walking-to-stop':
       case 'transferring':
         return <WalkingView state={state} itinerary={journey.itinerary} position={position} transfer={state.phase === 'transferring'} />;
@@ -355,12 +354,8 @@ export default function JourneyScreen() {
         )}
       </SafeAreaView>
 
-      <FloatingSheet tone={alighting ? 'alight' : 'default'} onHeightChange={setSheetHeight}>
-        <EtaHeader
-          arrivalTime={state.arrivalTime}
-          live={state.timeSource === 'live'}
-          color={alighting ? colors.onAlightFill : undefined}
-        />
+      <FloatingSheet onHeightChange={setSheetHeight}>
+        <EtaHeader arrivalTime={state.arrivalTime} live={state.timeSource === 'live'} />
         {/* A different kind of trip, offered because the rider's own way broke
             -- in whatever phase that was found, above what the phase says. */}
         {replan.offer && (

@@ -17,7 +17,7 @@ const DELTA_SHOW_MS = 30_000;
  * green -- so a rider glancing down sees that something changed without
  * having to remember what it said before.
  */
-export function EtaHeader({ arrivalTime, live, color }: { arrivalTime: string; live: boolean; color?: string }) {
+export function EtaHeader({ arrivalTime, live }: { arrivalTime: string; live: boolean }) {
   const { t } = useTranslation();
   const colors = useColors();
   const [shown, setShown] = useState(arrivalTime);
@@ -39,8 +39,8 @@ export function EtaHeader({ arrivalTime, live, color }: { arrivalTime: string; l
 
   return (
     <View style={styles.row}>
-      {live && <LiveIndicator color={color ?? colors.live} size={Size.icon.xs} />}
-      <Text variant="subheadline" emphasized numeric color={color ?? 'textSecondary'}>
+      {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
+      <Text variant="subheadline" emphasized numeric color="textSecondary">
         {t('journey.sheet.arriveAt', { time: formatClockTime(arrivalTime) })}
       </Text>
       {delta !== null && (

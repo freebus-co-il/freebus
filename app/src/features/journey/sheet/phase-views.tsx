@@ -186,27 +186,31 @@ function Ladder({ ladder, color }: { ladder: NonNullable<ReturnType<typeof stopL
   );
 }
 
-/** The get-off moment, drawn on the yellow sheet. */
+/**
+ * The get-off moment. The same glass sheet as every other moment -- the
+ * buzz and the alarm are what make it loud; on screen it is the app's own
+ * "act now" signal, the live green hero, over the stop's name.
+ */
 export function AlightView({ state, itinerary, leg, nowMs, canSilence, onSilence }: {
   state: JourneyState; itinerary: Itinerary; leg: TransitLeg; nowMs: number; canSilence: boolean; onSilence: () => void;
 }) {
   const { t } = useTranslation();
-  const ink = 'onAlightFill';
   const next = nextTransitAfter(itinerary, state.legIndex);
   return (
     <View style={styles.block}>
-      <Kicker color={ink}>{t('journey.sheet.alightNext')}</Kicker>
-      <Text variant="largeTitle" emphasized color={ink}>{t('journey.sheet.alightHero')}</Text>
-      <Text variant="title3" emphasized color={ink} numberOfLines={2}>{stopName(leg.to.stop, t)}</Text>
+      <Text variant="title1" emphasized color="live" numberOfLines={1} adjustsFontSizeToFit>
+        {t('journey.sheet.alightHero')}
+      </Text>
+      <Text variant="title3" emphasized numberOfLines={2}>{stopName(leg.to.stop, t)}</Text>
       <View style={styles.row}>
-        <Icon name="handRaised" size="sm" color={ink} />
-        <Text variant="subheadline" emphasized color={ink}>{t('journey.sheet.pressStop')}</Text>
+        <Icon name="handRaised" size="sm" color="textSecondary" />
+        <Text variant="subheadline" color="textSecondary">{t('journey.sheet.pressStop')}</Text>
       </View>
       {next && (
         <View style={styles.row}>
-          <Text variant="subheadline" color={ink}>{t('journey.sheet.then')}</Text>
+          <Text variant="subheadline" color="textSecondary">{t('journey.sheet.then')}</Text>
           <LineBadge route={next.route} size="small" />
-          <Text variant="subheadline" color={ink} numeric numberOfLines={1} style={styles.grow}>
+          <Text variant="subheadline" color="textSecondary" numeric numberOfLines={1} style={styles.grow}>
             {t('journey.sheet.thenFrom', { stop: stopName(next.from.stop, t), minutes: minutesUntil(next.from.departureTime, nowMs) })}
           </Text>
         </View>

@@ -56,10 +56,6 @@ const light = {
   getOff: '#FF5B24',
   /** Content on a danger / getOff / walk fill. */
   onStatus: '#FFFFFF',
-  /** The journey sheet at the get-off moment: an instruction, not an error,
-   *  so a high-visibility yellow rather than red, the same in both schemes. */
-  alightFill: '#FFD60A',
-  onAlightFill: '#1A1500',
   /** A bus's own front sign: amber dot-matrix on black, for matching the
    *  vehicle at a glance. The same in both schemes, like the real thing. */
   busSign: '#FFB21A',
@@ -100,8 +96,6 @@ const dark: Palette = {
   walk: '#f59e0b',
   getOff: '#FF5B24',
   onStatus: '#FFFFFF',
-  alightFill: '#FFD60A',
-  onAlightFill: '#1A1500',
   busSign: '#FFB21A',
   busSignPanel: '#0B0B0B',
   scrim: 'rgba(0,0,0,0.60)',
