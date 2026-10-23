@@ -47,10 +47,10 @@ const MAX_LINE_BADGES = 6;
  *  that fill in when the finger lifts. */
 const DRAW_MARGIN = 0.5;
 
-/** The floating choose panel's resting height (its button and padding), and
- *  the gap under it: where the map's legal label has to move to so the panel
- *  never covers it. */
-const CHOOSE_PANEL_CLEARANCE = Size.control.lg + 2 * Space.lg + Space.md;
+/** The floating choose button's height, the gap under it and a little air
+ *  above it: where the map's legal label has to move to so the button never
+ *  covers it. */
+const CHOOSE_PANEL_CLEARANCE = Size.control.lg + Space.md + Space.sm;
 
 const NO_TILES: [] = [];
 
@@ -242,10 +242,14 @@ export default function MapPickerScreen() {
         )}
       </View>
 
-      {/* Content, not chrome: solid, never glass. */}
-      <Card variant="floating" style={[styles.bottomPanel, { bottom: insets.bottom + Space.md }]}>
+      {/* The confirm button floats on the map by itself: Liquid Glass on
+          iOS 26 (`prominent` is tinted glass there), a filled button on
+          Android. No card around it -- a panel holding one button was a
+          frame around a frame. Only the location notice, which is content,
+          gets a solid card, and only when there is something to say. */}
+      <View pointerEvents="box-none" style={[styles.bottomPanel, { bottom: insets.bottom + Space.md }]}>
         {originFailed && (
-          <View style={styles.notice}>
+          <Card variant="floating" style={styles.notice}>
             <Text variant="subheadline" color="textSecondary">
               {t(
                 search.originState.status === 'error' && search.originState.message === 'location_permission_denied'
@@ -259,7 +263,7 @@ export default function MapPickerScreen() {
               label={t('search.chooseOrigin')}
               onPress={() => router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })}
             />
-          </View>
+          </Card>
         )}
         <Button
           variant="prominent"
@@ -269,7 +273,7 @@ export default function MapPickerScreen() {
           disabled={moving}
           loading={waitingForOrigin || naming}
         />
-      </Card>
+      </View>
     </Surface>
   );
 }

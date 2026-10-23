@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useStopBrowse } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
@@ -16,11 +15,13 @@ import {
   ListSection,
   Loading,
   PageTitle,
+  ScrollHeader,
   SearchField,
   Space,
   Surface,
   Text,
   useGroupedItemStyle,
+  useScrollHeader,
 } from '@/design-system';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
@@ -103,6 +104,7 @@ export default function StationsScreen() {
   const dockInset = useJourneyDockInset();
   // The end of the content scrolls clear of the tab bar (see the hook).
   const tabBarInset = useTabBarInset();
+  const scrollHeader = useScrollHeader();
   const { stations: recents, recordStation } = useRecents();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -156,37 +158,25 @@ export default function StationsScreen() {
 
   return (
     <Surface level="bgGrouped" style={styles.container}>
-      {/* Top edge only, like the other tabs: the tab bar already clears the
-          home indicator, and taking the bottom inset here too would leave a
-          dead band above it. Tab roots have no native header, so the title is
-          drawn in content. */}
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <PageTitle>{t('stations.title')}</PageTitle>
-
-        <SearchField
-          style={styles.field}
-          placeholder={t('stations.search')}
-          value={query}
-          onChangeText={setQuery}
-          // Clearing is an answer, not typing: drop the debounce so the
-          // browse list comes straight back.
-          onClear={() => {
-            setQuery('');
-            setDebouncedQuery('');
-          }}
-          clearLabel={t('common.clear')}
-        />
-
+      {/* Tab roots have no native header, so the title and search are drawn
+          in content -- as a fixed header the list scrolls under, which takes
+          a glass backing once it does. It takes the top safe-area inset
+          itself. */}
+      <View style={styles.safeArea}>
         {/* The screen's first scrollable view, so the native tab bar on iOS
-            finds it and applies its automatic content insets. */}
+            finds it to minimise on scroll. Insets are applied by hand: the
+            header's height on top, the tab bar's and the dock's below. */}
         <FlatList
           data={stops}
           keyExtractor={(item) => item.stopId}
           keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="never"
+          onScroll={scrollHeader.onScroll}
+          scrollEventThrottle={scrollHeader.scrollEventThrottle}
           ListHeaderComponent={header}
           // The journey bar docks above the tab bar, so the list has to end
           // clear of both or its last row is unreachable mid-journey.
-          contentContainerStyle={{ paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
+          contentContainerStyle={{ paddingTop: scrollHeader.height, paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
           ItemSeparatorComponent={GroupedItemSeparator}
           onEndReachedThreshold={0.5}
           onEndReached={() => {
@@ -213,7 +203,25 @@ export default function StationsScreen() {
             />
           )}
         />
-      </SafeAreaView>
+
+        <ScrollHeader scrolled={scrollHeader.scrolled} progress={scrollHeader.progress} onLayout={scrollHeader.onLayout}>
+          <PageTitle>{t('stations.title')}</PageTitle>
+
+          <SearchField
+            style={styles.field}
+            placeholder={t('stations.search')}
+            value={query}
+            onChangeText={setQuery}
+            // Clearing is an answer, not typing: drop the debounce so the
+            // browse list comes straight back.
+            onClear={() => {
+              setQuery('');
+              setDebouncedQuery('');
+            }}
+            clearLabel={t('common.clear')}
+          />
+        </ScrollHeader>
+      </View>
 
       <JourneyDock />
     </Surface>

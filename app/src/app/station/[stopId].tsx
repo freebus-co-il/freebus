@@ -6,7 +6,7 @@ import { BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { useRouteShape } from '@/api/lines';
-import { DEPARTURES_WINDOW_MINUTES, useStopDepartures } from '@/api/departures';
+import { DEPARTURES_WINDOW_MINUTES, STATION_BOARD_LIMIT, useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
 import { useStop } from '@/api/stops';
 import { useTrip } from '@/api/trips';
@@ -42,7 +42,7 @@ import { routeColor } from '@/lib/route-color';
 // A full board, not the home screen's short "next few" chip row. The window
 // is the same `DEPARTURES_WINDOW_MINUTES` either way; only how many of that
 // window's departures are shown differs.
-const DEPARTURES_LIMIT = 50;
+const DEPARTURES_LIMIT = STATION_BOARD_LIMIT;
 
 /** Where the hairline between two departures starts: clear of the line
  *  badge, under the destination -- the iOS list convention. */

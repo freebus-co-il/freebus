@@ -29,3 +29,4 @@ export { Sheet, type SheetProps } from './components/sheet';
 export { Toast, type ToastProps } from './components/toast';
 export { SearchButton, SearchField, SearchHeader, TextField, type SearchFieldProps, type TextFieldProps } from './components/fields';
 export { NativeHeader, PageTitle, type HeaderAction } from './components/page';
+export { ScrollHeader, useScrollHeader } from './components/scroll-header';
