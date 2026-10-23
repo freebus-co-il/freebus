@@ -1,24 +1,30 @@
-import { IconMapPin, IconSearch } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ADDRESS_MIN_QUERY_LENGTH, newGeocodeSession, resolvePlace, useAddressSearch } from '@/api/geocode';
 import { useStopSearch } from '@/api/stops';
 import type { StopRouteBrief } from '@/api/types';
 import { DataCredit } from '@/components/data-credit';
-import { IconBack } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { FieldShell } from '@/features/search/field-shell';
+import {
+  Banner,
+  EmptyState,
+  Icon,
+  Layout,
+  LeadingIcon,
+  ListRow,
+  ListSection,
+  Loading,
+  SearchHeader,
+  Space,
+  Surface,
+  Text,
+} from '@/design-system';
 import { leaveDestination } from '@/features/stations/destination-handoff';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
-import { INPUT_ALIGN_START } from '@/i18n/direction';
 import { addressCredit } from '@/lib/attribution';
 
 /** The same pause the location picker gives stop search, and for the same
@@ -56,8 +62,6 @@ type Row =
  */
 export default function DestinationPickerScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [debouncedAddress, setDebouncedAddress] = useState('');
@@ -139,169 +143,134 @@ export default function DestinationPickerScreen() {
   }
 
   return (
-    <ThemedView type="background" style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={Spacing.two} style={styles.back}>
-            <IconBack size={26} color={theme.text} />
-          </Pressable>
-          <ThemedView style={styles.fieldWrap}>
-            <FieldShell>
-              <IconSearch size={18} color={theme.text} />
-              <TextInput
-                autoFocus
-                style={[styles.input, { color: theme.text }, Platform.OS === 'web' && styles.inputWebNoOutline]}
-                placeholder={t('station.destinationPlaceholder')}
-                placeholderTextColor={theme.textSecondary}
-                value={query}
-                onChangeText={(text) => {
-                  setQuery(text);
-                  // A failed pick's message is about the list it was picked from.
-                  setResolveFailed(false);
-                }}
-              />
-            </FieldShell>
-          </ThemedView>
-        </ThemedView>
-
-        {resolveFailed && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
-            {t('search.placeUnavailable')}
-          </ThemedText>
-        )}
-
-        {showResults && rows.length > 0 && (
-          <FlatList
-            data={rows}
-            keyExtractor={(item) => item.key}
-            style={styles.list}
-            keyboardShouldPersistTaps="handled"
-            ListFooterComponent={credit ? <DataCredit source={credit} /> : null}
-            ItemSeparatorComponent={() => (
-              <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-            )}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.row}
-                accessibilityRole="button"
-                disabled={resolvingKey !== null}
-                onPress={() => void selectRow(item)}
-              >
-                {/* A stop's sign is a square of its own, so it goes without
-                    the circle; its slot stays, keeping every row's text on
-                    one edge. */}
-                <View
-                  style={[
-                    styles.iconSlot,
-                    item.kind === 'place' || item.key === resolvingKey
-                      ? [styles.iconCircle, { backgroundColor: theme.background }, outline]
-                      : null,
-                  ]}
-                >
-                  {item.key === resolvingKey ? (
-                    <ActivityIndicator size="small" />
-                  ) : item.kind === 'stop' ? (
-                    <StationIcon kind={stationKindOf({ stationKind: item.stationKind, rail: item.rail })} />
-                  ) : (
-                    <IconMapPin size={18} color={theme.text} />
-                  )}
-                </View>
-                <View style={styles.rowText}>
-                  <ThemedText type="default">{item.title}</ThemedText>
-                  {item.kind === 'place' && item.subtitle !== null && (
-                    <ThemedText type="small" themeColor="textSecondary">{item.subtitle}</ThemedText>
-                  )}
-                  {item.kind === 'stop' && item.routes.length > 0 && (
-                    <View style={styles.lineRow}>
-                      {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
-                        <LineBadge key={route.shortName} route={route} size="small" />
-                      ))}
-                      {item.routes.length > MAX_LINE_BADGES && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
-                        </ThemedText>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </Pressable>
-            )}
+    <Surface level="bgGrouped" style={styles.container}>
+      {/* No title: the field's prompt says what is being picked. */}
+      {/* The back button beside the field, one row of glass -- the same
+          search bar as the location picker. */}
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        <View style={styles.top}>
+          <SearchHeader
+            onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            backLabel={t('common.back')}
+            autoFocus
+            placeholder={t('station.destinationPlaceholder')}
+            value={query}
+            onChangeText={(text) => {
+              setQuery(text);
+              // A failed pick's message is about the list it was picked from.
+              setResolveFailed(false);
+            }}
+            onClear={() => {
+              setQuery('');
+              setResolveFailed(false);
+            }}
+            clearLabel={t('common.clear')}
           />
-        )}
-        {showResults && isFetching && rows.length === 0 && (
-          <View style={styles.status}><ActivityIndicator /></View>
-        )}
-        {showResults && !isFetching && rows.length === 0 && !placesPending && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
-            {t('search.noMatches')}
-          </ThemedText>
-        )}
-        {!showResults && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.notice}>
-            {t('station.destinationHint')}
-          </ThemedText>
-        )}
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          // The field is autofocused, so the keyboard is up: the default would
+          // spend the first tap on dismissing it and never fire the row.
+          keyboardShouldPersistTaps="handled"
+        >
+          {resolveFailed && <Banner tone="danger" icon="error" title={t('search.placeUnavailable')} />}
+
+          {/* At most eight stops and eight places (`limit: 8` each), so a
+              plain group rather than a virtualised list. */}
+          {showResults && rows.length > 0 && (
+            <View style={styles.results}>
+              <ListSection>
+                {rows.map((item) => (
+                  <ListRow
+                    key={item.key}
+                    // Ignored rather than `disabled` while one place is being
+                    // positioned: disabling would dim the whole list.
+                    onPress={() => {
+                      if (resolvingKey === null) void selectRow(item);
+                    }}
+                    leading={
+                      item.key === resolvingKey ? (
+                        <LeadingIcon>
+                          <Loading style={styles.rowSpinner} />
+                        </LeadingIcon>
+                      ) : item.kind === 'stop' ? (
+                        // A stop's sign is a square of its own, so it goes
+                        // without the tile; the slot stays, keeping every
+                        // row's text on one edge.
+                        <StationIcon kind={stationKindOf({ stationKind: item.stationKind, rail: item.rail })} />
+                      ) : (
+                        <LeadingIcon>
+                          <Icon name="place" size="sm" weight="medium" />
+                        </LeadingIcon>
+                      )
+                    }
+                    title={item.title}
+                    subtitle={
+                      item.kind === 'place'
+                        ? item.subtitle ?? undefined
+                        : item.routes.length > 0
+                          ? (
+                            <View style={styles.lineRow}>
+                              {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
+                                <LineBadge key={route.shortName} route={route} size="small" />
+                              ))}
+                              {item.routes.length > MAX_LINE_BADGES && (
+                                <Text variant="footnote" color="textSecondary" numeric>
+                                  {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
+                                </Text>
+                              )}
+                            </View>
+                          )
+                          : undefined
+                    }
+                  />
+                ))}
+              </ListSection>
+              {credit && <DataCredit source={credit} />}
+            </View>
+          )}
+          {showResults && isFetching && rows.length === 0 && <Loading />}
+          {showResults && !isFetching && rows.length === 0 && !placesPending && (
+            <EmptyState icon="search" title={t('search.noMatches')} />
+          )}
+          {!showResults && (
+            <Text variant="subheadline" color="textSecondary" style={styles.hint}>
+              {t('station.destinationHint')}
+            </Text>
+          )}
+        </ScrollView>
       </SafeAreaView>
-    </ThemedView>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.five,
-    gap: Spacing.two,
+  top: {
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
   },
-  back: { padding: Spacing.one },
-  fieldWrap: { flex: 1 },
-  // The location picker's field metrics, comment and all -- the two screens
-  // show the same shell and must not differ by a pixel.
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: INPUT_ALIGN_START,
-    height: 20,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+  scroll: { flex: 1 },
+  content: {
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.xxl,
+    paddingBottom: Layout.sectionGap,
+    gap: Layout.sectionGap,
   },
-  inputWebNoOutline: { outlineWidth: 0 },
-  list: { marginTop: Spacing.four },
-  // A catalogue, scanned rather than read: `Spacing.three` rows, as the
-  // other long lists in the app use.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  iconSlot: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconCircle: { borderRadius: 18 },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.four,
-  },
-  rowText: { flex: 1, gap: Spacing.one },
+  results: { gap: Space.md },
+  // `Loading` centres itself in padding meant for a page; in a row's tile it
+  // has only the tile to fill.
+  rowSpinner: { paddingVertical: Space.none },
   lineRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.one,
+    gap: Space.xs,
   },
-  status: { paddingTop: Spacing.four, alignItems: 'center' },
-  notice: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-  },
+  // Inset like a section's header text, so it lines up with the rows that
+  // replace it once the rider types.
+  hint: { paddingHorizontal: Layout.rowPaddingH },
 });

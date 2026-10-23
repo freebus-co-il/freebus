@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Layout, Opacity, Radius, Size, Text, useColors } from '@/design-system';
 
-/** The dotted stretch of spine standing in for the folded stops. */
+import { SPINE_COLUMN_WIDTH, SPINE_WIDTH } from './stop-spine';
+
+/** The dotted stretch of spine standing in for the folded stops: as many dots
+ *  as read as "and so on", each as wide as the spine they stand in for. */
 const DOT_COUNT = 3;
-const DOT_SIZE = 4;
+const DOT_SIZE = SPINE_WIDTH;
 
 /**
  * The stops a rider no longer needs, folded into one row at the top of a
@@ -18,17 +20,23 @@ const DOT_SIZE = 4;
  */
 export function PreviousStopsRow({ count, color, onPress }: { count: number; color: string; onPress: () => void }) {
   const { t } = useTranslation();
+  const colors = useColors();
 
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.row}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      android_ripple={{ color: colors.fillPressed }}
+      style={({ pressed }) => [styles.row, pressed && Platform.OS === 'ios' && { backgroundColor: colors.fillPressed }]}
+    >
       <View style={styles.spineColumn}>
         {Array.from({ length: DOT_COUNT }, (_, index) => (
           <View key={index} style={[styles.dot, { backgroundColor: color }]} />
         ))}
       </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+      <Text variant="subheadline" color="textSecondary" style={styles.label}>
         {t('line.previousStops', { count })}
-      </ThemedText>
+      </Text>
     </Pressable>
   );
 }
@@ -37,22 +45,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingEnd: Spacing.three,
-    minHeight: 44,
+    paddingEnd: Layout.rowPaddingH,
+    minHeight: Size.row.dense,
   },
   // Same width as `StopSpineRow`'s spine column, so the dots sit on its line.
+  // Dimmed like the stops it folds away.
   spineColumn: {
-    width: Spacing.six,
+    width: SPINE_COLUMN_WIDTH,
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    opacity: 0.4,
+    opacity: Opacity.done,
   },
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
+    borderRadius: Radius.full,
   },
   label: {
     flex: 1,

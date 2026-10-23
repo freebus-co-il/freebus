@@ -1,28 +1,17 @@
-import {
-  IconBriefcase,
-  IconCoffee,
-  IconDumbbell,
-  IconHeart,
-  IconHome,
-  IconMapPin,
-  IconPlane,
-  IconSchool,
-  IconShoppingCart,
-  IconStar,
-  type Icon,
-} from '@tabler/icons-react-native';
+import type { IconName } from '@/design-system';
 
 import type { LocationIconName } from './types';
 
-export const LOCATION_ICON_COMPONENTS: Record<LocationIconName, Icon> = {
-  'map-pin': IconMapPin,
-  star: IconStar,
-  heart: IconHeart,
-  school: IconSchool,
-  briefcase: IconBriefcase,
-  dumbbell: IconDumbbell,
-  'shopping-cart': IconShoppingCart,
-  coffee: IconCoffee,
-  plane: IconPlane,
-  home: IconHome,
+/** The glyph each saved-place icon choice draws, as a design-system icon name. */
+export const LOCATION_ICON_NAMES: Record<LocationIconName, IconName> = {
+  'map-pin': 'pin',
+  star: 'star',
+  heart: 'heart',
+  school: 'school',
+  briefcase: 'work',
+  dumbbell: 'fitness',
+  'shopping-cart': 'shopping',
+  coffee: 'cafe',
+  plane: 'flight',
+  home: 'home',
 };

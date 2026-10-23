@@ -1,3 +1,6 @@
+// The pure map tokens only: this module is tested under Node, outside React Native.
+import { DarkBasemap } from '../design-system/tokens/map';
+
 /** One rule of Google Maps' styling language -- the shape `react-native-maps`
  *  takes as `customMapStyle`, kept free of its types so this stays testable
  *  outside React Native. */
@@ -23,15 +26,15 @@ const LIGHT: readonly MapStyleRule[] = [{ stylers: [{ visibility: 'on' }] }];
  * its own rather than Google's colour scheme, which a style replaces anyway.
  */
 const DARK: readonly MapStyleRule[] = [
-  { elementType: 'geometry', stylers: [{ color: '#1C1C1E' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9A9AA0' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#000000' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#232325' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1F2621' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3A3A3C' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#48484A' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2C2C2E' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#000000' }] },
+  { elementType: 'geometry', stylers: [{ color: DarkBasemap.geometry }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: DarkBasemap.labelFill }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: DarkBasemap.labelStroke }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: DarkBasemap.poi }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: DarkBasemap.park }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: DarkBasemap.road }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: DarkBasemap.highway }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: DarkBasemap.transit }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: DarkBasemap.water }] },
 ];
 
 /** Drains the colour out of whatever it follows: one rule, every feature. */

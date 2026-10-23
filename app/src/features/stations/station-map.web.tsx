@@ -1,19 +1,28 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Surface, Text } from '@/design-system';
+import type { StationKind } from '@/components/station-icon';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
+
+import type { StopDot } from './route-stops';
 
 export type StationMapProps = {
   center: { latitude: number; longitude: number } | null;
   title?: string;
-  kind?: 'bus' | 'train';
+  kind?: StationKind;
   vehicles?: readonly VehicleMarker[];
   onVehiclePress?: (tripId: string) => void;
   edgePadding?: EdgePadding;
-  route?: { coordinates: readonly { latitude: number; longitude: number }[]; color: string; dashed: boolean } | null;
+  // Accepted to match the native signature; web has no map to draw them on.
+  route?: {
+    coordinates: readonly { latitude: number; longitude: number }[];
+    color: string;
+    dashed: boolean;
+    credit?: 'osm' | null;
+  } | null;
+  stops?: readonly StopDot[];
   style?: StyleProp<ViewStyle>;
 };
 
@@ -32,11 +41,11 @@ export function StationMap({ center, style }: StationMapProps) {
   if (center === null) return null;
 
   return (
-    <ThemedView type="surface" style={[styles.placeholder, style]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Surface level="surfaceNested" style={[styles.placeholder, style]}>
+      <Text variant="subheadline" color="textSecondary">
         {t('results.mapWebUnavailable')}
-      </ThemedText>
-    </ThemedView>
+      </Text>
+    </Surface>
   );
 }
 

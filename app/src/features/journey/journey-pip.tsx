@@ -3,14 +3,16 @@ import { StyleSheet, View } from 'react-native';
 
 import { useRealtimeAvailable } from '@/api/meta';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Space, StatusDot, Text, useColors, type ColorRole } from '@/design-system';
 import { formatClockTime } from '@/lib/format';
 
 import { useJourney } from './journey-context';
 import { journeyCopy } from './journey-copy';
 import { arrivedPipModel, pipModel, type PipTone } from './pip-model';
+
+/** The window is a few hundred points wide whatever the rider's text size, so
+ *  Dynamic Type may grow its text only a little before the lines stop fitting. */
+const PIP_MAX_FONT_SCALE = 1.2;
 
 /**
  * The journey, drawn for the picture-in-picture window.
@@ -24,7 +26,7 @@ import { arrivedPipModel, pipModel, type PipTone } from './pip-model';
 export function JourneyPip() {
   const { journey, state } = useJourney();
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const realtimeAvailable = useRealtimeAvailable();
 
   // After arrival the journey is already gone; the window lingers on "You're
@@ -34,73 +36,93 @@ export function JourneyPip() {
       ? pipModel({
           state,
           itinerary: journey.itinerary,
-          copy: journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: theme.text, alert: theme.danger }),
+          copy: journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: colors.textPrimary, alert: colors.danger }),
           t,
           realtimeAvailable,
           clock: formatClockTime,
         })
       : arrivedPipModel(t);
 
-  const palette = paletteFor(model.tone, theme);
+  const palette = paletteFor(model.tone);
   const live = state?.timeSource === 'live';
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.root, { backgroundColor: palette.background }]}>
+    <View style={[StyleSheet.absoluteFill, styles.root, { backgroundColor: colors[palette.background] }]}>
       <View style={styles.row}>
         {model.badge && <LineBadge route={model.badge} size="small" />}
-        <ThemedText type="smallBold" numberOfLines={1} style={[styles.fill, { color: palette.text }]}>
+        <Text
+          variant="subheadline"
+          emphasized
+          color={palette.text}
+          numberOfLines={1}
+          maxFontSizeMultiplier={PIP_MAX_FONT_SCALE}
+          style={styles.fill}
+        >
           {model.title}
-        </ThemedText>
+        </Text>
       </View>
 
       {model.hero !== '' && (
         <View style={styles.row}>
-          <ThemedText type="subtitle" numberOfLines={1} adjustsFontSizeToFit style={[styles.fill, { color: palette.text }]}>
+          <Text
+            variant="title1"
+            numeric
+            color={palette.text}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            maxFontSizeMultiplier={PIP_MAX_FONT_SCALE}
+            style={styles.fill}
+          >
             {model.hero}
-          </ThemedText>
+          </Text>
           {model.liveLabel !== '' && (
             <View style={styles.row}>
-              {live && <View style={[styles.dot, { backgroundColor: theme.success }]} />}
-              <ThemedText type="small" style={{ color: palette.secondary }}>{model.liveLabel}</ThemedText>
+              {live && <StatusDot tone="live" />}
+              <Text variant="subheadline" color={palette.secondary} maxFontSizeMultiplier={PIP_MAX_FONT_SCALE}>
+                {model.liveLabel}
+              </Text>
             </View>
           )}
         </View>
       )}
 
       {model.footer && (
-        <ThemedText type="small" numberOfLines={1} style={{ color: palette.secondary }}>
+        <Text
+          variant="subheadline"
+          color={palette.secondary}
+          numeric
+          numberOfLines={1}
+          maxFontSizeMultiplier={PIP_MAX_FONT_SCALE}
+        >
           {model.footer}
-        </ThemedText>
+        </Text>
       )}
     </View>
   );
 }
 
-function paletteFor(tone: PipTone, theme: ReturnType<typeof useTheme>) {
-  if (tone === 'getOff') return { background: theme.getOff, text: theme.onAccent, secondary: theme.onAccent };
-  if (tone === 'offPlan') return { background: theme.danger, text: theme.onAccent, secondary: theme.onAccent };
-  return { background: theme.background, text: theme.text, secondary: theme.textSecondary };
+/** The whole window is the signal: it turns `getOff` (or `danger`, off plan)
+ *  only when that is what it means, with `onStatus` ink on the fill. */
+function paletteFor(tone: PipTone): { background: ColorRole; text: ColorRole; secondary: ColorRole } {
+  if (tone === 'getOff') return { background: 'getOff', text: 'onStatus', secondary: 'onStatus' };
+  if (tone === 'offPlan') return { background: 'danger', text: 'onStatus', secondary: 'onStatus' };
+  return { background: 'bgPlain', text: 'textPrimary', secondary: 'textSecondary' };
 }
 
 const styles = StyleSheet.create({
-  // Flat: a fill and nothing else, like every surface in the app.
+  // Flat: a fill and nothing else.
   root: {
     justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    gap: Spacing.one,
+    paddingHorizontal: Space.lg,
+    paddingVertical: Space.sm,
+    gap: Space.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   fill: {
     flex: 1,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
   },
 });

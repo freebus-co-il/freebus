@@ -1,11 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { IconArrowForward } from '@/components/directional-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Banner, Border, useColors } from '@/design-system';
 
 import { useJourney } from './journey-context';
 import { journeyCopy } from './journey-copy';
@@ -28,7 +24,7 @@ import type { JourneyState } from './types';
  */
 export function OffPlanCard({ state }: { state: JourneyState }) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const { journey, replanFromHere } = useJourney();
 
   // The same resolver every other surface reads, so the sentence the bar
@@ -36,67 +32,32 @@ export function OffPlanCard({ state }: { state: JourneyState }) {
   // string produced once. The card is the only surface that renders `action`
   // as a control rather than as text.
   const copy = journey
-    ? journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: theme.text, alert: theme.danger })
+    ? journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: colors.textPrimary, alert: colors.danger })
     : null;
   if (!copy) return null;
 
+  // A warning banner: the warning glyph carries what the old alert-coloured
+  // accent bar did -- deliberately not the route's colour, since the route is
+  // precisely the thing that is no longer happening. Its one button is the
+  // banner's `prominent` action: the one thing the rider came to this card to
+  // do, and the only tap target on it.
   return (
-    <ThemedView type="background" style={[styles.card, { borderColor: theme.borderMuted }]}>
-      <View style={styles.reason}>
-        {/* The accent the hero would have carried for this phase, in the alert
-            colour rather than the route's: the route is precisely the thing
-            that is no longer happening. Flat by rule (`AGENTS.md`) -- the
-            surface colour and the hairline are the whole card. */}
-        <View style={[styles.accent, { backgroundColor: copy.accent }]} />
-        <ThemedText type="subtitle" numberOfLines={3} style={styles.reasonText}>
-          {copy.hero}
-        </ThemedText>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={replanFromHere}
-        style={[styles.action, { backgroundColor: theme.text }]}
-      >
-        <ThemedText type="defaultBold" themeColor="background">
-          {copy.action ?? t('journey.findAnotherWay')}
-        </ThemedText>
-        <IconArrowForward
-          size={20}
-          color={theme.background}
-        />
-      </Pressable>
-    </ThemedView>
+    <Banner
+      tone="warning"
+      icon="warning"
+      title={copy.hero}
+      action={{ label: copy.action ?? t('journey.findAnotherWay'), onPress: replanFromHere }}
+      style={[styles.card, { borderColor: colors.separator }]}
+    />
   );
 }
 
 const styles = StyleSheet.create({
+  // Fills the carousel's stretched row like the leg cards, and takes the same
+  // hairline edge as a floating `Card`: it sits over live map tiles, not on a
+  // grouped page.
   card: {
-    borderRadius: Spacing.three,
-    borderWidth: 1,
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
-  reason: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: Spacing.three,
-  },
-  accent: {
-    width: 4,
-    borderRadius: 2,
-  },
-  reasonText: {
     flex: 1,
-  },
-  // Filled, not outlined: this is the one thing the rider came to this card to
-  // do, and it is the only tap target on it.
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
+    borderWidth: Border.hairline,
   },
 });

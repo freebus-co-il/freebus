@@ -1,33 +1,10 @@
-import {
-  IconArrowBackUp,
-  IconArrowRoundaboutRight,
-  IconArrowSharpTurnLeft,
-  IconArrowSharpTurnRight,
-  IconArrowUp,
-  IconArrowUpLeft,
-  IconArrowUpRight,
-  IconCornerUpLeft,
-  IconCornerUpRight,
-  IconDoorEnter,
-  IconDoorExit,
-  IconElevator,
-  IconEscalator,
-  IconMapPin,
-  IconShip,
-  IconStairs,
-  type Icon,
-} from '@tabler/icons-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary, WalkManeuver } from '@/api/types';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Glass, Icon, Radius, Size, Space, Text, useColors, type IconName } from '@/design-system';
 import { formatDistanceMeters } from '@/lib/format';
-import { readableTextColor, WALK_LEG_COLOR } from '@/lib/route-color';
 
 import type { JourneyState } from '../types';
 import { guidanceMeters, type WalkGuidance } from './walk-guidance';
@@ -35,31 +12,29 @@ import { walkInstruction } from './walk-instruction';
 
 /**
  * The glyph for each move. PHYSICAL on purpose: a right turn is on the rider's
- * right in every language, so none of these come from `directional-icon` and
- * none mirror under RTL -- unlike a back arrow, which points the way the layout
- * reads.
+ * right in every language, so none of these are the design system's
+ * directional names (`chevronForward`, `arrowBack`...) and none mirror under
+ * RTL -- unlike a back arrow, which points the way the layout reads.
  */
-const MANEUVER_ICONS: Record<WalkManeuver, Icon> = {
-  depart: IconArrowUp,
-  straight: IconArrowUp,
-  'slight-right': IconArrowUpRight,
-  right: IconCornerUpRight,
-  'sharp-right': IconArrowSharpTurnRight,
-  'slight-left': IconArrowUpLeft,
-  left: IconCornerUpLeft,
-  'sharp-left': IconArrowSharpTurnLeft,
-  uturn: IconArrowBackUp,
-  roundabout: IconArrowRoundaboutRight,
-  stairs: IconStairs,
-  elevator: IconElevator,
-  escalator: IconEscalator,
-  'enter-building': IconDoorEnter,
-  'exit-building': IconDoorExit,
-  ferry: IconShip,
-  arrive: IconMapPin,
+const MANEUVER_ICONS: Record<WalkManeuver, IconName> = {
+  depart: 'straight',
+  straight: 'straight',
+  'slight-right': 'slightRight',
+  right: 'turnRight',
+  'sharp-right': 'sharpRight',
+  'slight-left': 'slightLeft',
+  left: 'turnLeft',
+  'sharp-left': 'sharpLeft',
+  uturn: 'uTurn',
+  roundabout: 'roundabout',
+  stairs: 'stairs',
+  elevator: 'elevator',
+  escalator: 'escalator',
+  'enter-building': 'enter',
+  'exit-building': 'exit',
+  ferry: 'ferry',
+  arrive: 'pin',
 };
-
-const GLYPH_SIZE = 44;
 
 export type NavigationBannerProps = {
   itinerary: Itinerary;
@@ -72,13 +47,14 @@ export type NavigationBannerProps = {
   destinationLabel: string;
 };
 
+/** Glass, not a card: the banner is chrome floating over the map (it says
+ *  what to do, it is not part of the plan), so it is the functional layer. */
 function Frame({ glyph, children }: { glyph: ReactNode; children: ReactNode }) {
-  const theme = useTheme();
   return (
-    <ThemedView type="background" style={[styles.frame, { borderColor: theme.borderMuted }]}>
+    <Glass shape="rounded" style={styles.frame}>
       {glyph}
       <View style={styles.texts}>{children}</View>
-    </ThemedView>
+    </Glass>
   );
 }
 
@@ -97,6 +73,7 @@ function Frame({ glyph, children }: { glyph: ReactNode; children: ReactNode }) {
  */
 export function NavigationBanner({ itinerary, state, guidance, rerouting, destinationLabel }: NavigationBannerProps) {
   const { t, i18n } = useTranslation();
+  const colors = useColors();
   const leg = itinerary.legs[state.legIndex];
   if (!leg || state.phase === 'off-plan' || state.phase === 'arrived') return null;
 
@@ -105,21 +82,20 @@ export function NavigationBanner({ itinerary, state, guidance, rerouting, destin
     const final = state.legIndex === itinerary.legs.length - 1;
     const arrivingAt = final ? destinationLabel.trim() || null : leg.to.name ?? null;
     const instruction = walkInstruction(guidance, arrivingAt, i18n.language);
-    const Glyph = MANEUVER_ICONS[guidance.maneuver];
     return (
       <Frame
         glyph={
-          <View style={[styles.glyph, { backgroundColor: WALK_LEG_COLOR }]}>
-            <Glyph size={28} color={readableTextColor(WALK_LEG_COLOR)} />
+          <View style={[styles.glyph, { backgroundColor: colors.walk }]}>
+            <Icon name={MANEUVER_ICONS[guidance.maneuver]} size="lg" color="onStatus" weight="semibold" />
           </View>
         }
       >
-        <ThemedText type="subtitle" numberOfLines={1}>
+        <Text variant="title2" numeric numberOfLines={1}>
           {formatDistanceMeters(guidanceMeters(guidance.metersToManeuver))}
-        </ThemedText>
-        <ThemedText type="default" numberOfLines={2}>
+        </Text>
+        <Text variant="title3" numberOfLines={2}>
           {rerouting ? t('journey.nav.rerouting') : t(instruction.key, instruction.values)}
-        </ThemedText>
+        </Text>
       </Frame>
     );
   }
@@ -135,21 +111,19 @@ const styles = StyleSheet.create({
   frame: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
+    gap: Space.md,
+    padding: Space.md,
   },
+  // Concentric with the panel: its `Radius.xl` less the `Space.md` padding.
   glyph: {
-    width: GLYPH_SIZE,
-    height: GLYPH_SIZE,
-    borderRadius: GLYPH_SIZE / 2,
+    width: Size.control.md,
+    height: Size.control.md,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   texts: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Space.xxs,
   },
 });

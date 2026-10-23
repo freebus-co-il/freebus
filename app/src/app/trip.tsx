@@ -1,15 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePlanTrip } from '@/api/plan';
-import { IconBack } from '@/components/directional-icon';
 import { SnapCarousel } from '@/components/snap-carousel';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button, EmptyState, IconButton, Layout, MapStyle, Size, Space, Text, useColors } from '@/design-system';
 import { useJourney } from '@/features/journey/journey-context';
 import { shouldOfferReminder } from '@/features/journey/leave-reminder';
 import { itinerarySignature } from '@/features/results/group-itineraries';
@@ -22,7 +19,6 @@ import { buildStepCards, cardFocusLegIndex, type StepCard } from '@/features/tri
 import { useVehicles } from '@/api/vehicles';
 import { itineraryPredictions } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
 import { placeLabel } from '@/lib/place';
 
@@ -30,11 +26,9 @@ import { placeLabel } from '@/lib/place';
  *  `ItineraryCard`, so the number does not change character on navigation. */
 const LEAVE_COUNTDOWN_MAX_MINUTES = 60;
 
-/** The back chip's height below the safe area, plus breathing room: the part
- *  of the map's top it covers. */
-const BACK_CHIP_CLEARANCE = 64;
-/** `TripMap`'s own default for the edges nothing floats over. */
-const MAP_EDGE_PADDING = 50;
+/** The back button's height below the safe area, plus breathing room: the
+ *  part of the map's top it covers. */
+const BACK_CHIP_CLEARANCE = Space.sm + Size.control.md + Space.md;
 
 /**
  * One journey, told one leg at a time over its own map.
@@ -55,7 +49,7 @@ const MAP_EDGE_PADDING = 50;
  */
 export default function TripScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
   const { planQuery, destination } = useSearch();
@@ -90,9 +84,9 @@ export default function TripScreen() {
   const mapEdgePadding = useMemo(
     () => ({
       top: insets.top + BACK_CHIP_CLEARANCE,
-      right: MAP_EDGE_PADDING,
-      bottom: bottomBarHeight + Spacing.three,
-      left: MAP_EDGE_PADDING,
+      right: MapStyle.edgePadding,
+      bottom: bottomBarHeight + Space.lg,
+      left: MapStyle.edgePadding,
     }),
     [insets.top, bottomBarHeight],
   );
@@ -144,10 +138,8 @@ export default function TripScreen() {
     });
   };
 
-  const back = (
-    <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={Spacing.three}>
-      <IconBack size={24} color={theme.text} />
-    </Pressable>
+  const back = (variant: 'glass' | 'filled') => (
+    <IconButton icon="chevronBack" variant={variant} accessibilityLabel={t('common.back')} onPress={() => router.back()} />
   );
 
   if (!itinerary) {
@@ -156,12 +148,12 @@ export default function TripScreen() {
     // long enough time away from the app. Says so, rather than rendering an
     // empty timeline that looks like a trip with no steps in it.
     return (
-      <ThemedView type="background" style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bgGrouped }]}>
         <SafeAreaView style={styles.unavailable}>
-          {back}
-          <ThemedText type="default">{t('trip.unavailable')}</ThemedText>
+          {back('filled')}
+          <EmptyState icon="warning" title={t('trip.unavailable')} />
         </SafeAreaView>
-      </ThemedView>
+      </View>
     );
   }
 
@@ -191,13 +183,13 @@ export default function TripScreen() {
         {/* The same two numbers the results card led with, in the same order,
             so arriving here confirms the choice rather than restating it in a
             new shape the rider has to re-read. */}
-        <ThemedText type="subtitle" themeColor={minutesToLeave < 0 ? 'textSecondary' : undefined}>
+        <Text variant="countdown" color={minutesToLeave < 0 ? 'textSecondary' : 'textPrimary'}>
           {leaveLabel}
-        </ThemedText>
-        <ThemedText type="default" themeColor="textSecondary">
+        </Text>
+        <Text variant="subheadline" color="textSecondary" numeric>
           {t('results.arriveAt', { time: formatClockTime(itinerary.arrivalTime) })} ·{' '}
           {formatDurationMinutes(itinerary.durationSeconds)}
-        </ThemedText>
+        </Text>
         <LegTimeline legs={itinerary.legs} />
       </StepCardFrame>
     ) : (
@@ -205,7 +197,7 @@ export default function TripScreen() {
     );
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
       {/* No `style`: `TripMap`'s own `flex: 1` fills the screen in flow, which
           is what keeps it draggable (see `results.tsx`). */}
       <TripMap
@@ -217,9 +209,7 @@ export default function TripScreen() {
       />
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
-        <ThemedView type="background" style={styles.backChip}>
-          {back}
-        </ThemedView>
+        {back('glass')}
       </SafeAreaView>
 
       <SafeAreaView
@@ -243,54 +233,34 @@ export default function TripScreen() {
               `withEarlierRunAtStart`) rather than on the one the search
               picked. The reminder is the second way to use a future trip, not
               a replacement for starting it. */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={beginJourney}
-            style={[styles.startButton, { backgroundColor: theme.text }]}
-          >
-            <ThemedText type="defaultBold" themeColor="background">
-              {t('trip.start')}
-            </ThemedText>
-          </Pressable>
+          <Button label={t('trip.start')} onPress={beginJourney} variant="prominent" size="lg" fullWidth />
 
+          {/* Secondary, not prominent: cancelling or arming a reminder is not
+              the thing to reach for. A filled control rather than bare text:
+              over a map, a button with no fill reads as text someone left
+              lying on the road. */}
           {offerReminder && (reminderForThisTrip ? (
             <>
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                label={t('trip.cancelReminder')}
                 onPress={() => void cancelLeaveReminder()}
-                style={[
-                  styles.startButton,
-                  styles.outlineButton,
-                  { borderColor: theme.borderMuted, backgroundColor: theme.background },
-                ]}
-              >
-                <ThemedText type="defaultBold">{t('trip.cancelReminder')}</ThemedText>
-              </Pressable>
+                variant="secondary"
+                size="lg"
+                fullWidth
+              />
               {/* Under the button, not on it: what the rider needs to read is
                   the time they will be fetched at, and the button is how to
                   take that back. */}
-              <ThemedText type="small" themeColor="textSecondary" style={styles.reminderNote}>
+              <Text variant="footnote" color="textSecondary" numeric align="center" style={styles.reminderNote}>
                 {t('trip.reminderSet', { time: formatClockTime(itinerary.departureTime) })}
-              </ThemedText>
+              </Text>
             </>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={remindMe}
-              style={[
-                styles.startButton,
-                styles.outlineButton,
-                // A filled surface, not just a border: over a map a transparent
-                // button reads as text someone left lying on the road.
-                { borderColor: theme.borderMuted, backgroundColor: theme.background },
-              ]}
-            >
-              <ThemedText type="defaultBold">{t('trip.remindMe')}</ThemedText>
-            </Pressable>
+            <Button label={t('trip.remindMe')} onPress={remindMe} variant="secondary" size="lg" fullWidth />
           ))}
         </View>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -303,46 +273,28 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
     alignItems: 'flex-start',
-  },
-  backChip: {
-    borderRadius: 999,
-    padding: Spacing.one,
-  },
-  backButton: {
-    padding: Spacing.one,
   },
   bottomBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingBottom: Spacing.three,
-    gap: Spacing.two,
+    paddingBottom: Space.lg,
+    gap: Space.md,
   },
   footer: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
-  },
-  startButton: {
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: 999,
-  },
-  // Cancelling is not the thing to reach for, so it reads as a border rather
-  // than as the filled pill Start is.
-  outlineButton: {
-    borderWidth: 1.5,
+    paddingHorizontal: Layout.pageInset,
+    gap: Space.sm,
   },
   reminderNote: {
-    paddingTop: Spacing.two,
-    textAlign: 'center',
+    paddingTop: Space.xs,
   },
   unavailable: {
     flex: 1,
-    padding: Spacing.three,
-    gap: Spacing.four,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
   },
 });

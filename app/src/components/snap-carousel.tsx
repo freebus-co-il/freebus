@@ -1,18 +1,18 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactElement } from 'react';
 import { FlatList, StyleSheet, View, useWindowDimensions, type ViewToken } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Layout, Space } from '@/design-system';
 import { hapticSelected } from '@/lib/haptics';
 
 import { shouldTickOnCardChange } from './carousel-tick';
 
 /** How much of the page edge stays clear on both sides, so a card reads as a
  *  card floating over the map rather than a bar welded to the screen edges. */
-const SIDE_INSET = Spacing.three;
+const SIDE_INSET = Layout.pageInset;
 /** The sliver of the NEXT card left showing at the trailing edge -- the only
  *  thing that tells a rider there is more to swipe to. */
-const PEEK = Spacing.four;
-const GAP = Spacing.two;
+const PEEK = Space.xxl;
+const GAP = Space.sm;
 
 export type SnapCarouselHandle = {
   /** Brings a card on screen, animated. */

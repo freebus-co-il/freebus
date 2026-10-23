@@ -1,20 +1,15 @@
-import { IconWalk } from '@tabler/icons-react-native';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { LegStrip, NowTag, StepCardFrame } from '@/features/trip/step-card';
+import { Button, Card, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { LegStrip, NowTag } from '@/features/trip/step-card';
 import type { LegCard } from '@/features/trip/step-cards';
 import { formatClockTime, formatDistanceMeters, formatDurationMinutes } from '@/lib/format';
-import { readableTextColor, WALK_LEG_COLOR } from '@/lib/route-color';
 
 import { journeyCardModel } from './journey-card-model';
 import type { JourneyState } from './types';
-
-const MARKER_SIZE = 28;
 
 // Hoist the format bag to module level: `journeyCardModel` depends on these
 // functions, and rebuilding the object on every render is wasteful.
@@ -34,6 +29,8 @@ const FORMAT_BAG = {
  * the list of buses they did not get on.
  *
  * What it says comes entirely from `journeyCardModel`; this file is layout.
+ * A floating card, solid rather than glass: it is content over the map, and a
+ * carousel item with no edge has nothing to snap between.
  */
 export function JourneyLegCard({
   card, state, itinerary, destinationLabel, done = false, current = false, onSwitchLine,
@@ -50,10 +47,11 @@ export function JourneyLegCard({
   onSwitchLine?: () => void;
 }) {
   const { t } = useTranslation();
+  const colors = useColors();
   const model = journeyCardModel(card, state, itinerary, destinationLabel, t, FORMAT_BAG);
 
   return (
-    <StepCardFrame done={done}>
+    <Card variant="floating" done={done} style={styles.card}>
       {/* The whole journey and its end, on one row that already existed. This
           is what lets the overview card go: its rail and its arrival time are
           both here, on every card, in every phase. */}
@@ -65,64 +63,73 @@ export function JourneyLegCard({
             `accessibilityElementsHidden` (see `LegStrip`) would otherwise
             announce as a naked number -- give it the same label the PiP
             widget uses for the same fact. */}
-        <ThemedText type="small" themeColor="textSecondary" accessibilityLabel={t('journey.pip.arrive', { time: formatClockTime(state.arrivalTime) })}>
+        <Text
+          variant="subheadline"
+          color="textSecondary"
+          numeric
+          accessibilityLabel={t('journey.pip.arrive', { time: formatClockTime(state.arrivalTime) })}
+        >
           {formatClockTime(state.arrivalTime)}
-        </ThemedText>
+        </Text>
       </View>
 
       <View style={styles.headRow}>
         {model.route ? (
           <LineBadge route={model.route} />
         ) : (
-          <View style={[styles.marker, { backgroundColor: WALK_LEG_COLOR }]}>
-            <IconWalk size={16} color={readableTextColor(WALK_LEG_COLOR)} />
+          <View style={[styles.marker, { backgroundColor: colors.walk }]}>
+            <Icon name="walk" size="sm" color="onStatus" weight="semibold" />
           </View>
         )}
         <View style={styles.lines}>
-          <ThemedText
-            type="subtitle"
+          <Text
+            variant="title2"
             // Two lines, not one: on `riding` the headline IS the get-off stop
             // -- the point of the card -- and Israeli stop names ("Beit
             // LaBanim/Derekh HaBanim") run long enough to ellipsise at one
             // line. The supporting line below stays single-line; this still
             // satisfies the spec's two-row rule, since a row may wrap.
             numberOfLines={2}
-            themeColor={model.tone === 'alert' ? 'danger' : undefined}
+            color={model.tone === 'alert' ? 'danger' : 'textPrimary'}
           >
             {model.headline}
-          </ThemedText>
+          </Text>
           {model.supporting !== null && (
-            <ThemedText type="default" themeColor="textSecondary" numberOfLines={1}>
+            <Text variant="body" color="textSecondary" numberOfLines={1}>
               {model.supporting}
-            </ThemedText>
+            </Text>
           )}
         </View>
         {current && <NowTag />}
       </View>
 
+      {/* At the card's end, quiet: a fallback for the one rider who needs it,
+          not a competitor for the two rows above. A plain button at `md`, not
+          `sm`: the control's own height is then the full touch target, where
+          a 32pt text control needed a hit slop to be hittable. */}
       {model.canSwitchLine && onSwitchLine && (
-        <Pressable
-          accessibilityRole="button"
+        <Button
+          variant="plain"
+          size="md"
+          label={t('journey.switchLine.trigger')}
           onPress={onSwitchLine}
-          // Matches the screen's own back button (`app/journey.tsx`): `Spacing.two`
-          // on a ~20pt text control gives a target of only ~36pt.
-          hitSlop={Spacing.three}
-          style={styles.switchRow}
-        >
-          <ThemedText type="small" themeColor="textSecondary">
-            {t('journey.switchLine.trigger')}
-          </ThemedText>
-        </Pressable>
+          style={styles.switchButton}
+        />
       )}
-    </StepCardFrame>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
+  // Fills the carousel's stretched row, so every card is as tall as the
+  // tallest rather than sitting short inside it.
+  card: {
+    flex: 1,
+  },
   stripRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   stripSlot: {
     flex: 1,
@@ -130,22 +137,22 @@ const styles = StyleSheet.create({
   headRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Space.md,
   },
   lines: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Space.xxs,
   },
+  // The walk's stand-in for a line badge: a round walk-coloured tile the
+  // width of a row's leading slot.
   marker: {
-    width: MARKER_SIZE,
-    height: MARKER_SIZE,
-    borderRadius: MARKER_SIZE / 2,
+    width: Size.leadingTile,
+    height: Size.leadingTile,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // At the card's end, quiet: a fallback for the one rider who needs it, not
-  // a competitor for the two rows above.
-  switchRow: {
+  switchButton: {
     alignSelf: 'flex-end',
   },
 });

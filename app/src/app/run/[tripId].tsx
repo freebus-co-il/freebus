@@ -2,7 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useRouteRuns, useRouteShape } from '@/api/lines';
 import { useTrip } from '@/api/trips';
@@ -11,8 +11,7 @@ import { useVehicles } from '@/api/vehicles';
 import { LineBadge } from '@/components/line-badge';
 import { MapScreen } from '@/components/map-screen';
 import { useMapSheetEdgePadding } from '@/components/map-sheet';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { EmptyState, Layout, Loading, Space, Text, useColors } from '@/design-system';
 import { alignStopTimesToRun, firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { LineMap, type MapPin } from '@/features/lines/line-map';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
@@ -21,7 +20,6 @@ import { StopSpineRow } from '@/features/lines/stop-spine';
 import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts';
 import { lineVehicleMarkers } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
 import { shapeCredit } from '@/lib/attribution';
 import { routeColor } from '@/lib/route-color';
 
@@ -44,14 +42,14 @@ function LineHeader({ trip }: { trip: TripDetail }) {
 
   return (
     <View style={styles.lineHeader}>
-      <LineBadge route={trip.route} />
+      <LineBadge route={trip.route} size="large" />
       <View style={styles.lineHeaderText}>
-        <ThemedText type="smallBold" numberOfLines={1}>
+        <Text variant="title2" numberOfLines={2}>
           {towards === '' ? (trip.route.longName ?? '') : t('results.towards', { name: towards })}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        </Text>
+        <Text variant="subheadline" color="textSecondary" numeric>
           {details}
-        </ThemedText>
+        </Text>
       </View>
     </View>
   );
@@ -80,7 +78,7 @@ function LineHeader({ trip }: { trip: TripDetail }) {
  */
 export default function RunScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const { tripId, fromStopId } = useLocalSearchParams<{ tripId?: string; fromStopId?: string }>();
   const now = useNow();
 
@@ -95,7 +93,7 @@ export default function RunScreen() {
     () => stops.findIndex((s) => s.stop.stopId === fromStopId),
     [stops, fromStopId],
   );
-  const color = trip ? routeColor(trip.route) : theme.borderMuted;
+  const color = trip ? routeColor(trip.route) : colors.separator;
 
   // The run's path, and the runs either side of it -- anchored at the run's
   // first stop, which every run of the route calls at, so "the run before"
@@ -192,9 +190,9 @@ export default function RunScreen() {
         ) : null}
         ListEmptyComponent={
           isLoading ? (
-            <View style={styles.status}><ActivityIndicator /></View>
+            <Loading />
           ) : isError || !trip ? (
-            <View style={styles.status}><ThemedText type="default">{t('run.error')}</ThemedText></View>
+            <EmptyState icon="error" title={t('run.error')} />
           ) : null
         }
         contentContainerStyle={styles.listContent}
@@ -222,26 +220,23 @@ export default function RunScreen() {
 
 const styles = StyleSheet.create({
   listContent: {
-    paddingBottom: Spacing.five,
+    paddingBottom: Space.xxxl,
   },
   lineHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
+    gap: Space.md,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.xs,
+    paddingBottom: Space.lg,
   },
   lineHeaderText: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Space.xxs,
   },
   // While the shape loads, `LineMap` has nothing to draw and returns `null`;
   // this keeps the page a full-screen view rather than a bare drawer.
   mapPlaceholder: {
     flex: 1,
-  },
-  status: {
-    alignItems: 'center',
-    paddingVertical: Spacing.five,
   },
 });

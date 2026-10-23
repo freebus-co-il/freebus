@@ -1,4 +1,13 @@
 {
+  "common": {
+    "back": "חזרה",
+    "close": "סגירה",
+    "clear": "ניקוי",
+    "done": "סיום",
+    "retry": "ניסיון חוזר",
+    "cancel": "ביטול",
+    "more": "עוד"
+  },
   "search": {
     "originPlaceholder": "מאיפה יוצאים?",
     "destinationPlaceholder": "לאן נוסעים?",
@@ -100,7 +109,8 @@
     "towards": "לכיוון {{name}}",
     "trainNumber": "רכבת {{number}}",
     "walkingTime": "{{duration}} הליכה",
-    "frequency": "כל ~{{minutes}} דק׳"
+    "frequency": "כל ~{{minutes}} דק׳",
+    "swap": "החלפת מוצא ויעד"
   },
   "nearby": {
     "title": "תחנות קרובות",
@@ -308,7 +318,6 @@
     "search": "חיפוש קווים",
     "recent": "אחרונים",
     "nearby": "בקרבתכם",
-    "all": "כל הקווים",
     "empty": "לא נמצאו קווים מתאימים.",
     "operatorFilterTitle": "מפעילים",
     "operatorFilterAll": "כל המפעילים",
@@ -318,14 +327,15 @@
     "vehicleFilterAll": "כל סוגי התחבורה",
     "vehicleFilterCount": "{{count}} סוגי תחבורה",
     "vehicleFilterReset": "הצג הכל",
-    "vehicleFilterLockedHint": "המפעילים שבחרתם מפעילים רק סוג תחבורה זה."
+    "vehicleFilterLockedHint": "המפעילים שבחרתם מפעילים רק סוג תחבורה זה.",
+    "searchHint": "מחפשים קו אחר? חפשו לפי מספר הקו או היעד."
   },
   "stations": {
     "title": "תחנות",
     "search": "חיפוש תחנות",
     "recent": "אחרונות",
-    "all": "כל התחנות",
-    "empty": "לא נמצאו תחנות מתאימות."
+    "empty": "לא נמצאו תחנות מתאימות.",
+    "searchHint": "מחפשים תחנה אחרת? חפשו לפי שם התחנה."
   },
   "tabs": {
     "home": "בית",
@@ -337,6 +347,7 @@
     "language": "שפה",
     "theme": "מראה",
     "deviceDefault": "ברירת המחדל של המכשיר",
+    "themeSystem": "מערכת",
     "languageHebrew": "עברית",
     "languageEnglish": "English",
     "themeLight": "בהיר",

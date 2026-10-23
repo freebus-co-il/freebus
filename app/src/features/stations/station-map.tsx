@@ -5,7 +5,8 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { DataCredit } from '@/components/data-credit';
 import type { StationKind } from '@/components/station-icon';
-import { MARKER_RING_COLOR, MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
+import { MapStyle, Radius, Space, useColors } from '@/design-system';
+import { MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
@@ -40,7 +41,9 @@ export type StationMapProps = {
  *  See `stopDotSlots` for why the pool is fixed rather than one per stop. */
 const STOP_DOT_POOL = 150;
 /** The journey map's own fade for what the rider is not riding. */
-const DIMMED_DOT_OPACITY = 0.4;
+const DIMMED_DOT_OPACITY = MapStyle.unfocusedLegOpacity;
+/** The journey map's intermediate stop dot. Marker geometry, not spacing. */
+const STOP_DOT_SIZE = 10;
 const NO_STOPS: readonly StopDot[] = [];
 
 /** Half the side of the box framed around the station, in degrees of
@@ -64,7 +67,7 @@ const STATION_PIN_SOURCES = {
   metronit: require('@/assets/images/metronit-station-pin.png'),
 } as const;
 const NO_VEHICLES: readonly VehicleMarker[] = [];
-const DEFAULT_EDGE_PADDING: EdgePadding = { top: 24, right: 24, bottom: 24, left: 24 };
+const DEFAULT_EDGE_PADDING: EdgePadding = { top: Space.xxl, right: Space.xxl, bottom: Space.xxl, left: Space.xxl };
 
 /**
  * A map about one stop: the stop centred in the visible part of the map at
@@ -152,8 +155,8 @@ export function StationMap({
       <Polyline
         coordinates={hasPath ? [...route.coordinates] : [{ latitude: lat, longitude: lon }, { latitude: lat, longitude: lon }]}
         strokeColor={hasPath ? route.color : 'transparent'}
-        strokeWidth={hasPath ? 5 : 0}
-        lineDashPattern={hasPath && route.dashed ? [8, 6] : undefined}
+        strokeWidth={hasPath ? MapStyle.routeWidth : 0}
+        lineDashPattern={hasPath && route.dashed ? [...MapStyle.dashPattern] : undefined}
       />
       <Marker
         coordinate={{ latitude: lat, longitude: lon }}
@@ -181,7 +184,7 @@ export function StationMap({
       <VehicleMarkerPins markers={vehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
       {route?.credit && (
-        <DataCredit source={route.credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+        <DataCredit source={route.credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + Space.xs }]} />
       )}
     </View>
   );
@@ -195,6 +198,7 @@ export function StationMap({
  * `StopMarkerPin` in `trip-map.tsx` explains.
  */
 function StopDotMarker({ slot, color }: { slot: StopDotSlot; color: string | null }) {
+  const colors = useColors();
   // Derived, as `useSnapshotTracking` in `vehicle-marker-pin` does it: on
   // while the colour differs from the one last snapshotted, so a new line
   // turns tracking back on in the same render and only the timer settles it.
@@ -218,7 +222,9 @@ function StopDotMarker({ slot, color }: { slot: StopDotSlot; color: string | nul
       // Google only: a parked slot must not take a tap.
       tappable={visible}
     >
-      <View style={[styles.stopDot, { borderColor: color ?? MARKER_RING_COLOR }]} />
+      <View
+        style={[styles.stopDot, { backgroundColor: colors.mapMarkerRing, borderColor: color ?? colors.mapMarkerRing }]}
+      />
     </Marker>
   );
 }
@@ -226,11 +232,10 @@ function StopDotMarker({ slot, color }: { slot: StopDotSlot; color: string | nul
 const styles = StyleSheet.create({
   // The journey map's intermediate stop, exactly -- see `trip-map.tsx`.
   stopDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2.5,
-    backgroundColor: MARKER_RING_COLOR,
+    width: STOP_DOT_SIZE,
+    height: STOP_DOT_SIZE,
+    borderRadius: Radius.full,
+    borderWidth: MapStyle.markerRingWidthSecondary,
   },
   credit: {
     position: 'absolute',

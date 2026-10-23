@@ -1,30 +1,27 @@
-import { IconWalk } from '@tabler/icons-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Card, Icon, Opacity, Radius, Size, Space, Tag, Text, useColors } from '@/design-system';
 import { buildJourneyRail } from '@/features/journey/journey-rail';
 import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts';
-import { useTheme } from '@/hooks/use-theme';
 import { formatClockTime, formatDistanceMeters, formatDurationMinutes } from '@/lib/format';
-import { readableTextColor, WALK_LEG_COLOR, withAlpha } from '@/lib/route-color';
+import { withAlpha } from '@/lib/route-color';
 
 import { LineOptionChips } from './line-option-chips';
 import type { LegCard } from './step-cards';
 
-/** A finished leg on a running journey: still readable, plainly behind the
- *  rider -- the same fade the old step list gave its history. */
-const DONE_OPACITY = 0.45;
-/** The legs a card is NOT about, on its strip. Matches the map's dimming, so
- *  the strip and the map say "this one" the same way. */
-const UNFOCUSED_SEGMENT_ALPHA = 0.25;
-const STRIP_HEIGHT = 4;
-const MARKER_SIZE = 28;
+/** The legs a card is NOT about, on its strip: the design system's "dimmed",
+ *  close to the map's own fade, so the strip and the map say "this one" the
+ *  same way. */
+const UNFOCUSED_SEGMENT_ALPHA = Opacity.dimmed;
+/** The leg strip's thickness (design-system.md 5.7, LegStrip). */
+const STRIP_HEIGHT = Space.xs + Space.xxs;
+/** Wide enough for "00:00" at `subheadline`, so the board and get-off times
+ *  line up into one column. */
+const TIME_COLUMN = 44;
 
 /**
  * The journey as one thin bar, a segment per leg sized by its time, with the
@@ -32,55 +29,63 @@ const MARKER_SIZE = 28;
  * journey this card sits without a "step 3 of 5" to count.
  */
 export function LegStrip({ itinerary, focusLegIndex }: { itinerary: Itinerary; focusLegIndex: number | null }) {
-  const theme = useTheme();
+  const colors = useColors();
   const rail = buildJourneyRail(itinerary);
   return (
     <View
-      style={[styles.strip, { backgroundColor: theme.borderMuted }]}
+      style={[styles.strip, { backgroundColor: colors.separator }]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {rail.segments.map((segment) => (
-        <View
-          key={segment.legIndex}
-          style={{
-            // A zero-second leg still gets a sliver, so it can be the lit one.
-            flex: Math.max(segment.seconds, rail.totalSeconds * 0.03),
-            backgroundColor:
-              focusLegIndex === null || focusLegIndex === segment.legIndex
-                ? segment.color
-                : withAlpha(segment.color, UNFOCUSED_SEGMENT_ALPHA),
-          }}
-        />
-      ))}
+      {rail.segments.map((segment) => {
+        // A walk in the design system's walk colour; a ride in its operator's.
+        const color = segment.kind === 'walk' ? colors.walk : segment.color;
+        return (
+          <View
+            key={segment.legIndex}
+            style={{
+              // A zero-second leg still gets a sliver, so it can be the lit one.
+              flex: Math.max(segment.seconds, rail.totalSeconds * 0.03),
+              backgroundColor:
+                focusLegIndex === null || focusLegIndex === segment.legIndex
+                  ? color
+                  : withAlpha(color, UNFOCUSED_SEGMENT_ALPHA),
+            }}
+          />
+        );
+      })}
     </View>
   );
 }
 
 /** The shared surface of every card in the trip and journey carousels.
- *  These stay panels rather than inline rows: they float over a full-bleed
- *  map, which is its own background, and a carousel item with no edge has
- *  nothing to snap between. */
-export function StepCardFrame({ children, done = false }: { children: ReactNode; done?: boolean }) {
-  const theme = useTheme();
+ *  Cards rather than inline rows: they float over a full-bleed map, which is
+ *  its own background, and a carousel item with no edge has nothing to snap
+ *  between. `floating` (solid, never glass -- these are content) over a map;
+ *  `default` where the same card sits on a grouped page. A finished leg on a
+ *  running journey is `done`: still readable, plainly behind the rider. */
+export function StepCardFrame({
+  children, done = false, variant = 'floating',
+}: { children: ReactNode; done?: boolean; variant?: 'floating' | 'default' }) {
   return (
-    <ThemedView
-      type="background"
-      style={[styles.card, { borderColor: theme.borderMuted }, done && styles.done]}
-    >
+    <Card variant={variant} done={done} style={styles.card}>
       {children}
-    </ThemedView>
+    </Card>
   );
 }
 
+/** The leg the running journey is on. */
 export function NowTag() {
   const { t } = useTranslation();
-  const theme = useTheme();
+  return <Tag tone="live" label={t('journey.now')} />;
+}
+
+/** A walk's leading glyph: the walk colour, as on the strip and the map. */
+function WalkMarker() {
+  const colors = useColors();
   return (
-    <View style={[styles.nowTag, { backgroundColor: theme.text }]}>
-      <ThemedText type="smallBold" themeColor="background">
-        {t('journey.now')}
-      </ThemedText>
+    <View style={[styles.marker, { backgroundColor: colors.walk }]}>
+      <Icon name="walk" size="sm" color="onStatus" weight="semibold" />
     </View>
   );
 }
@@ -108,25 +113,23 @@ export function LegStepCard({
       <StepCardFrame done={done}>
         <LegStrip itinerary={itinerary} focusLegIndex={card.legIndex} />
         <View style={styles.headRow}>
-          <View style={[styles.marker, { backgroundColor: WALK_LEG_COLOR }]}>
-            <IconWalk size={16} color={readableTextColor(WALK_LEG_COLOR)} />
-          </View>
-          <ThemedText type="defaultBold" style={styles.grow} numberOfLines={1}>
+          <WalkMarker />
+          <Text variant="headline" numeric style={styles.grow} numberOfLines={1}>
             {t('trip.walkFor', { duration: formatDurationMinutes(leg.durationSeconds) })}
-          </ThemedText>
+          </Text>
           {current && <NowTag />}
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <Text variant="subheadline" emphasized numeric color="textSecondary">
             {formatClockTime(card.startsAt)}
-          </ThemedText>
+          </Text>
         </View>
-        <ThemedText type="default" numberOfLines={2}>
+        <Text variant="body" numberOfLines={2}>
           {card.final
             ? t('trip.toDestination')
             : t('trip.toPlace', { name: leg.to.name ?? t('trip.unnamedStop') })}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        </Text>
+        <Text variant="subheadline" color="textSecondary" numeric>
           {formatDistanceMeters(leg.distanceMeters)}
-        </ThemedText>
+        </Text>
       </StepCardFrame>
     );
   }
@@ -150,29 +153,29 @@ export function LegStepCard({
       <LegStrip itinerary={itinerary} focusLegIndex={card.legIndex} />
       <View style={styles.headRow}>
         <LineBadge route={leg.route} />
-        <ThemedText type="small" numberOfLines={1} style={styles.grow}>
+        <Text variant="subheadline" numberOfLines={1} style={styles.grow}>
           {headsign !== '' ? t('results.towards', { name: headsign }) : ''}
-        </ThemedText>
+        </Text>
         {current && <NowTag />}
       </View>
       <View style={styles.stopRow}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.time}>
+        <Text variant="subheadline" emphasized numeric color="textSecondary" style={styles.time}>
           {formatClockTime(leg.from.departureTime)}
-        </ThemedText>
-        <ThemedText type="default" numberOfLines={1} style={styles.grow}>
+        </Text>
+        <Text variant="body" numberOfLines={1} style={styles.grow}>
           {t('trip.boardAt', { name: leg.from.stop.name ?? t('trip.unnamedStop') })}
-        </ThemedText>
+        </Text>
       </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.facts}>
+      <Text variant="subheadline" color="textSecondary" numeric style={styles.facts}>
         {facts}
-      </ThemedText>
+      </Text>
       <View style={styles.stopRow}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.time}>
+        <Text variant="subheadline" emphasized numeric color="textSecondary" style={styles.time}>
           {formatClockTime(leg.to.arrivalTime)}
-        </ThemedText>
-        <ThemedText type="defaultBold" numberOfLines={2} style={styles.grow}>
+        </Text>
+        <Text variant="headline" numberOfLines={2} style={styles.grow}>
           {t('trip.getOffAt', { name: leg.to.stop.name ?? t('trip.unnamedStop') })}
-        </ThemedText>
+        </Text>
       </View>
       <LineOptionChips leg={leg} />
     </StepCardFrame>
@@ -184,31 +187,24 @@ const styles = StyleSheet.create({
     // Fills the carousel's stretched row, so every card is as tall as the
     // tallest rather than sitting short inside it.
     flex: 1,
-    borderRadius: Spacing.three,
-    borderWidth: 1.5,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  done: {
-    opacity: DONE_OPACITY,
   },
   strip: {
     flexDirection: 'row',
     height: STRIP_HEIGHT,
-    borderRadius: STRIP_HEIGHT / 2,
+    borderRadius: Radius.xs,
     overflow: 'hidden',
-    gap: 2,
-    marginBottom: Spacing.one,
+    gap: Space.xxs,
+    marginBottom: Space.xs,
   },
   headRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   marker: {
-    width: MARKER_SIZE,
-    height: MARKER_SIZE,
-    borderRadius: MARKER_SIZE / 2,
+    width: Size.leadingTile,
+    height: Size.leadingTile,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -218,20 +214,15 @@ const styles = StyleSheet.create({
   stopRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
   // Fixed width so the board and get-off times line up into one column.
   time: {
-    width: 44,
+    width: TIME_COLUMN,
   },
   // Indented under the times, so the ride's facts read as belonging between
   // the stop the rider boards at and the one they get off at.
   facts: {
-    marginStart: 44 + Spacing.two,
-  },
-  nowTag: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
-    borderRadius: 999,
+    marginStart: TIME_COLUMN + Space.sm,
   },
 });

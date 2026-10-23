@@ -1,139 +1,154 @@
-import { IconWalk } from '@tabler/icons-react-native';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconForward } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { readableTextColor, routeColor, WALK_LEG_COLOR } from '@/lib/route-color';
+import { GLASS_SUPPORTED, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { readableTextColor, routeColor } from '@/lib/route-color';
 
 import { useJourney } from './journey-context';
 import { journeyCopy, vehicleInPlay } from './journey-copy';
 
-/** Thin enough to read as an edge the bar happens to have rather than as a
- *  control, which is what keeps the tap target the whole bar. */
+/** Thin enough to read as an edge the bar happens to have rather than a
+ *  control, which keeps the whole bar the tap target. */
 const RAIL_HEIGHT = 2;
 
-/** Matches `LineBadge`'s own glyph size, so the walk capsule and a route
- *  capsule are the same object wearing a different colour. */
-const WALK_GLYPH_SIZE = 14;
+/** The classic (pre-iOS 26) tab bar height, above the home indicator. */
+const CLASSIC_TAB_BAR_HEIGHT = 49;
 
-/**
- * The now-playing dock: the running journey, docked above the tab bar on every
- * tab, always one tap from its full screen.
- *
- * Borrowed wholesale from a media player's mini-bar (see the spec). The
- * journey outlives the screen that started it, so the rider can search
- * something else, walk into another tab, or close the app entirely and still
- * have it exactly where they left it.
- *
- * Flat by rule (`AGENTS.md`): a hairline top border and the element surface
- * are the whole separation, which is exactly how the tab bar underneath
- * separates itself. A docked bar is where the temptation to lift it off the
- * page is strongest, and lifting it would make it the one thing on screen
- * pretending to float.
- */
-export function JourneyBar() {
+/** iOS 26+: the journey rides in the tab bar's own accessory slot. */
+export const USES_TAB_ACCESSORY = GLASS_SUPPORTED;
+
+function useJourneyBarModel() {
   const { journey, state } = useJourney();
   const { t } = useTranslation();
-  const theme = useTheme();
-
-  // Nothing running is the common case, and it must cost the tab bar nothing.
+  const colors = useColors();
   if (!journey || !state) return null;
-
   const ride = vehicleInPlay(journey.itinerary, state);
-  const color = ride ? routeColor(ride.route) : WALK_LEG_COLOR;
   const copy = journeyCopy(state, journey.itinerary, journey.destinationLabel, t, {
-    end: theme.text,
-    alert: theme.danger,
+    end: colors.textPrimary,
+    alert: colors.danger,
   });
-  const { hero } = copy;
-  // Where the screen renders the way out as a control, the bar only names
-  // it: a second tap target inside a docked bar is how a stressed rider
-  // mis-taps, and the whole bar already leads to the screen that offers it.
+  // Where the screen renders the way out as a control, the bar only names it:
+  // a second tap target in a docked bar is how a stressed rider mis-taps.
   const supporting = copy.action ?? copy.supporting;
+  return { ride, hero: copy.hero, supporting, progress: state.progress };
+}
 
+function Content({ compact }: { compact: boolean }) {
+  const model = useJourneyBarModel();
+  const colors = useColors();
+  if (!model) return null;
+  const { ride, hero, supporting, progress } = model;
+  const fill = ride ? routeColor(ride.route) : colors.walk;
   return (
-    <ThemedView type="background" style={[styles.bar, { borderTopColor: theme.borderMuted }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={supporting === null ? hero : `${hero}. ${supporting}`}
-        onPress={() => router.navigate('/journey')}
-        style={styles.pressable}
-      >
-        {ride ? (
-          <LineBadge route={ride.route} />
-        ) : (
-          <View style={[styles.walkBadge, { backgroundColor: WALK_LEG_COLOR }]}>
-            <IconWalk size={WALK_GLYPH_SIZE} color={readableTextColor(WALK_LEG_COLOR)} />
-          </View>
-        )}
-
-        <View style={styles.lines}>
-          <ThemedText type="defaultBold" numberOfLines={1}>
-            {hero}
-          </ThemedText>
-          {supporting !== null && (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {supporting}
-            </ThemedText>
-          )}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={supporting === null ? hero : `${hero}. ${supporting}`}
+      onPress={() => router.navigate('/journey')}
+      style={[styles.row, compact && styles.rowCompact]}
+    >
+      {ride ? (
+        <LineBadge route={ride.route} size={compact ? 'small' : 'default'} />
+      ) : (
+        <View style={[styles.walkBadge, compact && styles.walkBadgeSmall, { backgroundColor: colors.walk }]}>
+          <Icon name="walk" size={compact ? 11 : 14} color={readableTextColor(colors.walk)} />
         </View>
-
-        <IconForward
-          size={18}
-          color={theme.textSecondary}
-        />
-      </Pressable>
-
-      {/* A row of two flexed children rather than an absolutely positioned
-          width, so the fill grows from the reading edge in both directions --
-          `flexDirection: 'row'` is the one thing RTL flips for free. */}
-      <View style={styles.rail} pointerEvents="none">
-        <View style={{ flex: state.progress, backgroundColor: color }} />
-        <View style={{ flex: 1 - state.progress }} />
+      )}
+      <View style={styles.lines}>
+        <Text variant={compact ? 'footnote' : 'subheadline'} emphasized numberOfLines={1}>
+          {hero}
+        </Text>
+        {!compact && supporting !== null && (
+          <Text variant="footnote" color="textSecondary" numberOfLines={1}>
+            {supporting}
+          </Text>
+        )}
       </View>
-    </ThemedView>
+      {/* Two flexed children, so the fill grows from the reading edge in both
+          directions -- `row` is what RTL flips for free. */}
+      <View style={[styles.rail, compact && styles.railCompact]} pointerEvents="none">
+        <View style={{ flex: progress, backgroundColor: fill }} />
+        <View style={{ flex: 1 - progress }} />
+      </View>
+    </Pressable>
   );
 }
 
+/**
+ * The live journey, docked to the tab bar on every tab and one tap from its
+ * full screen -- a media player's mini-bar for a bus ride.
+ *
+ * iOS 26 only: the content of `<NativeTabs.BottomAccessory>`. The accessory
+ * element has to be a DIRECT child of `<NativeTabs>` (it is found by type), so
+ * the layout renders it and this is only what goes inside. Glass comes from the
+ * system; the content goes compact when the bar minimises on scroll.
+ */
+export function JourneyAccessoryContent() {
+  const placement = NativeTabs.BottomAccessory.usePlacement();
+  return <Content compact={placement === 'inline'} />;
+}
+
+/** Whether the tab bar should show the journey accessory right now. */
+export function useJourneyAccessoryVisible(): boolean {
+  const model = useJourneyBarModel();
+  return USES_TAB_ACCESSORY && model !== null;
+}
+
+/**
+ * The same bar where the tab bar has no accessory slot (Android, iOS < 26).
+ * Render it as the LAST child of a tab root: on Android it sits in flow just
+ * above the navigation bar; on older iOS it floats above the classic tab bar.
+ */
+export function JourneyDock() {
+  const model = useJourneyBarModel();
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  if (USES_TAB_ACCESSORY || !model) return null;
+  return (
+    <View
+      style={[
+        styles.dock,
+        { backgroundColor: colors.surfaceFloating, borderColor: colors.separator },
+        Platform.OS === 'ios' && { position: 'absolute', start: 0, end: 0, bottom: insets.bottom + CLASSIC_TAB_BAR_HEIGHT },
+      ]}
+    >
+      <Content compact={false} />
+    </View>
+  );
+}
+
+/** The height a scrolling tab root should leave free at its end for the dock. */
+export function useJourneyDockInset(): number {
+  const model = useJourneyBarModel();
+  if (USES_TAB_ACCESSORY || !model) return 0;
+  return Size.row.min + Space.sm;
+}
+
 const styles = StyleSheet.create({
-  bar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  pressable: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    // Keeps the rail's own height out of the text's breathing room, so the
-    // two lines sit optically centred rather than pushed up off the edge.
-    paddingBottom: Spacing.two + RAIL_HEIGHT,
+    gap: Space.md,
+    paddingHorizontal: Space.lg,
+    paddingTop: Space.sm,
+    paddingBottom: Space.sm + RAIL_HEIGHT,
+    minHeight: Size.row.min,
   },
-  lines: {
-    flex: 1,
-  },
-  // The same capsule `LineBadge` draws, for the stretches of the journey that
-  // have no vehicle to name -- the final walk, and arrival.
+  rowCompact: { paddingHorizontal: Space.md, paddingTop: 0, paddingBottom: 0, gap: Space.sm, minHeight: 0, flex: 1 },
+  lines: { flex: 1 },
   walkBadge: {
-    minWidth: 34,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.two,
+    minWidth: 32,
+    height: 24,
+    paddingHorizontal: Space.sm - Space.xxs,
+    borderRadius: Radius.sm - Space.xxs,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rail: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: RAIL_HEIGHT,
-    flexDirection: 'row',
-  },
+  walkBadgeSmall: { minWidth: 24, height: 18 },
+  rail: { position: 'absolute', start: 0, end: 0, bottom: 0, height: RAIL_HEIGHT, flexDirection: 'row' },
+  railCompact: { start: Space.md, end: Space.md },
+  dock: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
 });

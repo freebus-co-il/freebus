@@ -1,9 +1,8 @@
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
-import { IconMapPin, IconX } from '@tabler/icons-react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { useRouteShape } from '@/api/lines';
@@ -16,11 +15,12 @@ import { useVehicles } from '@/api/vehicles';
 import { Collapsible } from '@/components/collapsible';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
-import { stationKindOf } from '@/components/station-icon';
+import { StationIcon, stationKindOf } from '@/components/station-icon';
 import { MapScreen } from '@/components/map-screen';
 import { useMapSheetEdgePadding } from '@/components/map-sheet';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import {
+  Border, Chip, EmptyState, IconButton, Layout, Loading, Opacity, Radius, Separator, Size, Space, Text, useColors,
+} from '@/design-system';
 import { firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
 import { StopSpineRow } from '@/features/lines/stop-spine';
@@ -35,7 +35,6 @@ import {
 } from '@/features/stations/station-line';
 import { stationLines, stationTripIds, stationVehicleMarkers } from '@/features/stations/station-vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { departureTime } from '@/lib/departure-time';
 import { formatClockTime, formatDurationMinutes, formatRelativeDay } from '@/lib/format';
 import { routeColor } from '@/lib/route-color';
@@ -45,10 +44,9 @@ import { routeColor } from '@/lib/route-color';
 // window's departures are shown differs.
 const DEPARTURES_LIMIT = 50;
 
-/** A line badge's ring when that line is the one in focus. */
-const SELECTED_RING = 2;
-/** The strip's other badges while a line is in focus: still there to switch to. */
-const UNSELECTED_BADGE_OPACITY = 0.45;
+/** Where the hairline between two departures starts: clear of the line
+ *  badge, under the destination -- the iOS list convention. */
+const ROW_SEPARATOR_INSET = Layout.rowPaddingH + Size.leadingTile + Space.md;
 /** GTFS `route_type` for rail. */
 const RAIL_ROUTE_TYPE = 2;
 
@@ -90,9 +88,11 @@ function RunStops(
   );
   const [unfolded, setUnfolded] = useState(false);
 
-  if (isLoading) return <View style={styles.runStatus}><ActivityIndicator /></View>;
+  // Inline under the open row, not an `EmptyState`: the board is still the
+  // board, and a centred block would push the rows below off the peek.
+  if (isLoading) return <Loading style={styles.runStatus} />;
   if (run.stops.length === 0) {
-    return <ThemedText type="small" themeColor="textSecondary" style={styles.runStatus}>{t('line.error')}</ThemedText>;
+    return <Text variant="subheadline" color="textSecondary" style={styles.runStatus}>{t('line.error')}</Text>;
   }
 
   // An unscheduled run's trip is only its template: no position to trust.
@@ -146,7 +146,7 @@ function DepartureRow(
   },
 ) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const time = departureTime(departure.departureTime, departure.realtime);
   const live = showLive && time.live;
   const trainNumber = tripNumberOf(departure);
@@ -183,42 +183,54 @@ function DepartureRow(
 
   return (
     <View>
-      <Pressable onPress={onPress} accessibilityState={{ expanded }} style={styles.row}>
-        <LineBadge route={departure.route} />
+      {/* `ListRow`'s shape and pressed state, built here because the row has
+          to tell a screen reader it is expanded -- which `ListRow` cannot. */}
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        android_ripple={{ color: colors.fillPressed }}
+        style={({ pressed }) => [styles.row, pressed && Platform.OS === 'ios' && { backgroundColor: colors.fillPressed }]}
+      >
+        <View style={styles.leading}>
+          <LineBadge route={departure.route} />
+        </View>
 
         <View style={styles.headsign}>
           {/* Through `formatHeadsign`, same as every other surface that shows
               one -- this board was rendering the raw feed value, underscore
               separator and all. */}
-          <ThemedText type={expanded ? 'smallBold' : 'default'} numberOfLines={1}>
+          <Text variant={expanded ? 'headline' : 'body'} numberOfLines={1}>
             {formatHeadsign(departure.headsign)}
-          </ThemedText>
+          </Text>
           {secondary !== '' && (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            <Text variant="subheadline" color="textSecondary" numberOfLines={1} numeric>
               {secondary}
-            </ThemedText>
+            </Text>
           )}
           {arrival !== null && (
-            <ThemedText
-              type={fastest ? 'smallBold' : 'small'}
-              themeColor={fastest ? undefined : 'textSecondary'}
+            <Text
+              variant="subheadline"
+              emphasized={fastest}
+              color={fastest ? 'textPrimary' : 'textSecondary'}
               numberOfLines={1}
+              numeric
             >
               {walk === null ? arrival : `${arrival} · ${walk}`}
-            </ThemedText>
+            </Text>
           )}
         </View>
 
         <View style={styles.timeColumn}>
           <View style={styles.timeRow}>
-            {live && <LiveIndicator color={theme.success} size={11} />}
-            <ThemedText type="smallBold" style={live ? { color: theme.success } : undefined}>
+            {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
+            <Text variant="headline" numeric color={live ? 'live' : 'textPrimary'}>
               {formatDurationMinutes(secondsUntil(time.iso, now))}
-            </ThemedText>
+            </Text>
           </View>
-          <ThemedText type="small" themeColor="textSecondary">
+          <Text variant="footnote" color="textSecondary" numeric>
             {formatClockTime(time.iso)}
-          </ThemedText>
+          </Text>
         </View>
       </Pressable>
 
@@ -249,36 +261,31 @@ function EmptyBoard({ next, destinationName }: {
 
   if (destinationName !== null) {
     return (
-      <View style={styles.centered}>
-        <ThemedText type="default" style={styles.centeredText}>
-          {t('station.noneToDestination', {
-            name: destinationName, minutes: DEPARTURES_WINDOW_MINUTES,
-          })}
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon="pin"
+        title={t('station.noneToDestination', {
+          name: destinationName, minutes: DEPARTURES_WINDOW_MINUTES,
+        })}
+      />
     );
   }
 
   if (next === null) {
-    return (
-      <View style={styles.centered}>
-        <ThemedText type="default" style={styles.centeredText}>{t('station.noService')}</ThemedText>
-      </View>
-    );
+    return <EmptyState icon="calendar" title={t('station.noService')} />;
   }
 
+  // The next departure carries its line's badge, which `EmptyState` has no
+  // slot for: the state's own block, then the badge line tucked under it.
   return (
-    <View style={styles.centered}>
-      <ThemedText type="default" style={styles.centeredText}>
-        {t('station.empty', { minutes: DEPARTURES_WINDOW_MINUTES })}
-      </ThemedText>
+    <View style={styles.emptyWithNext}>
+      <EmptyState icon="time" title={t('station.empty', { minutes: DEPARTURES_WINDOW_MINUTES })} style={styles.emptyTop} />
       <View style={styles.nextRow}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <Text variant="subheadline" color="textSecondary" numeric>
           {t('station.nextService', {
             day: formatRelativeDay(next.departureTime),
             time: formatClockTime(next.departureTime),
           })}
-        </ThemedText>
+        </Text>
         <LineBadge route={next.route} size="small" />
       </View>
     </View>
@@ -292,11 +299,11 @@ type Highlight = { key: string; departureKey: string | null };
  * The board's destination filter: the one control on this screen that
  * changes WHICH buses are listed rather than which one is in focus.
  *
- * Unset it is an ordinary outlined control, like every other in the app.
- * Set, it inverts to a `text` fill -- the app's one way of drawing a control
- * that is doing something, and worth the weight here because a filtered
- * board is a board that is hiding rows, which the rider must never have to
- * deduce from a short list.
+ * Unset it is an ordinary menu chip: it opens a choice (the destination
+ * picker). Set, it is a selected chip -- the `accent` fill, the app's one way
+ * of drawing a control that is doing something, and worth the weight here
+ * because a filtered board is a board that is hiding rows, which the rider
+ * must never have to deduce from a short list.
  */
 function DestinationFilter(
   { destination, onPick, onClear }: {
@@ -306,46 +313,32 @@ function DestinationFilter(
   },
 ) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
 
   if (destination === null) {
     return (
-      <Pressable accessibilityRole="button" onPress={onPick} style={styles.filterRow}>
-        <View style={[styles.filterControl, outline, { backgroundColor: theme.background }]}>
-          <IconMapPin size={16} color={theme.text} />
-          <ThemedText type="small" numberOfLines={1}>{t('station.filterPrompt')}</ThemedText>
-        </View>
-      </Pressable>
+      <View style={styles.filterRow}>
+        <Chip icon="pin" label={t('station.filterPrompt')} menu onPress={onPick} />
+      </View>
     );
   }
 
   return (
     <View style={styles.filterRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: true }}
+      <Chip
+        icon="pin"
+        label={t('station.filterTo', { name: destination.name })}
+        selected
         onPress={onPick}
         style={styles.filterFill}
-      >
-        <View style={[styles.filterControl, { backgroundColor: theme.text }]}>
-          <IconMapPin size={16} color={theme.background} />
-          {/* The ink on a `text` fill is the PAGE colour, so it inverts with
-              the theme -- see the colour roles in AGENTS.md. */}
-          <ThemedText type="small" numberOfLines={1} style={{ color: theme.background }}>
-            {t('station.filterTo', { name: destination.name })}
-          </ThemedText>
-        </View>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
+      />
+      <IconButton
+        icon="close"
+        variant="plain"
+        size="sm"
+        color="textSecondary"
         accessibilityLabel={t('station.filterClear')}
         onPress={onClear}
-        hitSlop={Spacing.two}
-        style={styles.filterClear}
-      >
-        <IconX size={18} color={theme.textSecondary} />
-      </Pressable>
+      />
     </View>
   );
 }
@@ -364,7 +357,7 @@ function DestinationFilter(
  */
 export default function StationScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const { stopId, name } = useLocalSearchParams<{ stopId?: string; name?: string }>();
   const showLive = useRealtimeAvailable();
   // ONE clock for the whole board, not one per row -- a countdown must keep
@@ -516,7 +509,10 @@ export default function StationScreen() {
   // gestures go through the same handler system.
   const header = (
     <View style={styles.sheetHeader}>
-      <ThemedText type="smallBold" numberOfLines={2} style={styles.title}>{title}</ThemedText>
+      <View style={styles.titleRow}>
+        <StationIcon kind={stationKind} />
+        <Text variant="title2" numberOfLines={2} style={styles.title}>{title}</Text>
+      </View>
       {/* Above the line strip, because it governs it: with a destination set
           the strip below lists only the lines that actually go there. */}
       <DestinationFilter
@@ -537,10 +533,14 @@ export default function StationScreen() {
                 onPress={() => (isSelected
                   ? setHighlight(null)
                   : openFromOutside(key, lineDepartures(departures, key)[0] ?? null))}
-                style={[
+                android_ripple={{ color: colors.fillPressed, borderless: true }}
+                style={({ pressed }) => [
                   styles.badgeSlot,
-                  { borderColor: isSelected ? theme.text : 'transparent' },
-                  highlight !== null && !isSelected && { opacity: UNSELECTED_BADGE_OPACITY },
+                  { borderColor: isSelected ? colors.accent : 'transparent' },
+                  // The strip's other badges while a line is in focus: still
+                  // there to switch to.
+                  highlight !== null && !isSelected && { opacity: Opacity.dimmed },
+                  pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed },
                 ]}
               >
                 <LineBadge route={line} size="small" />
@@ -581,9 +581,9 @@ export default function StationScreen() {
         ListHeaderComponent={header}
         ListEmptyComponent={
           isLoading ? (
-            <View style={styles.status}><ActivityIndicator /></View>
+            <Loading />
           ) : isError ? (
-            <View style={styles.status}><ThemedText type="default">{t('station.error')}</ThemedText></View>
+            <EmptyState icon="error" title={t('station.error')} />
           ) : (
             <EmptyBoard
               next={data?.nextDeparture ?? null}
@@ -591,9 +591,7 @@ export default function StationScreen() {
             />
           )
         }
-        ItemSeparatorComponent={() => (
-          <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-        )}
+        ItemSeparatorComponent={RowSeparator}
         renderItem={({ item }) => {
           const expanded = selected !== null && departureKey(item) === departureKey(selected);
           return (
@@ -623,97 +621,97 @@ export default function StationScreen() {
   );
 }
 
+/** Between two departures. Module-level, so the list is not handed a new
+ *  component -- and does not remount every separator -- on each render. */
+function RowSeparator() {
+  return <Separator insetStart={ROW_SEPARATOR_INSET} />;
+}
+
 const styles = StyleSheet.create({
   // No side padding of its own: the badge strip scrolls edge to edge, so the
   // name and the strip's content each carry the header's inset instead.
-  // Cluster spacing, not `SectionGap`: this is a sheet, and its peek is
-  // the only part the rider sees without dragging it up.
-  // The filter sits between the name and the line strip, each `Spacing.three`
-  // from its neighbour -- a cluster of controls under a heading, not three
-  // sections of a page.
+  // Cluster spacing, not `Layout.sectionGap`: this is a sheet, and its peek
+  // is the only part the rider sees without dragging it up.
+  sheetHeader: {
+    paddingTop: Space.xs,
+    paddingBottom: Space.lg,
+    gap: Space.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.md,
+    paddingHorizontal: Layout.pageInset,
+  },
+  title: {
+    flex: 1,
+  },
+  // The filter sits between the name and the line strip -- a cluster of
+  // controls under a heading, not three sections of a page.
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    gap: Space.xs,
+    paddingHorizontal: Layout.pageInset,
   },
   // Shrinks rather than pushing the clear button off the row: a station name
   // can be long, and the way out of a filter must never be what gets cut.
   filterFill: {
     flexShrink: 1,
   },
-  filterControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: 999,
-  },
-  filterClear: {
-    padding: Spacing.one,
-  },
-  sheetHeader: {
-    paddingTop: Spacing.one,
-    paddingBottom: Spacing.four,
-    gap: Spacing.three,
-  },
-  title: {
-    paddingHorizontal: Spacing.four,
-  },
   lineStrip: {
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.four,
+    gap: Space.xs,
+    paddingHorizontal: Layout.pageInset - Border.selected - Space.xxs,
     alignItems: 'center',
   },
   // A ring the width of the selected border on every badge, transparent until
-  // selected, so choosing a line does not shift the strip.
+  // selected, so choosing a line does not shift the strip. The strip's inset
+  // above is trimmed by the ring and its gap, so the badges themselves line
+  // up with the name.
   badgeSlot: {
-    borderWidth: SELECTED_RING,
-    borderRadius: Spacing.two,
-    padding: 1,
+    borderWidth: Border.selected,
+    borderRadius: Radius.sm,
+    padding: Space.xxs,
   },
   runStops: {
-    paddingBottom: Spacing.four,
+    paddingBottom: Space.md,
   },
   runStatus: {
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  status: {
-    alignItems: 'center',
-    paddingVertical: Spacing.five,
+    paddingVertical: Space.md,
+    paddingHorizontal: Layout.pageInset,
   },
   sheetContent: {
-    paddingBottom: Spacing.five,
+    paddingBottom: Space.xxxl,
   },
-  centered: {
+  emptyWithNext: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.five,
-    gap: Spacing.two,
+    paddingBottom: Space.huge,
   },
-  centeredText: {
-    textAlign: 'center',
+  // The badge line below takes the state's bottom air instead.
+  emptyTop: {
+    paddingBottom: Space.sm,
   },
   nextRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Space.sm,
   },
-  // Deliberately shorter than the home screen's rows: this list runs to
-  // hundreds of entries and is scanned, not read.
+  // `ListRow`'s padding: a board runs to dozens of rows and is scanned, so
+  // never the home screen's looser rhythm.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
+    gap: Space.md,
+    paddingVertical: Layout.rowPaddingV,
+    paddingHorizontal: Layout.rowPaddingH,
+  },
+  leading: {
+    minWidth: Size.leadingTile,
+    alignItems: 'center',
   },
   headsign: {
     flex: 1,
+    gap: Space.xxs,
   },
   timeColumn: {
     alignItems: 'flex-end',
@@ -721,10 +719,6 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.four,
+    gap: Space.xs,
   },
 });

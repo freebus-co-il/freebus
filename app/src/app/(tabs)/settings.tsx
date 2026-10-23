@@ -1,18 +1,24 @@
-import { IconCheck } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IconForward } from '@/components/directional-icon';
-import { SegmentedControl } from '@/components/segmented-control';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { SectionGap, Spacing } from '@/constants/theme';
+import {
+  Icon,
+  Layout,
+  LeadingIcon,
+  ListRow,
+  ListSection,
+  PageTitle,
+  SegmentedControl,
+  Surface,
+  type IconName,
+} from '@/design-system';
+import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
 import { usePreferences, type ThemePreference } from '@/features/preferences/preferences-context';
 import type { LanguagePreference } from '@/features/preferences/resolve-language';
-import { useTheme } from '@/hooks/use-theme';
 import { hapticSelected } from '@/lib/haptics';
 
 /** `device` first in both lists: it is the default, and the option a rider who
@@ -23,8 +29,10 @@ const LANGUAGE_OPTIONS: { value: LanguagePreference; labelKey: string }[] = [
   { value: 'en', labelKey: 'settings.languageEnglish' },
 ];
 
+// "System", not the language list's "Device default": a third of a segmented
+// control has no room for the long form, and iOS names this choice "System" too.
 const THEME_OPTIONS: { value: ThemePreference; labelKey: string }[] = [
-  { value: 'device', labelKey: 'settings.deviceDefault' },
+  { value: 'device', labelKey: 'settings.themeSystem' },
   { value: 'light', labelKey: 'settings.themeLight' },
   { value: 'dark', labelKey: 'settings.themeDark' },
 ];
@@ -70,92 +78,40 @@ function leadTimeValue(settings: AlertSettings): LeadTimeValue {
   return match?.value ?? 'oneStop';
 }
 
-function OptionRow({
-  label,
-  selected,
-  onPress,
-  last,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  last: boolean;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      // Not when the row is already the chosen one: re-picking it changes
-      // nothing, and a tap that says "done" for a no-op is a lie.
-      onPress={() => {
-        if (!selected) hapticSelected();
-        onPress();
-      }}
-      style={styles.row}
-    >
-      <ThemedText type="default">{label}</ThemedText>
-      {/* A tick rather than a radio dot: the row is a choice already made or
-          not, and a tick reads the same in both directions without mirroring. */}
-      {selected && <IconCheck size={20} color={theme.text} />}
-      {!last && <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />}
-    </Pressable>
-  );
-}
-
+/** A get-off alert toggle: what it does, by glyph and label, and the
+ *  platform's own switch at its end. */
 function SwitchRow({
+  icon,
   label,
   value,
   onChange,
-  last,
 }: {
+  icon: IconName;
   label: string;
   value: boolean;
   onChange: (next: boolean) => void;
-  last: boolean;
 }) {
-  const theme = useTheme();
-
   return (
-    <View style={[styles.row, styles.switchRow]}>
-      <ThemedText type="default">{label}</ThemedText>
-      {/* Monochrome, like the segmented control: the on state is the text
-          colour, so the switch reads as part of the same flat language rather
-          than importing a platform accent nothing else on the screen uses. */}
-      <Switch
-        value={value}
-        onValueChange={(next) => {
-          hapticSelected();
-          onChange(next);
-        }}
-        trackColor={{ false: theme.borderMuted, true: theme.text }}
-        thumbColor={theme.background}
-        ios_backgroundColor={theme.borderMuted}
-      />
-      {!last && <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />}
-    </View>
-  );
-}
-
-/** A row that opens another page. */
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
-  const theme = useTheme();
-
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.row}>
-      <ThemedText type="default">{label}</ThemedText>
-      <IconForward size={20} color={theme.textSecondary} />
-    </Pressable>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
-        {title}
-      </ThemedText>
-      <View>{children}</View>
-    </View>
+    <ListRow
+      leading={
+        <LeadingIcon>
+          <Icon name={icon} size="md" />
+        </LeadingIcon>
+      }
+      title={label}
+      trailing={
+        // Native colours: the switch is platform chrome, and on iOS 26 it
+        // draws its own Liquid Glass thumb that a custom tint would fight.
+        <Switch
+          accessibilityLabel={label}
+          value={value}
+          onValueChange={(next) => {
+            hapticSelected();
+            onChange(next);
+          }}
+        />
+      }
+    />
   );
 }
 
@@ -170,7 +126,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  */
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const theme = useTheme();
   const {
     languagePreference,
     themePreference,
@@ -180,113 +135,120 @@ export default function SettingsScreen() {
     setAlertSettings,
   } = usePreferences();
 
+  const dockInset = useJourneyDockInset();
+  // The end of the content scrolls clear of the tab bar (see the hook).
+  const tabBarInset = useTabBarInset();
+
   return (
-    <ThemedView type="background" style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedText type="title" style={styles.heading}>
-          {t('tabs.settings')}
-        </ThemedText>
+    <Surface level="bgGrouped" style={styles.container}>
+      {/* Top edge only: a tab root has no native header, and the tab bar
+          already clears the home indicator. */}
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* The screen's first scrollable view, so the native tab bar on iOS
+            finds it and applies its automatic content insets. The title
+            scrolls with the content, as a large title does. */}
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
+        >
+          <PageTitle>{t('tabs.settings')}</PageTitle>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          <Section title={t('settings.language')}>
-            {LANGUAGE_OPTIONS.map((option, index) => (
-              <OptionRow
-                key={option.value}
-                label={t(option.labelKey)}
-                selected={languagePreference === option.value}
-                onPress={() => setLanguage(option.value)}
-                last={index === LANGUAGE_OPTIONS.length - 1}
+          <View style={styles.sections}>
+            <ListSection title={t('settings.language')}>
+              {LANGUAGE_OPTIONS.map((option) => {
+                const selected = languagePreference === option.value;
+                return (
+                  <ListRow
+                    key={option.value}
+                    title={t(option.labelKey)}
+                    // A tick rather than a radio dot: the row is a choice
+                    // already made or not, and a tick reads the same in both
+                    // directions without mirroring.
+                    accessory="check"
+                    selected={selected}
+                    // Not when the row is already the chosen one: re-picking
+                    // it changes nothing, and a tap that says "done" for a
+                    // no-op is a lie.
+                    onPress={() => {
+                      if (!selected) hapticSelected();
+                      setLanguage(option.value);
+                    }}
+                  />
+                );
+              })}
+            </ListSection>
+
+            {/* The segmented control ticks on a real change only, the same
+                rule the language rows above follow. */}
+            <ListSection title={t('settings.theme')}>
+              <View style={styles.controlRow}>
+                <SegmentedControl
+                  value={themePreference}
+                  onChange={setTheme}
+                  options={THEME_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+                />
+              </View>
+            </ListSection>
+
+            <ListSection title={t('settings.alerts')}>
+              <View style={styles.controlRow}>
+                <SegmentedControl
+                  value={leadTimeValue(alertSettings)}
+                  onChange={(value) => {
+                    const option = LEAD_TIME_OPTIONS.find((candidate) => candidate.value === value);
+                    if (option) setAlertSettings({ ...alertSettings, ...option.lead });
+                  }}
+                  options={LEAD_TIME_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: t(option.labelKey),
+                  }))}
+                />
+              </View>
+              <SwitchRow
+                icon="sound"
+                label={t('settings.alertSound')}
+                value={alertSettings.sound}
+                onChange={(sound) => setAlertSettings({ ...alertSettings, sound })}
               />
-            ))}
-          </Section>
-
-          <Section title={t('settings.theme')}>
-            {THEME_OPTIONS.map((option, index) => (
-              <OptionRow
-                key={option.value}
-                label={t(option.labelKey)}
-                selected={themePreference === option.value}
-                onPress={() => setTheme(option.value)}
-                last={index === THEME_OPTIONS.length - 1}
+              <SwitchRow
+                icon="vibrate"
+                label={t('settings.alertVibrate')}
+                value={alertSettings.vibrate}
+                onChange={(vibrate) => setAlertSettings({ ...alertSettings, vibrate })}
               />
-            ))}
-          </Section>
-
-          <Section title={t('settings.alerts')}>
-            <View style={styles.controlRow}>
-              <SegmentedControl
-                value={leadTimeValue(alertSettings)}
-                onChange={(value) => {
-                  const option = LEAD_TIME_OPTIONS.find((candidate) => candidate.value === value);
-                  if (option) setAlertSettings({ ...alertSettings, ...option.lead });
-                }}
-                options={LEAD_TIME_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: t(option.labelKey),
-                }))}
+              <SwitchRow
+                icon="repeat"
+                label={t('settings.alertRepeat')}
+                value={alertSettings.repeatUntilAcknowledged}
+                onChange={(repeatUntilAcknowledged) =>
+                  setAlertSettings({ ...alertSettings, repeatUntilAcknowledged })
+                }
               />
-              <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-            </View>
+            </ListSection>
 
-            <SwitchRow
-              label={t('settings.alertSound')}
-              value={alertSettings.sound}
-              onChange={(sound) => setAlertSettings({ ...alertSettings, sound })}
-              last={false}
-            />
-            <SwitchRow
-              label={t('settings.alertVibrate')}
-              value={alertSettings.vibrate}
-              onChange={(vibrate) => setAlertSettings({ ...alertSettings, vibrate })}
-              last={false}
-            />
-            <SwitchRow
-              label={t('settings.alertRepeat')}
-              value={alertSettings.repeatUntilAcknowledged}
-              onChange={(repeatUntilAcknowledged) =>
-                setAlertSettings({ ...alertSettings, repeatUntilAcknowledged })
-              }
-              last
-            />
-          </Section>
-
-          <Section title={t('settings.about')}>
-            <LinkRow label={t('settings.aboutRow')} onPress={() => router.push('/about')} />
-          </Section>
+            <ListSection title={t('settings.about')}>
+              <ListRow
+                leading={
+                  <LeadingIcon>
+                    <Icon name="info" size="md" />
+                  </LeadingIcon>
+                }
+                title={t('settings.aboutRow')}
+                accessory="chevron"
+                onPress={() => router.push('/about')}
+              />
+            </ListSection>
+          </View>
         </ScrollView>
       </SafeAreaView>
 
-    </ThemedView>
+      <JourneyDock />
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1 },
-  heading: { paddingHorizontal: Spacing.four, paddingTop: Spacing.four, paddingBottom: Spacing.four },
-  content: { paddingBottom: Spacing.five },
-  section: { paddingHorizontal: Spacing.four, paddingBottom: SectionGap },
-  // See `nearby-stops`: the first row's own padding is the space.
-  sectionTitle: {},
-  // No horizontal padding: the section already insets this column, and
-  // there is no card here to supply one.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.four,
-  },
-  // The switch is taller than a line of text, so the row is trimmed back to
-  // land at roughly the height of the tick rows above it.
-  switchRow: { paddingVertical: Spacing.three },
-  controlRow: { paddingVertical: Spacing.four },
-  // Spans the whole row now that nothing encloses it -- an indented rule on
-  // a bare page reads as the edge of a card that is not there.
-  separator: {
-    position: 'absolute',
-    bottom: 0,
-    insetInlineStart: 0,
-    insetInlineEnd: 0,
-    height: StyleSheet.hairlineWidth,
-  },
+  sections: { paddingHorizontal: Layout.pageInset, gap: Layout.sectionGap },
+  // A control that fills its row: the row's own padding, no title beside it.
+  controlRow: { paddingVertical: Layout.rowPaddingV, paddingHorizontal: Layout.rowPaddingH },
 });

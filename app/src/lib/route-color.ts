@@ -1,3 +1,5 @@
+// The pure colour tokens only: this module is tested under Node, outside React Native.
+import { Palettes } from '../design-system/tokens/color';
 /**
  * The colour every surface draws a route in: its OPERATOR's colour, not the
  * feed's `route_color`.
@@ -57,4 +59,4 @@ function hexToRgb(hexColor: string): [number, number, number] {
 /** The colour a walking leg is drawn in -- the map's polyline and the trip
  *  screen's step rail both use it, so a journey reads as one object across
  *  the two surfaces rather than two unrelated diagrams. */
-export const WALK_LEG_COLOR = '#f59e0b';
+export const WALK_LEG_COLOR = Palettes.light.walk;

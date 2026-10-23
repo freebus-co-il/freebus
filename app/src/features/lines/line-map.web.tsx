@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Surface, Text } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
 
@@ -40,11 +39,11 @@ export function LineMap({ coordinates, style }: LineMapProps) {
   if (coordinates.length < 2) return null;
 
   return (
-    <ThemedView type="surface" style={[styles.placeholder, style]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Surface level="surfaceNested" style={[styles.placeholder, style]}>
+      <Text variant="subheadline" color="textSecondary">
         {t('results.mapWebUnavailable')}
-      </ThemedText>
-    </ThemedView>
+      </Text>
+    </Surface>
   );
 }
 

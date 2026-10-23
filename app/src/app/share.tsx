@@ -1,13 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { newGeocodeSession, resolvePlace, reverseGeocode, searchAddresses } from '@/api/geocode';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Button, EmptyState, Layout, Surface } from '@/design-system';
 import { resolveSharedPlace } from '@/features/share-intent/resolve-shared-place';
 import { resolveShortLink } from '@/features/share-intent/resolve-short-link';
 import { useSearch } from '@/features/search/search-context';
@@ -86,16 +84,15 @@ export default function ShareScreen() {
 
   if (unreadable) {
     return (
-      <ThemedView type="background" style={styles.container}>
+      <Surface level="bgGrouped" style={styles.container}>
         <SafeAreaView style={styles.centered}>
-          <ThemedText type="default" style={styles.message}>
-            {t('share.unreadable')}
-          </ThemedText>
-          <Pressable onPress={() => router.replace('/location-picker')} style={styles.action}>
-            <ThemedText type="smallBold">{t('share.searchInstead')}</ThemedText>
-          </Pressable>
+          <EmptyState
+            icon="share"
+            title={t('share.unreadable')}
+            action={{ label: t('share.searchInstead'), onPress: () => router.replace('/location-picker') }}
+          />
         </SafeAreaView>
-      </ThemedView>
+      </Surface>
     );
   }
 
@@ -104,41 +101,38 @@ export default function ShareScreen() {
   // same reason, so a share behaves no differently from a tap once it lands.
   if (originFailed) {
     return (
-      <ThemedView type="background" style={styles.container}>
+      <Surface level="bgGrouped" style={styles.container}>
         <SafeAreaView style={styles.centered}>
-          <ThemedText type="default" style={styles.message}>
-            {t(
+          <EmptyState
+            icon="currentLocation"
+            title={t(
               search.originState.status === 'error' &&
                 search.originState.message === 'location_permission_denied'
                 ? 'search.locationPermissionDenied'
                 : 'search.locationUnavailable',
             )}
-          </ThemedText>
-          <Pressable onPress={search.retryOrigin} style={styles.action}>
-            <ThemedText type="smallBold">{t('search.retryLocation')}</ThemedText>
-          </Pressable>
-          <Pressable
+            action={{ label: t('search.retryLocation'), onPress: search.retryOrigin }}
+          />
+          <Button
+            variant="plain"
+            size="md"
+            label={t('search.chooseOrigin')}
             onPress={() =>
               router.replace({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
             }
             style={styles.action}
-          >
-            <ThemedText type="smallBold">{t('search.chooseOrigin')}</ThemedText>
-          </Pressable>
+          />
         </SafeAreaView>
-      </ThemedView>
+      </Surface>
     );
   }
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <Surface level="bgGrouped" style={styles.container}>
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator />
-        <ThemedText type="small" themeColor="textSecondary">
-          {t(waitingForOrigin ? 'share.findingYou' : 'share.reading')}
-        </ThemedText>
+        <EmptyState loading title={t(waitingForOrigin ? 'share.findingYou' : 'share.reading')} />
       </SafeAreaView>
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -150,13 +144,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  message: {
-    textAlign: 'center',
+    paddingHorizontal: Layout.pageInset,
   },
   action: {
-    paddingHorizontal: Spacing.four,
+    alignSelf: 'center',
   },
 });

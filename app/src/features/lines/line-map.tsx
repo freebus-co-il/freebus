@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
 import { DataCredit } from '@/components/data-credit';
-import { MARKER_RING_COLOR, MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
+import { MapStyle, Radius, Space, useColors } from '@/design-system';
+import { MARKER_SNAPSHOT_MS, VehicleMarkerPins } from '@/features/results/vehicle-marker-pin';
 import type { EdgePadding } from '@/features/results/trip-map';
 import type { VehicleMarker } from '@/features/results/vehicle-markers';
 import { useMapAppearance } from '@/hooks/use-map-appearance';
 import { useLocationGranted } from '@/hooks/use-location-granted';
-import { useTheme } from '@/hooks/use-theme';
 
 /** What `react-native-maps` wants: latitude first, and named. GeoJSON's
  *  `[lon, lat]` pairs are converted by the caller (see `line/[lineCode]`),
@@ -60,7 +60,10 @@ const NO_PINS: readonly MapPin[] = [];
 /** Plain breathing room -- nothing floats over this map, so the route only has
  *  to stay off the rounded corners of the box it sits in. A module constant so
  *  its identity never changes and the fit is not re-issued for it. */
-const EDGE_PADDING = { top: 24, right: 24, bottom: 24, left: 24 };
+const EDGE_PADDING = { top: Space.xxl, right: Space.xxl, bottom: Space.xxl, left: Space.xxl };
+/** The stop pin's diameter: big enough to find on a full-screen map, smaller
+ *  than any bus (`Size.mapMarker`). Marker geometry, not spacing. */
+const STOP_PIN_SIZE = 18;
 
 /**
  * A line's shape, drawn on a full interactive map -- pan, zoom and rotate all
@@ -145,8 +148,8 @@ export function LineMap({
       <Polyline
         coordinates={coordinates}
         strokeColor={color}
-        strokeWidth={5}
-        lineDashPattern={dashed ? [8, 6] : undefined}
+        strokeWidth={MapStyle.routeWidth}
+        lineDashPattern={dashed ? [...MapStyle.dashPattern] : undefined}
       />
       {pins.map((pin) => (
         <StopPin key={pin.key} pin={pin} />
@@ -155,17 +158,18 @@ export function LineMap({
       <VehicleMarkerPins markers={vehicles} fallbackTitle={t('results.mapVehicle')} onPress={onVehiclePress} />
     </MapView>
       {credit && (
-        <DataCredit source={credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + 4 }]} />
+        <DataCredit source={credit} variant="overlay" style={[styles.credit, { bottom: edgePadding.bottom + Space.xs }]} />
       )}
     </View>
   );
 }
 
-/** One stop pin: a white-ringed dot in the page's text colour, big enough to
- *  find on a full-screen map, smaller than any bus. Tracks view changes for
- *  one beat and then stops, exactly as `StopMarkerPin` in `trip-map.tsx`. */
+/** One stop pin: a dot in the page's text colour inside the theme's marker
+ *  ring, big enough to find on a full-screen map, smaller than any bus. Tracks
+ *  view changes for one beat and then stops, exactly as `StopMarkerPin` in
+ *  `trip-map.tsx`. */
 function StopPin({ pin }: { pin: MapPin }) {
-  const theme = useTheme();
+  const colors = useColors();
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   useEffect(() => {
@@ -180,7 +184,7 @@ function StopPin({ pin }: { pin: MapPin }) {
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracksViewChanges}
     >
-      <View style={[styles.stopPin, { backgroundColor: theme.text }]} />
+      <View style={[styles.stopPin, { backgroundColor: colors.textPrimary, borderColor: colors.mapMarkerRing }]} />
     </Marker>
   );
 }
@@ -194,10 +198,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stopPin: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 3,
-    borderColor: MARKER_RING_COLOR,
+    width: STOP_PIN_SIZE,
+    height: STOP_PIN_SIZE,
+    borderRadius: Radius.full,
+    borderWidth: MapStyle.markerRingWidth,
   },
 });

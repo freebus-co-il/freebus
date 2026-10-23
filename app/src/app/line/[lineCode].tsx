@@ -2,7 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { useLine, useRouteRuns, useRouteShape } from '@/api/lines';
@@ -12,9 +12,7 @@ import type { LineDetail, LineDirection, Place, RouteRun } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { MapScreen } from '@/components/map-screen';
 import { useMapSheetEdgePadding } from '@/components/map-sheet';
-import { SegmentedControl } from '@/components/segmented-control';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Chip, EmptyState, Layout, Loading, SegmentedControl, Space, Text, useColors } from '@/design-system';
 import { LineMap, type MapPin } from '@/features/lines/line-map';
 import { alignStopTimesToRun, firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
@@ -25,7 +23,6 @@ import { useRecents } from '@/features/recents/recents-context';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { lineVehicleMarkers } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { useControlOutline, useTheme } from '@/hooks/use-theme';
 import { shapeCredit } from '@/lib/attribution';
 import { formatClockTime } from '@/lib/format';
 import { routeColor } from '@/lib/route-color';
@@ -52,14 +49,14 @@ function LineHeader({ line, direction }: { line: LineDetail; direction: LineDire
 
   return (
     <View style={styles.lineHeader}>
-      <LineBadge route={{ shortName: line.shortName, agencyId: line.agencyId, type: line.type }} />
+      <LineBadge route={{ shortName: line.shortName, agencyId: line.agencyId, type: line.type }} size="large" />
       <View style={styles.lineHeaderText}>
-        <ThemedText type="smallBold" numberOfLines={1}>
+        <Text variant="title2" numberOfLines={2}>
           {towards === '' ? (line.longName ?? '') : t('line.direction', { name: towards })}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        </Text>
+        <Text variant="subheadline" color="textSecondary" numeric>
           {t('line.stopCount', { count: direction?.stops.length ?? 0 })}
-        </ThemedText>
+        </Text>
       </View>
     </View>
   );
@@ -107,8 +104,7 @@ export default function LineScreen() {
   }>();
   const { lineCode } = params;
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
-  const outline = useControlOutline();
+  const colors = useColors();
   const { recordLine } = useRecents();
 
   const { data: line, isLoading, isError } = useLine(lineCode ?? null, i18n.language);
@@ -247,7 +243,7 @@ export default function LineScreen() {
   const boardingIndex = station === null
     ? -1
     : stops.findIndex((stop) => stop.stopId === station.stopId);
-  const color = line ? routeColor({ agencyId: line.agencyId }) : theme.borderMuted;
+  const color = line ? routeColor({ agencyId: line.agencyId }) : colors.separator;
 
   // The selected run's times, by stop, so the spine can ask for a stop's time
   // without walking the trip for each row. A stop the run does not call at --
@@ -339,19 +335,19 @@ export default function LineScreen() {
       )}
 
       {runs !== undefined && runs.runs.length === 0 && (
-        <View style={styles.section}>
-          <ThemedText type="smallBold">{t('line.noRuns')}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+        <View style={[styles.section, styles.noRuns]}>
+          <Text variant="headline">{t('line.noRuns')}</Text>
+          <Text variant="subheadline" color="textSecondary">
             {t('line.noRunsHint')}
-          </ThemedText>
+          </Text>
         </View>
       )}
 
       {runs !== undefined && runs.runs.length > 0 && (
         <View style={styles.section}>
-          <ThemedText type="smallBold" style={styles.sectionTitle}>
+          <Text variant="subheadline" emphasized color="textSecondary" accessibilityRole="header" style={styles.sectionTitle}>
             {t('line.runs')}
-          </ThemedText>
+          </Text>
           {/* Gesture-handler's ScrollView, not React Native's: inside the
               drawer, Android only lets a sideways swipe reach the strip when
               both gestures go through the same handler system. */}
@@ -362,37 +358,22 @@ export default function LineScreen() {
           >
             {runs.runs.map((run) => {
               const active = run.runId === shownRun?.runId;
+              const time = formatClockTime(run.departureTime);
               return (
-                <Pressable
+                <Chip
                   // By run, not trip: an unscheduled bus shares its template
                   // trip's id. Still paired with the time: the API can list
                   // one run twice.
                   key={`${run.runId}:${run.departureTime}`}
+                  // One line in a chip: the unscheduled note rides beside the
+                  // time rather than under it.
+                  label={run.unscheduled ? `${time} · ${t('line.unscheduled')}` : time}
+                  selected={active}
                   onPress={() => {
                     if (runsRouteId === null) return;
                     setPickedRun({ routeId: runsRouteId, run });
                   }}
-                >
-                  <View
-                    style={[
-                      styles.runChip,
-                      { backgroundColor: active ? theme.text : theme.background },
-                      active ? null : outline,
-                    ]}
-                  >
-                    <ThemedText
-                      type="smallBold"
-                      themeColor={active ? 'background' : 'textSecondary'}
-                    >
-                      {formatClockTime(run.departureTime)}
-                    </ThemedText>
-                    {run.unscheduled && (
-                      <ThemedText type="small" themeColor={active ? 'background' : 'textSecondary'}>
-                        {t('line.unscheduled')}
-                      </ThemedText>
-                    )}
-                  </View>
-                </Pressable>
+                />
               );
             })}
           </ScrollView>
@@ -442,9 +423,9 @@ export default function LineScreen() {
         ListHeaderComponent={header}
         ListEmptyComponent={
           isLoading ? (
-            <View style={styles.status}><ActivityIndicator /></View>
+            <Loading />
           ) : !line || isError ? (
-            <View style={styles.status}><ThemedText type="default">{t('line.error')}</ThemedText></View>
+            <EmptyState icon="error" title={t('line.error')} />
           ) : null
         }
         contentContainerStyle={styles.listContent}
@@ -474,49 +455,42 @@ export default function LineScreen() {
 
 const styles = StyleSheet.create({
   listContent: {
-    paddingBottom: Spacing.five,
+    paddingBottom: Space.xxxl,
   },
   lineHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
+    gap: Space.md,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.xs,
+    paddingBottom: Space.lg,
   },
   lineHeaderText: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Space.xxs,
   },
-  // Cluster spacing, not `SectionGap`: see the station sheet's header for
-  // why a sheet over a map cannot afford a page's rhythm.
+  // Cluster spacing, not `Layout.sectionGap`: see the station sheet's header
+  // for why a sheet over a map cannot afford a page's rhythm.
   section: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
+    paddingHorizontal: Layout.pageInset,
+    paddingBottom: Space.xl,
+  },
+  noRuns: {
+    gap: Space.xxs,
   },
   sectionTitle: {
-    paddingBottom: Spacing.three,
+    paddingBottom: Layout.headerToGroup,
   },
-  hint: {
-    paddingTop: Spacing.half,
-  },
+  // The strip scrolls edge to edge inside the section's inset, so its end
+  // carries the inset the section's padding cannot.
   runStrip: {
-    gap: Spacing.two,
-    paddingEnd: Spacing.four,
-    alignItems: 'center',
-  },
-  runChip: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
+    gap: Space.sm,
+    paddingEnd: Layout.pageInset,
     alignItems: 'center',
   },
   // While the shape loads, `LineMap` has nothing to draw and returns `null`;
   // this keeps the page a full-screen view rather than a bare drawer.
   mapPlaceholder: {
     flex: 1,
-  },
-  status: {
-    alignItems: 'center',
-    paddingVertical: Spacing.five,
   },
 });

@@ -1,3 +1,4 @@
+import '@/global.css';
 import '@/i18n';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,10 +19,30 @@ import { RecentsProvider } from '@/features/recents/recents-context';
 import { SavedLocationsProvider } from '@/features/saved-locations/saved-locations-context';
 import { SearchProvider } from '@/features/search/search-context';
 import { ShareIntentGate } from '@/features/share-intent/share-intent-gate';
+import { Palettes } from '@/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { initAnalytics } from '@/lib/analytics';
 
 const queryClient = new QueryClient();
+
+/** The navigator's own colours, from the design system's roles, so native
+ *  headers, screen backgrounds and transitions match the pages. */
+function navigationTheme(scheme: 'light' | 'dark') {
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const c = Palettes[scheme];
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: c.accent,
+      background: c.bgGrouped,
+      card: c.bgGrouped,
+      text: c.textPrimary,
+      border: c.separator,
+      notification: c.danger,
+    },
+  };
+}
 
 // A share (or a tapped `geo:` link) can launch the app straight onto `/share`,
 // which is a transient screen that replaces itself with a trip. Naming the
@@ -53,7 +74,7 @@ function App() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={navigationTheme(colorScheme === 'dark' ? 'dark' : 'light')}>
       {/* Explicit, never `auto`: `auto` follows the PHONE's scheme, so a dark
           phone with the app set to light gets light icons on a light page. */}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
@@ -76,7 +97,20 @@ function App() {
                 {/* Root-level, NOT inside the tab group: these push OVER the tab
                     bar. The results screen's draggable sheet reaches the bottom of
                     the display, which a persistent tab bar would sit on top of. */}
-                <Stack.Screen name="location-picker" options={{ animation: 'slide_from_bottom' }} />
+                {/* From the home screen's search capsule the picker's field grows
+                    out of the capsule (see `search-morph`); from everywhere else
+                    it slides up. */}
+                <Stack.Screen
+                  name="location-picker"
+                  options={({ route }) =>
+                    (route.params as { morph?: string } | undefined)?.morph === '1'
+                      ? // Transparent and unanimated: the home screen stays
+                        // visible underneath while the picker fades its own
+                        // page in behind the morphing glass.
+                        { presentation: 'transparentModal', animation: 'none' }
+                      : { animation: 'slide_from_bottom' }
+                  }
+                />
                 {/* Pushed from the home screen or over the picker. No edge swipe
                     back: a drag starting at the screen's edge is the rider
                     panning the map. */}

@@ -1,19 +1,32 @@
-import { IconBuildingCommunity, IconBus, IconSearch } from '@tabler/icons-react-native';
 import { router } from 'expo-router';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAgencies } from '@/api/agencies';
-import { useRouteSearch } from '@/api/lines';
+import { apiGet } from '@/api/client';
+import { ROUTES_PAGE_SIZE, useRouteSearch } from '@/api/lines';
 import { useTransitModes } from '@/api/modes';
 import { useNearbyStops } from '@/api/stops';
-import type { StopRouteBrief } from '@/api/types';
+import type { RoutesResponse, StopRouteBrief } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { SectionGap, Spacing } from '@/constants/theme';
+import {
+  EmptyState,
+  GroupedItemSeparator,
+  Layout,
+  ListRow,
+  ListSection,
+  Loading,
+  PageTitle,
+  SearchField,
+  Space,
+  Surface,
+  Text,
+  useGroupedItemStyle,
+} from '@/design-system';
+import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import {
   agenciesForTypes,
   effectiveTypes,
@@ -25,18 +38,17 @@ import {
 import { groupRoutes, type Line } from '@/features/lines/group-routes';
 import { LineFilterChip } from '@/features/lines/line-filter-chip';
 import { useRecents } from '@/features/recents/recents-context';
-import { FieldShell } from '@/features/search/field-shell';
 import { useSearch } from '@/features/search/search-context';
-import { useTheme } from '@/hooks/use-theme';
-import { INPUT_ALIGN_START } from '@/i18n/direction';
+import { formatDistanceMeters } from '@/lib/format';
 
 /** The location picker's pause, kept identical -- see `stations.tsx`. */
 const SEARCH_DEBOUNCE_MS = 275;
 
-/** Nearby badges before the strip stops earning its space. It is a summary of
- *  what runs past the rider, not a list to read through; past this many the
- *  row wraps and starts competing with the lines below it. */
-const MAX_NEARBY_BADGES = 12;
+/** How many of the closest stops the nearby lines are drawn from, and how many
+ *  lines the section lists. Nearby is the whole browse list now -- anything
+ *  further away is a search. */
+const NEARBY_STOPS = 10;
+const MAX_NEARBY_LINES = 10;
 
 /**
  * Rail, which this tab does not show.
@@ -58,22 +70,39 @@ const RAIL_TYPE = 2;
  */
 type LineSummary = Omit<Line, 'routeIds'>;
 
-/** One line, as the badge a rider recognises plus where it goes. */
-function LineRow({ line, onPress }: { line: LineSummary; onPress: () => void }) {
+/** A nearby line, with the closest stop it calls at. */
+type NearbyLine = { route: StopRouteBrief; stopName: string | null; distanceMeters: number };
+
+function nearbyKey(route: StopRouteBrief): string {
+  return `${route.shortName}:${route.agencyId ?? ''}`;
+}
+
+/** One line, as the badge a rider recognises plus where it goes. `dense` in a
+ *  search result: it is scanned, not read. */
+function LineRow({ line, onPress, dense = false, style }: {
+  line: LineSummary;
+  onPress: () => void;
+  dense?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <Pressable style={styles.row} onPress={onPress}>
-      {/* No `color`: `LineBadge` fills from the OPERATOR, not from the feed's
-          per-route colour, so its route shape has no colour field to pass. */}
-      <LineBadge route={{ shortName: line.shortName, agencyId: line.agencyId, type: line.type }} />
-      <ThemedText type="default" numberOfLines={1} style={styles.rowText}>
-        {line.longName ?? ''}
-      </ThemedText>
-    </Pressable>
+    <ListRow
+      // No `color`: `LineBadge` fills from the OPERATOR, not from the feed's
+      // per-route colour, so its route shape has no colour field to pass.
+      leading={<LineBadge route={{ shortName: line.shortName, agencyId: line.agencyId, type: line.type }} />}
+      title={line.longName ?? ''}
+      titleLines={1}
+      dense={dense}
+      onPress={onPress}
+      style={style}
+    />
   );
 }
 
 /**
- * Every line in the feed, searchable, filterable and browsable.
+ * Every line in the feed, by search and filter; the ones running past the
+ * rider, without one. With the field empty the tab offers recent lines and
+ * the lines at the closest stops; anything else is a search.
  *
  * The list's one piece of real work is that a "line" is not a route row: the
  * feed stores one row per direction per alternative, so line 34001 arrives as
@@ -84,7 +113,9 @@ function LineRow({ line, onPress }: { line: LineSummary; onPress: () => void }) 
  */
 export default function LinesScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const dockInset = useJourneyDockInset();
+  // The end of the content scrolls clear of the tab bar (see the hook).
+  const tabBarInset = useTabBarInset();
   const { lines: recents, recordLine } = useRecents();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -140,11 +171,15 @@ export default function LinesScreen() {
     [feed, selectedAgencies, selectedTypes],
   );
 
-  const { data, fetchNextPage, hasNextPage, isFetching } = useRouteSearch(debouncedQuery, {
-    agencies: selectedAgencies,
-    types,
-    excludeTypes: [RAIL_TYPE],
-  });
+  const searching = debouncedQuery.trim() !== '';
+  // Only while searching: browsing is recents and nearby, and paging the whole
+  // feed for a list nobody scrolled was the one thing left on this tab that
+  // was not about where the rider is.
+  const { data, fetchNextPage, hasNextPage, isFetching } = useRouteSearch(
+    debouncedQuery,
+    { agencies: selectedAgencies, types, excludeTypes: [RAIL_TYPE] },
+    { enabled: searching },
+  );
 
   // Grouped over EVERY page loaded so far, never page by page: a line's two
   // directions can straddle a page boundary, and grouping each page alone
@@ -176,24 +211,25 @@ export default function LinesScreen() {
   const here = originState.status === 'success' && originState.place.kind === 'coordinate'
     ? originState.place
     : null;
-  const { data: nearbyData } = useNearbyStops(here && { lat: here.lat, lon: here.lon }, i18n.language);
+  const { data: nearbyData } = useNearbyStops(here && { lat: here.lat, lon: here.lon }, i18n.language, NEARBY_STOPS);
 
-  // Deduped on number-plus-operator, which is all these briefs carry. They
-  // have NO route id and no line code, so a nearby badge cannot be tapped
-  // through to a line page -- this is a summary of what is around, and
-  // deliberately not a navigable list. See the strip below.
+  // Deduped on number-plus-operator, which is all these briefs carry. The
+  // stops arrive nearest first, so the first stop a line turns up at is the
+  // closest place to catch it -- the row names that stop and its distance.
   const nearbyLines = useMemo(() => {
-    const seen = new Map<string, StopRouteBrief>();
+    const seen = new Map<string, NearbyLine>();
     for (const stop of nearbyData?.stops ?? []) {
       // `?? []`: absent, not merely empty, on an API older than this tab.
       for (const route of stop.routes ?? []) {
-        seen.set(`${route.shortName}:${route.agencyId ?? ''}`, route);
+        const key = nearbyKey(route);
+        if (!seen.has(key)) seen.set(key, { route, stopName: stop.name, distanceMeters: stop.distanceMeters });
       }
     }
-    return [...seen.values()].slice(0, MAX_NEARBY_BADGES);
+    return [...seen.values()].slice(0, MAX_NEARBY_LINES);
   }, [nearbyData]);
+  const [resolving, setResolving] = useState<string | null>(null);
 
-  const searching = debouncedQuery.trim() !== '';
+  const groupedItem = useGroupedItemStyle();
 
   /** Recorded BEFORE the push, so the line that was just opened is already at
    *  the top of the recents strip when the rider comes back. */
@@ -209,77 +245,109 @@ export default function LinesScreen() {
     router.push({ pathname: '/line/[lineCode]', params: { lineCode: line.lineCode } });
   }
 
+  /**
+   * A nearby brief carries a number and an operator but no line code, so the
+   * line is looked up first. One exact match opens its page; anything else --
+   * no match, several lines sharing the number, a failed lookup -- becomes a
+   * search for the number, where the rider can pick.
+   */
+  async function openNearbyLine({ route }: NearbyLine) {
+    const key = nearbyKey(route);
+    if (resolving !== null) return;
+    setResolving(key);
+    const searchFor = () => {
+      setQuery(route.shortName);
+      setDebouncedQuery(route.shortName);
+    };
+    try {
+      const response = await apiGet<RoutesResponse>('/routes', {
+        q: route.shortName,
+        agency: route.agencyId ?? undefined,
+        limit: ROUTES_PAGE_SIZE,
+      });
+      const matches = groupRoutes(response.routes).filter(
+        (line) => line.shortName?.trim() === route.shortName.trim() && line.agencyId === route.agencyId,
+      );
+      if (matches.length === 1) openLine(matches[0]!);
+      else searchFor();
+    } catch {
+      searchFor();
+    } finally {
+      setResolving(null);
+    }
+  }
+
   // Only while browsing: a search is a list of answers, and prefixing it with
   // recents and nearby would bury the ones the rider actually asked for.
   const header = searching ? null : (
     <View style={styles.header}>
       {recents.length > 0 && (
-        <View style={styles.section}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
-            {t('lines.recent')}
-          </ThemedText>
-          <View>
-            {recents.map((line, index) => (
-              <Fragment key={line.lineCode}>
-                {index > 0 && <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />}
-                <LineRow line={line} onPress={() => openLine(line)} />
-              </Fragment>
-            ))}
-          </View>
-        </View>
+        <ListSection title={t('lines.recent')} style={styles.groupedSection}>
+          {recents.map((line) => (
+            <LineRow key={line.lineCode} line={line} onPress={() => openLine(line)} />
+          ))}
+        </ListSection>
       )}
 
       {nearbyLines.length > 0 && (
-        <View style={styles.stripSection}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
-            {t('lines.nearby')}
-          </ThemedText>
-          {/* Not pressable, by construction: `/stops/nearby` returns line
-              briefs with no route id and no line code, so there is nothing to
-              open. Making them look tappable would promise a page we cannot
-              address. */}
-          <View style={styles.nearbyStrip}>
-            {nearbyLines.map((route) => (
-              <LineBadge key={`${route.shortName}:${route.agencyId ?? ''}`} route={route} size="small" />
-            ))}
-          </View>
-        </View>
+        <ListSection title={t('lines.nearby')} footer={t('lines.searchHint')} style={styles.groupedSection}>
+          {nearbyLines.map((nearby) => {
+            const key = nearbyKey(nearby.route);
+            const operator = agencies.find((agency) => agency.agencyId === nearby.route.agencyId)?.name;
+            return (
+              <ListRow
+                key={key}
+                leading={<LineBadge route={nearby.route} />}
+                title={operator ?? modeLabel(nearby.route.type)}
+                titleLines={1}
+                subtitle={nearby.stopName ?? undefined}
+                trailing={
+                  resolving === key ? (
+                    <Loading style={styles.rowSpinner} />
+                  ) : (
+                    <Text variant="footnote" color="textSecondary" numeric>
+                      {formatDistanceMeters(nearby.distanceMeters)}
+                    </Text>
+                  )
+                }
+                accessory="chevron"
+                onPress={() => void openNearbyLine(nearby)}
+              />
+            );
+          })}
+        </ListSection>
       )}
-
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.allHeading}>
-        {t('lines.all')}
-      </ThemedText>
     </View>
   );
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <Surface level="bgGrouped" style={styles.container}>
       {/* Top edge only, like the other tabs -- the tab bar already clears the
-          home indicator. */}
+          home indicator. Tab roots have no native header, so the title is
+          drawn in content. */}
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ThemedText type="title" style={styles.heading}>
-          {t('lines.title')}
-        </ThemedText>
+        <PageTitle>{t('lines.title')}</PageTitle>
 
-        <View style={styles.field}>
-          <FieldShell>
-            <IconSearch size={18} color={theme.text} />
-            <TextInput
-              style={[styles.input, { color: theme.text }, Platform.OS === 'web' && styles.inputWebNoOutline]}
-              placeholder={t('lines.search')}
-              placeholderTextColor={theme.textSecondary}
-              value={query}
-              onChangeText={setQuery}
-            />
-          </FieldShell>
-        </View>
+        <SearchField
+          style={styles.field}
+          placeholder={t('lines.search')}
+          value={query}
+          onChangeText={setQuery}
+          // Clearing is an answer, not typing: drop the debounce so the
+          // browse list comes straight back.
+          onClear={() => {
+            setQuery('');
+            setDebouncedQuery('');
+          }}
+          clearLabel={t('common.clear')}
+        />
 
         {/* Two chips, side by side, each opening its own drawer. No
             horizontal ScrollView: two pills fit any phone, and wrapping them
             in one is what squeezed their labels down to a single glyph. */}
         <View style={styles.filterRow}>
           <LineFilterChip
-            icon={<IconBuildingCommunity size={18} color={theme.text} />}
+            icon="operator"
             title={t('lines.operatorFilterTitle')}
             options={agencyOptions}
             selected={selectedAgencies}
@@ -292,7 +360,7 @@ export default function LinesScreen() {
               there is no second answer left for this filter to give, so it
               names the one it is pinned to instead of opening on it. */}
           <LineFilterChip
-            icon={<IconBus size={18} color={locked === null ? theme.text : theme.textSecondary} />}
+            icon="bus"
             title={t('lines.vehicleFilterTitle')}
             options={typeOptions}
             selected={selectedTypes}
@@ -305,35 +373,38 @@ export default function LinesScreen() {
           />
         </View>
 
+        {/* The screen's first scrollable view, so the native tab bar on iOS
+            finds it and applies its automatic content insets. */}
         <FlatList
-          data={lines}
+          data={searching ? lines : []}
           keyExtractor={(item) => item.lineCode}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={header}
           // The journey bar docks above the tab bar, so the list has to end
           // clear of both or its last row is unreachable mid-journey.
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => (
-            <View style={[styles.separator, { backgroundColor: theme.borderMuted }]} />
-          )}
+          contentContainerStyle={{ paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
+          ItemSeparatorComponent={GroupedItemSeparator}
           onEndReachedThreshold={0.5}
           onEndReached={() => {
             if (hasNextPage && !isFetching) fetchNextPage();
           }}
           ListEmptyComponent={
-            isFetching ? (
-              <ActivityIndicator style={styles.emptyLoader} />
-            ) : searching ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                {t('lines.empty')}
-              </ThemedText>
-            ) : null
+            !searching ? null : isFetching ? (
+              <Loading />
+            ) : (
+              <EmptyState icon="search" title={t('lines.empty')} />
+            )
           }
-          renderItem={({ item }) => <LineRow line={item} onPress={() => openLine(item)} />}
+          // One grouped section, drawn a slice per item so the list stays
+          // virtualised -- see `useGroupedItemStyle`.
+          renderItem={({ item, index }) => (
+            <LineRow line={item} onPress={() => openLine(item)} dense style={groupedItem(index, lines.length)} />
+          )}
         />
       </SafeAreaView>
 
-    </ThemedView>
+      <JourneyDock />
+    </Surface>
   );
 }
 
@@ -344,95 +415,29 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  heading: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: Spacing.four,
-  },
   field: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
-  },
-  // Matches the location picker's field exactly -- see its own comment for
-  // why the line box is a `height` and not a `lineHeight`, and why the input
-  // contributes no padding of its own.
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: INPUT_ALIGN_START,
-    height: 20,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  inputWebNoOutline: {
-    outlineWidth: 0,
+    marginHorizontal: Layout.pageInset,
+    marginBottom: Space.md,
   },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.four,
+    gap: Space.sm,
+    paddingHorizontal: Layout.pageInset,
+    paddingBottom: Space.lg,
   },
-  // No horizontal padding of its own: the rows inside carry theirs, so
-  // padding here would inset them twice.
   // This column is what holds the page's sections apart, so the gap lives
   // here and each section carries none of its own -- the two stacked would
   // double it.
   header: {
-    gap: SectionGap,
+    gap: Layout.sectionGap,
+    paddingTop: Space.sm,
   },
-  // No gap under a list heading: the first row's own vertical padding is
-  // the space. A gap on top of that padding reads as a bigger break than
-  // the one between the rows themselves, which says the heading is not
-  // attached to the list it names.
-  section: {
-    gap: 0,
+  // Grouped sections sit inset from the screen edge.
+  groupedSection: {
+    marginHorizontal: Layout.pageInset,
   },
-  // The badge strip is not a list of rows and brings no padding with it,
-  // so its heading still has to hold itself off.
-  stripSection: {
-    gap: Spacing.three,
-  },
-  sectionTitle: {
-    paddingHorizontal: Spacing.four,
-  },
-  nearbyStrip: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-  },
-  allHeading: {
-    paddingHorizontal: Spacing.four,
-  },
-  listContent: {
-    paddingBottom: Spacing.five,
-  },
-  // Deliberately shorter than the home screen's rows: this list runs to
-  // hundreds of entries and is scanned, not read.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  rowText: {
-    flex: 1,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: Spacing.four,
-  },
-  empty: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
-  },
-  emptyLoader: {
-    paddingTop: Spacing.four,
+  rowSpinner: {
+    paddingVertical: Space.none,
   },
 });

@@ -3,16 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { ThemedText } from '@/components/themed-text';
 import { VehicleIcon } from '@/components/vehicle-icon';
-import { useTheme } from '@/hooks/use-theme';
+import { Border, MapStyle, Radius, Size, Space, Text, Type, useColors } from '@/design-system';
 import { readableTextColor } from '@/lib/route-color';
 
 import type { VehicleMarker } from './vehicle-markers';
 
-/** Every custom marker's white ring, so a marker stays legible sitting on a
- *  stroke of its own colour. */
-export const MARKER_RING_COLOR = '#ffffff';
 /** Native map markers rendered from a custom view are snapshotted by the map;
  *  see `useSnapshotTracking` below for why that snapshot needs one moment of
  *  tracking before it can be switched off. */
@@ -32,13 +28,20 @@ const SECONDARY_VEHICLE_Z_INDEX = 11;
 const VEHICLE_Z_INDEX = 12;
 
 /** The vehicle capsule's height; it grows sideways with the line number. */
-const VEHICLE_HEIGHT = 28;
+const VEHICLE_HEIGHT = Size.mapMarker;
 /** A neighbour of the rider's run: still unmistakably a bus, but smaller than
  *  the one they are waiting for. Size, not opacity -- dimming already means
  *  "this report is old". */
 const SECONDARY_VEHICLE_HEIGHT = 20;
 const LABEL_PILL_HEIGHT = 18;
-const LABEL_PILL_GAP = 2;
+const LABEL_PILL_GAP = Space.xxs;
+/** Inside the capsule's ring, either side of the line number. Marker geometry:
+ *  tight enough that a three-digit line stays a capsule, not a lozenge. */
+const CAPSULE_PADDING = 5;
+const SECONDARY_CAPSULE_PADDING = 3;
+/** The glyph a numberless (rail) capsule carries, sized to the capsule. */
+const CAPSULE_GLYPH = 16;
+const SECONDARY_CAPSULE_GLYPH = 11;
 /** A marker whose report is old enough that the bus has likely moved on.
  *  Dimmed, not hidden: it is still the best guess of where the bus is. */
 const FADED_VEHICLE_OPACITY = 0.6;
@@ -74,7 +77,7 @@ type VehicleMarkerProps = {
  * the look differs from the one last snapshotted -- so a change turns it back
  * on in the same render, and only the timer settles it.
  */
-function useSnapshotTracking(look: string): boolean {
+export function useSnapshotTracking(look: string): boolean {
   const [snapshottedLook, setSnapshottedLook] = useState<string | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => setSnapshottedLook(look), MARKER_SNAPSHOT_MS);
@@ -95,22 +98,26 @@ function fadeOf(marker: VehicleMarker) {
  *  where there is no stop of theirs to count to. */
 function VehicleArrivalLabel({ marker, onPress }: Omit<VehicleMarkerProps, 'fallbackTitle'>) {
   const { t } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
 
   const label = marker.etaMinutes === null
     ? null
     : marker.etaMinutes === 0
       ? t('results.vehicleEtaNow')
       : t('results.vehicleEta', { minutes: marker.etaMinutes });
-  const tracksViewChanges = useSnapshotTracking(`${label ?? ''}|${marker.faded}|${marker.secondary}`);
+  // The palette is part of the look: a theme change has to re-snapshot the
+  // pill, or it keeps the old scheme's fill until its countdown next changes.
+  const tracksViewChanges = useSnapshotTracking(
+    `${label ?? ''}|${marker.faded}|${marker.secondary}|${colors.surfaceFloating}`,
+  );
   if (label === null) return null;
 
   const vehicleHeight = heightOf(marker);
   const pill = (
-    <View style={[styles.labelPill, { backgroundColor: theme.background, borderColor: theme.borderMuted }, fadeOf(marker)]}>
-      <ThemedText type="smallBold" style={styles.labelText}>
+    <View style={[styles.labelPill, { backgroundColor: colors.surfaceFloating, borderColor: colors.separator }, fadeOf(marker)]}>
+      <Text variant="caption2" emphasized numeric numberOfLines={1}>
         {label}
-      </ThemedText>
+      </Text>
     </View>
   );
 
@@ -162,14 +169,18 @@ function VehicleArrivalLabel({ marker, onPress }: Omit<VehicleMarkerProps, 'fall
 }
 
 /**
- * The bus itself: a capsule in the line's colour, ringed in white, carrying the
+ * The bus itself: a capsule in the line's colour, ringed in the map's marker
+ * ring (white on a light map, near-black on a dark one), carrying the
  * line's number -- the one thing a rider reads off a bus coming down the street,
  * so the map says it the same way. A line with no number (rail, here) carries
  * its vehicle glyph instead.
  */
 function VehicleCapsule({ marker, fallbackTitle, onPress }: VehicleMarkerProps) {
+  const colors = useColors();
   const shortName = marker.shortName?.trim() ?? '';
-  const tracksViewChanges = useSnapshotTracking(`${marker.faded}|${marker.secondary}|${shortName}|${marker.color}`);
+  const tracksViewChanges = useSnapshotTracking(
+    `${marker.faded}|${marker.secondary}|${shortName}|${marker.color}|${colors.mapMarkerRing}`,
+  );
   const height = heightOf(marker);
   const fill = marker.faded ? washed(marker.color, FADED_COLOR_MIX) : marker.color;
   const textColor = readableTextColor(fill);
@@ -191,23 +202,28 @@ function VehicleCapsule({ marker, fallbackTitle, onPress }: VehicleMarkerProps) 
           {
             height,
             minWidth: height,
-            borderRadius: height / 2,
-            borderWidth: marker.secondary ? 2 : 3,
-            paddingHorizontal: marker.secondary ? 3 : 5,
+            borderWidth: marker.secondary ? MapStyle.markerRingWidthSecondary : MapStyle.markerRingWidth,
+            borderColor: colors.mapMarkerRing,
+            paddingHorizontal: marker.secondary ? SECONDARY_CAPSULE_PADDING : CAPSULE_PADDING,
             backgroundColor: fill,
           },
         ]}
       >
         {shortName === '' ? (
-          <VehicleIcon type={marker.routeType} size={marker.secondary ? 11 : 16} color={textColor} />
+          <VehicleIcon type={marker.routeType} size={marker.secondary ? SECONDARY_CAPSULE_GLYPH : CAPSULE_GLYPH} color={textColor} />
         ) : (
-          <ThemedText
-            type="smallBold"
-            style={[marker.secondary ? styles.capsuleTextSecondary : styles.capsuleText, { color: textColor }]}
+          <Text
+            variant={marker.secondary ? 'caption2' : 'footnote'}
+            emphasized
+            numeric
+            color={textColor}
             numberOfLines={1}
+            // A fixed-height capsule: the number may grow with Dynamic Type
+            // only as far as every other map label does.
+            maxFontSizeMultiplier={Type.caption2.maxScale}
           >
             {shortName}
-          </ThemedText>
+          </Text>
         )}
       </View>
     </Marker>
@@ -274,30 +290,20 @@ const styles = StyleSheet.create({
   // length. Size and ring width are set per marker: the rider's run, or a
   // neighbour.
   capsule: {
-    borderColor: MARKER_RING_COLOR,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  capsuleText: {
-    fontSize: 13,
-    lineHeight: 16,
-  },
-  capsuleTextSecondary: {
-    fontSize: 10,
-    lineHeight: 13,
-  },
-  // Flat, like every chip in this app: background and a hairline, no shadow.
+  // Solid, never glass (a marker is a snapshot, and glass cannot be one):
+  // the floating surface and a one-point edge, no shadow. A full point
+  // rather than a hairline, so the pill holds its shape on a busy basemap.
   labelPill: {
     height: LABEL_PILL_HEIGHT,
     minWidth: VEHICLE_HEIGHT,
-    paddingHorizontal: 6,
-    borderRadius: LABEL_PILL_HEIGHT / 2,
-    borderWidth: 1,
+    paddingHorizontal: Space.sm - Space.xxs,
+    borderRadius: Radius.full,
+    borderWidth: Border.default,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  labelText: {
-    fontSize: 11,
-    lineHeight: 14,
   },
 });

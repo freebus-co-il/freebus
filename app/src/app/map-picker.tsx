@@ -1,28 +1,36 @@
-import { IconMapPin } from '@tabler/icons-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { reverseGeocodeQuery, useReverseGeocode } from '@/api/geocode';
 import { useStop, useStopsInTiles } from '@/api/stops';
 import type { MapStop } from '@/api/types';
-import { IconBack } from '@/components/directional-icon';
 import { LineBadge } from '@/components/line-badge';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import {
+  Button,
+  Card,
+  Glass,
+  GlassGroup,
+  Icon,
+  IconButton,
+  Layout,
+  MapStyle,
+  Size,
+  Space,
+  Surface,
+  Text,
+  useColors,
+} from '@/design-system';
 import { leaveMapPick } from '@/features/map-picker/map-pick-handoff';
 import { insideBox, regionBox, stationUnderPin, tilesForRegion, type MapRegion } from '@/features/map-picker/map-tiles';
 import { INITIAL_DELTA, PickMap } from '@/features/map-picker/pick-map';
-import { FieldShell } from '@/features/search/field-shell';
 import { useSearch } from '@/features/search/search-context';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
 import { stationLines } from '@/features/stations/station-vehicle-markers';
-import { useTheme } from '@/hooks/use-theme';
 import { hapticSettled } from '@/lib/haptics';
 import { namedCoordinate } from '@/lib/name-place';
 import { placeCoordinates, type SelectedPlace } from '@/lib/place';
@@ -39,9 +47,10 @@ const MAX_LINE_BADGES = 6;
  *  that fill in when the finger lifts. */
 const DRAW_MARGIN = 0.5;
 
-/** The floating choose button's height, and the gap under it: where the map's
- *  legal label has to move to so the button never covers it. */
-const CHOOSE_BUTTON_CLEARANCE = 56 + Spacing.three * 2;
+/** The floating choose panel's resting height (its button and padding), and
+ *  the gap under it: where the map's legal label has to move to so the panel
+ *  never covers it. */
+const CHOOSE_PANEL_CLEARANCE = Size.control.lg + 2 * Space.lg + Space.md;
 
 const NO_TILES: [] = [];
 
@@ -55,7 +64,7 @@ const NO_TILES: [] = [];
  */
 export default function MapPickerScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const search = useSearch();
   const { from } = useLocalSearchParams<{ from?: string }>();
@@ -150,14 +159,14 @@ export default function MapPickerScreen() {
   }
 
   return (
-    <ThemedView type="background" style={styles.container}>
+    <Surface level="bgPlain" style={styles.container}>
       {/* The whole screen, so the map's centre -- the pick -- is the screen's
           centre too, and everything else floats over it. */}
       <PickMap
         style={StyleSheet.absoluteFill}
         initialCenter={initialCenter}
         stations={stations}
-        legalLabelBottomInset={insets.bottom + CHOOSE_BUTTON_CLEARANCE}
+        legalLabelBottomInset={insets.bottom + CHOOSE_PANEL_CLEARANCE}
         onCenterPoint={setCenterPoint}
         onMoveStart={() => setMoving(true)}
         onMoveEnd={(next) => {
@@ -174,7 +183,8 @@ export default function MapPickerScreen() {
       {/* The pick itself: the map's centre, so it is the screen's and not a
           marker. The frame is twice the pin's height with the pin in its top
           half, so the stem's tip lands exactly on the centre; the ground dot
-          stays put there while the pin lifts during a move. */}
+          stays put there while the pin lifts during a move. Ink with the
+          map-marker ring, like every other marker on a map. */}
       {/* At the point the map reports, which is physical: `left`, not `start`. */}
       <View
         pointerEvents="none"
@@ -182,105 +192,96 @@ export default function MapPickerScreen() {
           ? styles.pinLayer
           : [styles.pinAt, { left: centerPoint.x - PIN_BOX_WIDTH / 2, top: centerPoint.y - PIN_BOX_HEIGHT / 2 }]}
       >
-        <View style={[styles.groundDot, { backgroundColor: theme.text, borderColor: theme.background }]} />
+        <View style={[styles.groundDot, { backgroundColor: colors.textPrimary, borderColor: colors.mapMarkerRing }]} />
         <View style={[styles.pinFrame, moving && styles.pinLifted]}>
-          <View style={[styles.pinHead, { backgroundColor: theme.text, borderColor: theme.background }]}>
-            <View style={[styles.pinEye, { backgroundColor: theme.background }]} />
+          <View style={[styles.pinHead, { backgroundColor: colors.textPrimary, borderColor: colors.mapMarkerRing }]}>
+            <View style={[styles.pinEye, { backgroundColor: colors.mapMarkerRing }]} />
           </View>
-          <View style={[styles.pinStem, { backgroundColor: theme.text }]} />
+          <View style={[styles.pinStem, { backgroundColor: colors.textPrimary }]} />
           <View style={styles.pinSpacer} />
         </View>
       </View>
 
-      <View pointerEvents="box-none" style={[styles.topBar, { top: insets.top + Spacing.two }]}>
-        <View style={styles.topRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.back()}
-            hitSlop={Spacing.two}
-            style={[styles.back, { backgroundColor: theme.background }]}
-          >
-            <IconBack size={24} color={theme.text} />
-          </Pressable>
-          {/* What the pin is on, in the search field's own shell: this screen
-              is the other way to fill that field. */}
-          <View style={styles.field}>
-            <FieldShell>
-              {underPin !== null ? (
-                <StationIcon kind={stationKindOf(underPin)} />
-              ) : (
-                <IconMapPin size={18} color={theme.text} />
+      <View pointerEvents="box-none" style={[styles.topBar, { top: insets.top + Space.sm }]}>
+        <GlassGroup spacing={Space.sm} style={styles.topRow}>
+          <IconButton icon="chevronBack" variant="glass" accessibilityLabel={t('common.back')} onPress={() => router.back()} />
+          {/* What the pin is on, as a glass capsule in the search field's
+              place: this screen is the other way to fill that field. A label,
+              not an input -- the map is what the rider moves. */}
+          <Glass shape="capsule" style={styles.field}>
+            {underPin !== null ? (
+              <StationIcon kind={stationKindOf(underPin)} />
+            ) : (
+              <Icon name="pin" size="md" weight="medium" />
+            )}
+            <View style={styles.fieldText}>
+              <Text variant="body" emphasized numberOfLines={1}>
+                {underPin !== null
+                  ? underPin.name ?? underPin.stopId
+                  : pinPlace?.label ?? t('mapPicker.locationOnMap')}
+              </Text>
+              {lines.length > 0 && (
+                <View style={styles.lineRow}>
+                  {lines.slice(0, MAX_LINE_BADGES).map((line) => (
+                    <LineBadge key={`${line.agencyId}:${line.shortName}:${line.type}`} route={line} size="small" />
+                  ))}
+                  {lines.length > MAX_LINE_BADGES && (
+                    <Text variant="footnote" color="textSecondary" numeric>
+                      {t('search.moreLines', { count: lines.length - MAX_LINE_BADGES })}
+                    </Text>
+                  )}
+                </View>
               )}
-              <View style={styles.fieldText}>
-                <ThemedText type="smallBold" numberOfLines={1}>
-                  {underPin !== null
-                    ? underPin.name ?? underPin.stopId
-                    : pinPlace?.label ?? t('mapPicker.locationOnMap')}
-                </ThemedText>
-                {lines.length > 0 && (
-                  <View style={styles.lineRow}>
-                    {lines.slice(0, MAX_LINE_BADGES).map((line) => (
-                      <LineBadge key={`${line.agencyId}:${line.shortName}:${line.type}`} route={line} size="small" />
-                    ))}
-                    {lines.length > MAX_LINE_BADGES && (
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {t('search.moreLines', { count: lines.length - MAX_LINE_BADGES })}
-                      </ThemedText>
-                    )}
-                  </View>
-                )}
-              </View>
-            </FieldShell>
-          </View>
-        </View>
+            </View>
+          </Glass>
+        </GlassGroup>
         {tiles === null && (
-          <View style={[styles.hint, { backgroundColor: theme.background }]}>
-            <ThemedText type="small">{t('mapPicker.zoomInForStations')}</ThemedText>
-          </View>
+          <Glass shape="capsule" style={styles.hint}>
+            <Text variant="subheadline">{t('mapPicker.zoomInForStations')}</Text>
+          </Glass>
         )}
       </View>
 
-      <View pointerEvents="box-none" style={[styles.bottomBar, { bottom: insets.bottom + Spacing.three }]}>
+      {/* Content, not chrome: solid, never glass. */}
+      <Card variant="floating" style={[styles.bottomPanel, { bottom: insets.bottom + Space.md }]}>
         {originFailed && (
-          <View style={[styles.notice, { backgroundColor: theme.background }]}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <View style={styles.notice}>
+            <Text variant="subheadline" color="textSecondary">
               {t(
                 search.originState.status === 'error' && search.originState.message === 'location_permission_denied'
                   ? 'search.locationPermissionDenied'
                   : 'search.locationUnavailable',
               )}
-            </ThemedText>
-            <Pressable
+            </Text>
+            <Button
+              variant="plain"
+              size="sm"
+              label={t('search.chooseOrigin')}
               onPress={() => router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })}
-            >
-              <ThemedText type="smallBold">{t('search.chooseOrigin')}</ThemedText>
-            </Pressable>
+            />
           </View>
         )}
-        <Pressable
-          accessibilityRole="button"
-          onPress={choose}
-          disabled={moving || waitingForOrigin || naming}
-          style={[styles.choose, { backgroundColor: theme.text, opacity: moving ? 0.4 : 1 }]}
-        >
-          {waitingForOrigin || naming ? (
-            <ActivityIndicator color={theme.background} />
-          ) : (
-            <ThemedText type="smallBold" themeColor="background">
-              {t(underPin !== null ? 'mapPicker.chooseStation' : 'mapPicker.chooseLocation')}
-            </ThemedText>
-          )}
-        </Pressable>
-      </View>
-    </ThemedView>
+        <Button
+          variant="prominent"
+          fullWidth
+          label={t(underPin !== null ? 'mapPicker.chooseStation' : 'mapPicker.chooseLocation')}
+          onPress={() => void choose()}
+          disabled={moving}
+          loading={waitingForOrigin || naming}
+        />
+      </Card>
+    </Surface>
   );
 }
 
+// Pin geometry: the drawn shape of the pick, not layout rhythm.
 const PIN_HEAD = 30;
 const PIN_STEM = 14;
+const PIN_STEM_WIDTH = 3;
+const PIN_EYE = 8;
 const GROUND_DOT = 10;
-/** `FieldShell` with one line of `smallBold` in it: 16 + 20 + 16. */
-const BACK_SIZE = 52;
+/** How far the pin rises off its ground dot while the map travels. */
+const PIN_LIFT = 10;
 /** The pin's frame: its head's width, and twice head-plus-stem tall (the stem
  *  overlaps the head by a point), so the tip is its middle. */
 const PIN_BOX_WIDTH = PIN_HEAD;
@@ -314,30 +315,30 @@ const styles = StyleSheet.create({
     width: GROUND_DOT,
     height: GROUND_DOT,
     borderRadius: GROUND_DOT / 2,
-    borderWidth: 2,
+    borderWidth: MapStyle.markerRingWidthSecondary,
   },
   pinFrame: {
     alignItems: 'center',
   },
   // Lifted off the ground dot while the map travels: the pick is not made yet.
   pinLifted: {
-    transform: [{ translateY: -10 }],
+    transform: [{ translateY: -PIN_LIFT }],
   },
   pinHead: {
     width: PIN_HEAD,
     height: PIN_HEAD,
     borderRadius: PIN_HEAD / 2,
-    borderWidth: 3,
+    borderWidth: MapStyle.markerRingWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pinEye: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: PIN_EYE,
+    height: PIN_EYE,
+    borderRadius: PIN_EYE / 2,
   },
   pinStem: {
-    width: 3,
+    width: PIN_STEM_WIDTH,
     height: PIN_STEM,
     marginTop: -1,
   },
@@ -346,58 +347,47 @@ const styles = StyleSheet.create({
   },
   topBar: {
     position: 'absolute',
-    start: Spacing.three,
-    end: Spacing.three,
-    gap: Spacing.two,
+    start: Layout.pageInset,
+    end: Layout.pageInset,
+    gap: Space.sm,
   },
+  // Top-aligned: a station's line badges make the field taller, and the back
+  // button must not stretch or drift with them.
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.two,
-  },
-  // The one-line field's height and corner, like the map button beside the
-  // home screen's search field. Fixed rather than stretched: a station's line
-  // badges make the field taller, and the button must not grow with them.
-  back: {
-    width: BACK_SIZE,
-    height: BACK_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Spacing.four,
+    gap: Space.sm,
   },
   field: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    minHeight: Size.control.md,
+    paddingHorizontal: Space.lg,
+    paddingVertical: Space.sm,
   },
   fieldText: {
     flex: 1,
-    gap: Spacing.one,
+    gap: Space.xs,
   },
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
+    gap: Space.xs,
   },
   hint: {
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
   },
-  bottomBar: {
+  bottomPanel: {
     position: 'absolute',
-    start: Spacing.four,
-    end: Spacing.four,
-    gap: Spacing.two,
+    start: Layout.pageInset,
+    end: Layout.pageInset,
+    gap: Space.md,
   },
   notice: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
-  },
-  choose: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 999,
+    gap: Space.xs,
   },
 });
