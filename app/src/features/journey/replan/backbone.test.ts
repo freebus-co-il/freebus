@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { backboneOf, respectsBackbone, sameStation, stationOf } from './backbone';
+import { backboneAhead, backboneOf, respectsBackbone, sameStation, stationOf } from './backbone';
 import { itin, ride, stop, walk } from './fixtures';
 
 const HOME = stop('home', 0);
@@ -64,14 +64,12 @@ test('respectsBackbone accepts the same train boarding at a stop 150 m away', ()
   assert.equal(respectsBackbone(near, backbone), true);
 });
 
-test('backboneAhead: the boundary holds until the rider reaches the backbone ride', async () => {
-  const { backboneAhead } = await import('./backbone');
+test('backboneAhead: the boundary holds until the rider reaches the backbone ride', () => {
   const { backbone } = backboneOf(trainTrip)!;
   assert.equal(backboneAhead(backbone, trainTrip.legs.slice(0, 2)), backbone);
 });
 
-test('backboneAhead: once the backbone ride is kept (ridden or riding), only the destination is fixed', async () => {
-  const { backboneAhead } = await import('./backbone');
+test('backboneAhead: once the backbone ride is kept (ridden or riding), only the destination is fixed', () => {
   const { backbone } = backboneOf(trainTrip)!;
   assert.equal(backboneAhead(backbone, trainTrip.legs), null);
 });
