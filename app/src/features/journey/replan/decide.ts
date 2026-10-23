@@ -54,19 +54,30 @@ export function decideSwitch(args: {
     const ride = firstRide(candidate);
     return ride === null || departsAtMs(ride) >= readyAtMs(candidate);
   });
-  const inside = reachable.filter((candidate) => backbone === null || respectsBackbone(candidate, backbone));
-  const best = earliest(inside);
+  const isInside = (candidate: Itinerary) => backbone === null || respectsBackbone(candidate, backbone);
+  // A way whose transfer the planner already doubts is the next broken plan:
+  // switching onto it is how a journey flaps. Safe ways first, always.
+  const safe = reachable.filter((candidate) => candidate.transferAtRisk !== true);
+  const risky = reachable.filter((candidate) => candidate.transferAtRisk === true);
+  const gain = (it: Itinerary) => (Date.parse(currentArrival) - Date.parse(it.arrivalTime)) / 1000;
 
   if (broken) {
-    if (best !== null) {
-      return { kind: 'switch', itinerary: best, gainSeconds: (Date.parse(currentArrival) - Date.parse(best.arrivalTime)) / 1000 };
+    const order: [Itinerary | null, 'switch' | 'offer'][] = [
+      [earliest(safe.filter(isInside)), 'switch'],
+      [earliest(safe.filter((c) => !isInside(c))), 'offer'],
+      [earliest(risky.filter(isInside)), 'switch'],
+      [earliest(risky.filter((c) => !isInside(c))), 'offer'],
+    ];
+    for (const [itinerary, kind] of order) {
+      if (itinerary === null) continue;
+      return kind === 'switch' ? { kind, itinerary, gainSeconds: gain(itinerary) } : { kind, itinerary };
     }
-    const outside = earliest(reachable);
-    return outside === null ? { kind: 'stuck' } : { kind: 'offer', itinerary: outside };
+    return { kind: 'stuck' };
   }
 
+  const best = earliest(safe.filter(isInside));
   if (best === null) return { kind: 'keep' };
   if (lastSwitchAt !== null && nowMs - lastSwitchAt < SWITCH_HYSTERESIS_MS) return { kind: 'keep' };
-  const gainSeconds = (Date.parse(currentArrival) - Date.parse(best.arrivalTime)) / 1000;
+  const gainSeconds = gain(best);
   return gainSeconds >= SWITCH_GAIN_SECONDS ? { kind: 'switch', itinerary: best, gainSeconds } : { kind: 'keep' };
 }

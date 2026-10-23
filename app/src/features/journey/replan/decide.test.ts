@@ -76,3 +76,27 @@ test('hysteresis: keeps within 90 s of the last switch unless broken', () => {
 test('with no backbone every candidate is inside the boundary', () => {
   assert.equal(decideSwitch({ ...base, backbone: null, candidates: [busOnly(5, 40)] }).kind, 'switch');
 });
+
+const risky = (it: Itinerary): Itinerary => ({ ...it, transferAtRisk: true });
+
+test('prefers a safe candidate over a sooner one whose transfer is at risk', () => {
+  const safe = viaTrain(8, 57, '189');
+  const decision = decideSwitch({ ...base, candidates: [risky(viaTrain(5, 52, '25')), safe] });
+  assert.equal(decision.kind === 'switch' && decision.itinerary, safe);
+});
+
+test('never switches onto a risky way when nothing is broken', () => {
+  assert.deepEqual(decideSwitch({ ...base, candidates: [risky(viaTrain(5, 50, '25'))] }), { kind: 'keep' });
+});
+
+test('broken: offers a safe outside way before switching to a risky inside one', () => {
+  const bus = busOnly(5, 70);
+  const decision = decideSwitch({ ...base, broken: true, candidates: [risky(viaTrain(5, 55, '25')), bus] });
+  assert.deepEqual(decision, { kind: 'offer', itinerary: bus });
+});
+
+test('broken: falls back to a risky inside way when nothing is safe', () => {
+  const inside = risky(viaTrain(5, 55, '25'));
+  const decision = decideSwitch({ ...base, broken: true, candidates: [inside, risky(busOnly(5, 40))] });
+  assert.equal(decision.kind === 'switch' && decision.itinerary, inside);
+});
