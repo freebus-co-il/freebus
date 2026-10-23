@@ -15,7 +15,7 @@ import { useSearch } from '@/features/search/search-context';
 import { withLineChosen } from '@/features/trip/line-options';
 import { useNow } from '@/hooks/use-now';
 import i18n from '@/i18n';
-import type { SelectedPlace } from '@/lib/place';
+import { placeToQueryValue, type SelectedPlace } from '@/lib/place';
 
 import { planAlightAlerts } from './alerts';
 import { boardedEarlierRun, withEarlierRunAtStart } from './earlier-run';
@@ -33,6 +33,7 @@ import { journeyEndsAt, resolveJourneyState } from './journey-machine';
 import { reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
 import { withBackbone } from './replan/restore';
+import { useLiveReplan } from './replan/use-live-replan';
 import {
   addAcknowledgeAlightListener,
   liveSurface,
@@ -1062,6 +1063,14 @@ function useJourneyState() {
     [journey, position, settings, copyFor],
   );
 
+  const replanTo = useMemo(() => {
+    const place = journey ? replanDestination(journey) : null;
+    return place ? placeToQueryValue(place) : null;
+  }, [journey]);
+  const replan = useLiveReplan({
+    journey, state, live, position, destination: replanTo, lang: i18n.language, replaceItinerary,
+  });
+
   /**
    * The rider saying which bus they are actually on.
    *
@@ -1222,7 +1231,7 @@ function useJourneyState() {
   );
 
   return {
-    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replanFromHere, end,
+    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replan, replanFromHere, end,
     pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
   };
 }

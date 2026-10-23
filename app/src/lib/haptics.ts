@@ -51,3 +51,9 @@ export function hapticSucceeded(): void {
 export function hapticWarned(): void {
   fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning));
 }
+
+/** The journey changed course by itself -- a sooner bus, a new way after a
+ *  missed one. Light: it is news, not an alarm, and the screen says the rest. */
+export function hapticRerouted(): void {
+  fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+}
