@@ -5,26 +5,20 @@ import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePlanTrip } from '@/api/plan';
-import { SnapCarousel } from '@/components/snap-carousel';
-import { Button, EmptyState, IconButton, Layout, MapStyle, Size, Space, Text, useColors } from '@/design-system';
+import { EmptyState, IconButton, Layout, MapStyle, Size, Space, useColors } from '@/design-system';
+import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
 import { useJourney } from '@/features/journey/journey-context';
 import { shouldOfferReminder } from '@/features/journey/leave-reminder';
 import { itinerarySignature } from '@/features/results/group-itineraries';
-import { minutesUntil } from '@/features/results/itinerary-facts';
-import { LegTimeline } from '@/features/results/leg-timeline';
 import { TripMap } from '@/features/results/trip-map';
 import { useSearch } from '@/features/search/search-context';
-import { LegStepCard, LegStrip, StepCardFrame } from '@/features/trip/step-card';
-import { buildStepCards, cardFocusLegIndex, type StepCard } from '@/features/trip/step-cards';
+import { TripSheetHeader } from '@/features/trip/trip-sheet-header';
+import { TripStepsList } from '@/features/trip/trip-steps-list';
 import { useVehicles } from '@/api/vehicles';
 import { itineraryPredictions } from '@/features/results/vehicle-markers';
 import { useNow } from '@/hooks/use-now';
-import { formatClockTime, formatDurationMinutes } from '@/lib/format';
+import { formatClockTime } from '@/lib/format';
 import { placeLabel } from '@/lib/place';
-
-/** Past this, a countdown is arithmetic rather than an answer. Matches
- *  `ItineraryCard`, so the number does not change character on navigation. */
-const LEAVE_COUNTDOWN_MAX_MINUTES = 60;
 
 /** The back button's height below the safe area, plus breathing room: the
  *  part of the map's top it covers. */
@@ -67,7 +61,6 @@ export default function TripScreen() {
     );
   }, [data, signature, departure]);
 
-  const cards = useMemo(() => (itinerary ? buildStepCards(itinerary) : []), [itinerary]);
   // The buses this trip rides, each counting down to the stop the rider would
   // board it at.
   const tripIds = useMemo(
@@ -76,19 +69,20 @@ export default function TripScreen() {
   );
   const { data: live } = useVehicles(tripIds);
   const vehiclePredictions = useMemo(() => itineraryPredictions(itinerary), [itinerary]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  // The step the rider tapped, for the map to zoom to; null frames the trip.
+  const [focusLegIndex, setFocusLegIndex] = useState<number | null>(null);
 
-  // Measured, not guessed: the cards grow with their content. Memoized, since
+  // Measured, not guessed: the sheet grows with its content. Memoized, since
   // the map re-fits whenever this changes identity.
-  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  const [sheetHeight, setSheetHeight] = useState(0);
   const mapEdgePadding = useMemo(
     () => ({
       top: insets.top + BACK_CHIP_CLEARANCE,
       right: MapStyle.edgePadding,
-      bottom: bottomBarHeight + Space.lg,
+      bottom: sheetHeight + Space.lg,
       left: MapStyle.edgePadding,
     }),
-    [insets.top, bottomBarHeight],
+    [insets.top, sheetHeight],
   );
 
   /**
@@ -166,43 +160,13 @@ export default function TripScreen() {
   const reminderForThisTrip =
     pendingLeave !== null && pendingLeave.signature === signature && pendingLeave.departure === departure;
 
-  const minutesToLeave = minutesUntil(itinerary.departureTime, now);
-  const leaveLabel =
-    minutesToLeave < 0
-      ? t('results.leaveDeparted')
-      : minutesToLeave < 1
-        ? t('results.leaveNow')
-        : minutesToLeave <= LEAVE_COUNTDOWN_MAX_MINUTES
-          ? t('results.leaveIn', { count: minutesToLeave })
-          : t('results.leaveAt', { time: formatClockTime(itinerary.departureTime) });
-
-  const renderCard = (card: StepCard) =>
-    card.kind === 'overview' ? (
-      <StepCardFrame>
-        <LegStrip itinerary={itinerary} focusLegIndex={null} />
-        {/* The same two numbers the results card led with, in the same order,
-            so arriving here confirms the choice rather than restating it in a
-            new shape the rider has to re-read. */}
-        <Text variant="countdown" color={minutesToLeave < 0 ? 'textSecondary' : 'textPrimary'}>
-          {leaveLabel}
-        </Text>
-        <Text variant="subheadline" color="textSecondary" numeric>
-          {t('results.arriveAt', { time: formatClockTime(itinerary.arrivalTime) })} ·{' '}
-          {formatDurationMinutes(itinerary.durationSeconds)}
-        </Text>
-        <LegTimeline legs={itinerary.legs} />
-      </StepCardFrame>
-    ) : (
-      <LegStepCard card={card} itinerary={itinerary} />
-    );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
       {/* No `style`: `TripMap`'s own `flex: 1` fills the screen in flow, which
           is what keeps it draggable (see `results.tsx`). */}
       <TripMap
         itinerary={itinerary}
-        focusLegIndex={cardFocusLegIndex(cards[activeIndex])}
+        focusLegIndex={focusLegIndex}
         edgePadding={mapEdgePadding}
         vehicles={live?.vehicles}
         vehiclePredictions={vehiclePredictions}
@@ -210,56 +174,32 @@ export default function TripScreen() {
 
       <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
         {back('glass')}
+        {/* The reminder is the second way to use a future trip, so it is a
+            corner control, not a second big button: filled once armed, and
+            tapping it again takes it back. */}
+        {offerReminder && (
+          <IconButton
+            icon={reminderForThisTrip ? 'bellFill' : 'bell'}
+            variant="glass"
+            selected={reminderForThisTrip}
+            accessibilityLabel={t(reminderForThisTrip ? 'trip.cancelReminder' : 'trip.remindMe')}
+            onPress={reminderForThisTrip ? () => void cancelLeaveReminder() : remindMe}
+          />
+        )}
       </SafeAreaView>
 
-      <SafeAreaView
-        style={styles.bottomBar}
-        edges={['bottom']}
-        pointerEvents="box-none"
-        onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
-      >
-        <SnapCarousel
-          data={cards}
-          keyExtractor={(card) => (card.kind === 'overview' ? 'overview' : `leg-${card.legIndex}`)}
-          onActiveIndexChange={setActiveIndex}
-          renderItem={renderCard}
+      {/* Start is ALWAYS here, however far off the departure is: setting out
+          early is a thing riders do, and the journey then begins on the run
+          they can actually catch (see `withEarlierRunAtStart`). */}
+      <FloatingSheet onHeightChange={setSheetHeight}>
+        <TripSheetHeader
+          itinerary={itinerary}
+          now={now}
+          onStart={beginJourney}
+          note={reminderForThisTrip ? t('trip.reminderSet', { time: formatClockTime(itinerary.departureTime) }) : null}
         />
-        {/* Pinned under the cards rather than on one of them: the commitment
-            is to the whole journey, whichever leg the rider is reading. */}
-        <View style={styles.footer}>
-          {/* Start is ALWAYS here, however far off the departure is: setting
-              out early to beat the traffic is a thing riders do, and the
-              journey then begins on the run they can actually catch (see
-              `withEarlierRunAtStart`) rather than on the one the search
-              picked. The reminder is the second way to use a future trip, not
-              a replacement for starting it. */}
-          <Button label={t('trip.start')} onPress={beginJourney} variant="prominent" size="lg" fullWidth />
-
-          {/* Secondary, not prominent: cancelling or arming a reminder is not
-              the thing to reach for. A filled control rather than bare text:
-              over a map, a button with no fill reads as text someone left
-              lying on the road. */}
-          {offerReminder && (reminderForThisTrip ? (
-            <>
-              <Button
-                label={t('trip.cancelReminder')}
-                onPress={() => void cancelLeaveReminder()}
-                variant="secondary"
-                size="lg"
-                fullWidth
-              />
-              {/* Under the button, not on it: what the rider needs to read is
-                  the time they will be fetched at, and the button is how to
-                  take that back. */}
-              <Text variant="footnote" color="textSecondary" numeric align="center" style={styles.reminderNote}>
-                {t('trip.reminderSet', { time: formatClockTime(itinerary.departureTime) })}
-              </Text>
-            </>
-          ) : (
-            <Button label={t('trip.remindMe')} onPress={remindMe} variant="secondary" size="lg" fullWidth />
-          ))}
-        </View>
-      </SafeAreaView>
+        <TripStepsList itinerary={itinerary} focusLegIndex={focusLegIndex} onFocus={setFocusLegIndex} />
+      </FloatingSheet>
     </View>
   );
 }
@@ -275,22 +215,9 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: Layout.pageInset,
     paddingTop: Space.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingBottom: Space.lg,
-    gap: Space.md,
-  },
-  footer: {
-    paddingHorizontal: Layout.pageInset,
-    gap: Space.sm,
-  },
-  reminderNote: {
-    paddingTop: Space.xs,
   },
   unavailable: {
     flex: 1,
