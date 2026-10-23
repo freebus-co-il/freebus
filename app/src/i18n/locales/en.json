@@ -278,6 +278,21 @@
       "headsUpTitle": "Leave in {{minutes}} min",
       "body": "To {{destination}} · tap to start the journey",
       "bodyNoDestination": "Tap to start the journey"
+    },
+    "sheet": {
+      "arriveAt": "Arrive {{time}}",
+      "deltaMinutes_one": "{{count}} min",
+      "deltaMinutes_other": "{{count}} min"
+    },
+    "menu": {
+      "more": "More options"
+    },
+    "switch": {
+      "toLine": "Switched to {{line}}",
+      "newWay": "Found a new way",
+      "stopChanged": "Your stop changed: {{name}}",
+      "sooner_one": "Arriving {{count}} min sooner",
+      "sooner_other": "Arriving {{count}} min sooner"
     }
   },
   "run": {

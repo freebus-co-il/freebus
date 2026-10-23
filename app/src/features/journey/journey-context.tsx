@@ -769,7 +769,10 @@ function useJourneyState() {
         next,
         nextCopy,
         shouldAlert && next.leg ? alightAlert(next.leg.to.stop.name ?? '', settings) : undefined,
-      );
+      ).catch(() => {
+        // No surface to update -- Live Activities off, or one restarting after
+        // a re-plan. The in-app journey is complete without it.
+      });
     },
     [settings],
   );

@@ -291,6 +291,25 @@
       "headsUpTitle": "יוצאים בעוד {{minutes}} דק׳",
       "body": "אל {{destination}} · הקישו כדי להתחיל",
       "bodyNoDestination": "הקישו כדי להתחיל את המסלול"
+    },
+    "sheet": {
+      "arriveAt": "הגעה {{time}}",
+      "deltaMinutes_one": "דקה",
+      "deltaMinutes_two": "{{count}} דק׳",
+      "deltaMinutes_many": "{{count}} דק׳",
+      "deltaMinutes_other": "{{count}} דק׳"
+    },
+    "menu": {
+      "more": "עוד אפשרויות"
+    },
+    "switch": {
+      "toLine": "עברנו לקו {{line}}",
+      "newWay": "מצאנו דרך חדשה",
+      "stopChanged": "התחנה השתנתה: {{name}}",
+      "sooner_one": "מגיעים דקה מוקדם יותר",
+      "sooner_two": "מגיעים {{count}} דק׳ מוקדם יותר",
+      "sooner_many": "מגיעים {{count}} דק׳ מוקדם יותר",
+      "sooner_other": "מגיעים {{count}} דק׳ מוקדם יותר"
     }
   },
   "run": {
