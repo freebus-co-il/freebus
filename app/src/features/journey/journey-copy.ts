@@ -16,7 +16,7 @@ export { lineLabel, minutesLeft, stopName, vehicleInPlay } from './journey-label
  *
  * `action` is the one place the surfaces legitimately differ: the docked bar
  * NAMES the way out of a divergence where its supporting line would go, while
- * the journey screen renders it as a real control (`off-plan-card`). Making
+ * the journey screen renders it as a real control (its sheet views). Making
  * that a field rather than two resolvers is what stops the bar and the screen
  * drifting into saying different things about the same moment.
  */

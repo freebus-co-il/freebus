@@ -10,22 +10,29 @@ import { useVehicles } from '@/api/vehicles';
 import { Button, EmptyState, IconButton, Layout, MapStyle, Space, useColors } from '@/design-system';
 import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
-import { JourneyLegCard } from '@/features/journey/journey-leg-card';
 import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
 import { LiveBusCard } from '@/features/journey/live-bus-card';
 import { NavigationBanner } from '@/features/journey/navigation/navigation-banner';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { navigationCamera } from '@/features/journey/navigation/navigation-camera';
 import { useCompassHeading } from '@/features/journey/navigation/use-compass-heading';
 import { useNavigationFix } from '@/features/journey/navigation/use-navigation-fix';
 import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
-import { OffPlanCard } from '@/features/journey/off-plan-card';
 import { EtaHeader } from '@/features/journey/sheet/eta-header';
 import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
 import { JourneyMenu } from '@/features/journey/sheet/journey-menu';
+import {
+  AlightView,
+  ArrivingView,
+  OfferView,
+  RecalculatingView,
+  RidingView,
+  WaitingView,
+  WalkingView,
+} from '@/features/journey/sheet/phase-views';
 import { SwitchToast } from '@/features/journey/sheet/switch-toast';
 import { TripMap, type LineShape } from '@/features/results/trip-map';
-import { buildStepCards } from '@/features/trip/step-cards';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
 import { countEvent } from '@/lib/analytics';
@@ -53,7 +60,8 @@ export default function JourneyScreen() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
-  const { journey, state, rail, hydrated, position, live: liveJourney, chooseLine, end, replan } = useJourney();
+  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan } = useJourney();
+  const { alertSettings } = usePreferences();
 
   const [sheetHeight, setSheetHeight] = useState(0);
   // The header grows with the navigation banner, so its real height -- not a
@@ -72,14 +80,6 @@ export default function JourneyScreen() {
     [headerHeight, insets.top, sheetHeight],
   );
 
-  // The sheet shows the leg the rider is on -- always; there is nothing to
-  // browse away to, so nothing to be pulled back from.
-  const currentCard = useMemo(() => {
-    if (!journey || !state) return null;
-    return buildStepCards(journey.itinerary).find(
-      (card) => card.kind !== 'overview' && card.legIndex === state.legIndex,
-    ) ?? null;
-  }, [journey, state]);
   const alighting = state?.phase === 'alight-soon';
   // The leg index whose line switcher is open, or null. By index rather than
   // by leg, so a `chooseLine` that swaps the leg underneath cannot leave the
@@ -224,7 +224,6 @@ export default function JourneyScreen() {
     ]);
   }
 
-  const offPlan = state.phase === 'off-plan';
 
   // The open sheet's leg, re-asked of the same predicate the card's trigger
   // uses on EVERY render rather than captured when the sheet opened: the
@@ -246,19 +245,36 @@ export default function JourneyScreen() {
       : undefined;
   if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
 
-  // Temporary body: the current leg's card, until each phase has its own view.
-  const body = offPlan
-    ? <OffPlanCard state={state} />
-    : currentCard && currentCard.kind !== 'overview' && (
-      <JourneyLegCard
-        card={currentCard}
-        state={state}
-        itinerary={journey.itinerary}
-        destinationLabel={journey.destinationLabel}
-        done={false}
-        current
-      />
-    );
+  const nowMs = now.getTime();
+  const body = (() => {
+    switch (state.phase) {
+      case 'off-plan':
+        return replan.offer
+          ? <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
+          : <RecalculatingView stuck={replan.status !== 'recalculating'} />;
+      case 'walking-to-stop':
+      case 'transferring':
+        return <WalkingView state={state} itinerary={journey.itinerary} position={position} transfer={state.phase === 'transferring'} />;
+      case 'waiting':
+        return state.leg && <WaitingView state={state} leg={state.leg} candidates={replan.candidates} nowMs={nowMs} />;
+      case 'riding':
+        return state.leg && <RidingView state={state} leg={state.leg} />;
+      case 'alight-soon':
+        return state.leg && (
+          <AlightView
+            state={state}
+            itinerary={journey.itinerary}
+            leg={state.leg}
+            nowMs={nowMs}
+            canSilence={alertSettings.repeatUntilAcknowledged}
+            onSilence={acknowledgeAlight}
+          />
+        );
+      case 'arriving':
+      case 'arrived':
+        return <ArrivingView state={state} destinationLabel={journey.destinationLabel} />;
+    }
+  })();
   const switchLine = state.leg !== null && canSwitchLine(state, state.legIndex)
     ? () => setSwitchingLegIndex(state.legIndex)
     : null;
@@ -333,7 +349,11 @@ export default function JourneyScreen() {
       </SafeAreaView>
 
       <FloatingSheet tone={alighting ? 'alight' : 'default'} onHeightChange={setSheetHeight}>
-        <EtaHeader arrivalTime={state.arrivalTime} live={state.timeSource === 'live'} />
+        <EtaHeader
+          arrivalTime={state.arrivalTime}
+          live={state.timeSource === 'live'}
+          color={alighting ? colors.onAlightFill : undefined}
+        />
         {body}
       </FloatingSheet>
 

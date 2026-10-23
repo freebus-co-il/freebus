@@ -53,6 +53,8 @@ const GLYPHS = {
   error: { ios: 'exclamationmark.circle', android: 'error' },
   offline: { ios: 'wifi.slash', android: 'wifi_off' },
   bell: { ios: 'bell', android: 'notifications' },
+  bellFill: { ios: 'bell.fill', android: 'notifications_active' },
+  handRaised: { ios: 'hand.raised.fill', android: 'back_hand' },
   sound: { ios: 'speaker.wave.2', android: 'volume_up' },
   repeat: { ios: 'repeat', android: 'repeat' },
   vibrate: { ios: 'iphone.radiowaves.left.and.right', android: 'vibration' },
