@@ -93,6 +93,10 @@ export type ListRowProps = {
   leading?: ReactNode;
   /** A value, time, switch, button. Shown before the accessory. */
   trailing?: ReactNode;
+  /** Where `trailing` and the accessory sit: centred on the whole row, or on
+   *  the title's own line -- which lets a wide subtitle (a row of departures)
+   *  run all the way to the row's end edge under them. */
+  trailingAlign?: 'row' | 'title';
   accessory?: 'chevron' | 'check' | 'none';
   /** With accessory `check`: shows the mark. */
   selected?: boolean;
@@ -119,6 +123,7 @@ export function ListRow({
   subtitle,
   leading,
   trailing,
+  trailingAlign = 'row',
   accessory = 'none',
   selected = false,
   selection = 'single',
@@ -134,31 +139,47 @@ export function ListRow({
   style,
 }: ListRowProps) {
   const colors = useColors();
+  const titleNode = typeof title === 'string' ? (
+    // One step under iOS's 17 pt body: lists are scanned, and at 17 a row
+    // of station names read louder than the page around it.
+    <Text variant="callout" color={destructive ? 'danger' : 'textPrimary'} numberOfLines={titleLines}>
+      {title}
+    </Text>
+  ) : (
+    title
+  );
+  const end = (
+    <>
+      {trailing}
+      {accessory === 'chevron' && <Icon name="chevronForward" size="sm" color="textTertiary" weight="semibold" />}
+      {accessory === 'check' && (
+        <View style={styles.check}>{selected && <Icon name="check" size="md" color="accent" weight="semibold" />}</View>
+      )}
+    </>
+  );
+  const onTitleLine = trailingAlign === 'title';
   const body = (
     <>
       {leading && <View style={styles.leading}>{leading}</View>}
       <View style={styles.text}>
-        {typeof title === 'string' ? (
-          <Text variant="body" color={destructive ? 'danger' : 'textPrimary'} numberOfLines={titleLines}>
-            {title}
-          </Text>
+        {onTitleLine ? (
+          <View style={styles.titleLine}>
+            <View style={styles.grow}>{titleNode}</View>
+            {end}
+          </View>
         ) : (
-          title
+          titleNode
         )}
         {subtitle !== undefined &&
           (typeof subtitle === 'string' ? (
-            <Text variant="subheadline" color="textSecondary" numberOfLines={2}>
+            <Text variant="footnote" color="textSecondary" numberOfLines={2}>
               {subtitle}
             </Text>
           ) : (
             subtitle
           ))}
       </View>
-      {trailing}
-      {accessory === 'chevron' && <Icon name="chevronForward" size="sm" color="textTertiary" weight="semibold" />}
-      {accessory === 'check' && (
-        <View style={styles.check}>{selected && <Icon name="check" size="md" color="accent" weight="semibold" />}</View>
-      )}
+      {!onTitleLine && end}
     </>
   );
   const rowStyle = [styles.row, { minHeight: dense ? Size.row.dense : Size.row.min }, disabled && { opacity: Opacity.disabled }, style];
@@ -249,6 +270,8 @@ const styles = StyleSheet.create({
   },
   leading: { minWidth: Size.leadingTile, alignItems: 'center' },
   text: { flex: 1, gap: Space.xxs },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  grow: { flex: 1 },
   check: { width: Size.icon.md, alignItems: 'center' },
   tile: {
     width: Size.leadingTile,

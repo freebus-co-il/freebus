@@ -34,7 +34,7 @@ function secondsUntil(iso: string, now: Date): number {
  *  The pairing is carried by spacing instead: `Space.xs` inside a
  *  departure against `Space.lg` between them, so each time sits
  *  visibly closer to its own badge than to the next one. */
-function DepartureEntry(
+export function DepartureEntry(
   { departure, showLive, now }: { departure: Departure; showLive: boolean; now: Date },
 ) {
   const colors = useColors();
@@ -45,7 +45,7 @@ function DepartureEntry(
     <View style={styles.departure}>
       <LineBadge route={departure.route} size="small" />
       {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
-      <Text variant="subheadline" numeric color={live ? 'live' : 'textSecondary'}>
+      <Text variant="footnote" numeric color={live ? 'live' : 'textSecondary'}>
         {formatDurationMinutes(secondsUntil(time.iso, now))}
       </Text>
     </View>
@@ -136,7 +136,7 @@ function StationRow(
       onPress={() => router.push({ pathname: '/station/[stopId]', params: { stopId: stop.stopId, name: stop.name ?? '' } })}
       leading={<StationIcon kind={stationKindOf(stop)} />}
       title={
-        <Text variant="headline" numberOfLines={1}>
+        <Text variant="callout" emphasized numberOfLines={1}>
           {stop.name ?? stop.stopId}
         </Text>
       }
@@ -151,6 +151,9 @@ function StationRow(
         </Text>
       }
       accessory="chevron"
+      // Distance and chevron on the name's line, so the departures under it
+      // run the full width of the row.
+      trailingAlign="title"
     />
   );
 }

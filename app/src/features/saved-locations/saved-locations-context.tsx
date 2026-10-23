@@ -65,6 +65,12 @@ function useSavedLocationsState() {
     setState((current) => ({ ...current, presetPlaces: { ...current.presetPlaces, [id]: place } }));
   }
 
+  // Home and Work never go away as chips -- clearing one just takes its
+  // address back, leaving the chip waiting to be set again.
+  function clearPreset(id: PresetId) {
+    setState((current) => ({ ...current, presetPlaces: { ...current.presetPlaces, [id]: null } }));
+  }
+
   function addCustom(label: string, icon: LocationIconName, place: SelectedPlace) {
     const entry: CustomLocation = { id: `custom-${Date.now()}-${Math.round(Math.random() * 1e6)}`, label, icon, place };
     setState((current) => ({ ...current, customLocations: [...current.customLocations, entry] }));
@@ -90,7 +96,7 @@ function useSavedLocationsState() {
     ...state.customLocations.map((l): SavedLocation => ({ ...l, isPreset: false })),
   ];
 
-  return { locations, setPreset, addCustom, removeCustom, updateCustomPlace };
+  return { locations, setPreset, clearPreset, addCustom, removeCustom, updateCustomPlace };
 }
 
 type SavedLocationsContextValue = ReturnType<typeof useSavedLocationsState>;

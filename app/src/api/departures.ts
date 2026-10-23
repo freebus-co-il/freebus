@@ -30,6 +30,11 @@ export const DEPARTURES_WINDOW_MINUTES = 60;
  * rider is going would have that one row truncated away before any
  * client-side filter could see it.
  */
+/** A station screen's full board. Exported so a peek at that screen (the home
+ *  screen's nearby card) asks the same question, shares its cache entry, and
+ *  has the board ready by the time the station opens. */
+export const STATION_BOARD_LIMIT = 50;
+
 export function useStopDepartures(
   stopId: string | null, limit: number, lang: string,
   to?: { lat: number; lon: number } | null,

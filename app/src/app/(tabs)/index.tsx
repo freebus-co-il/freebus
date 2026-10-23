@@ -1,8 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -12,11 +11,13 @@ import {
   ListRow,
   ListSection,
   Loading,
+  ScrollHeader,
   SearchButton,
   Size,
   Sheet,
   Space,
   useColors,
+  useScrollHeader,
 } from '@/design-system';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { MapPickButton } from '@/features/map-picker/map-pick-button';
@@ -27,13 +28,15 @@ import type { SavedLocation } from '@/features/saved-locations/types';
 import { useSearch } from '@/features/search/search-context';
 import { onSearchMorph, setSearchMorphOrigin, type MorphFrame } from '@/features/search/search-morph';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
+import { NearbySuggestion } from '@/features/smart-suggestion/nearby-suggestion';
 import { SmartSuggestion } from '@/features/smart-suggestion/smart-suggestion';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { hapticWarned } from '@/lib/haptics';
 
-/** iOS pads the first scroll view itself (status bar on top, the floating
- *  native tab bar below) through `contentInsetAdjustmentBehavior`; Android
- *  has no such adjustment, so the top inset is added by hand there. */
-const IOS = Platform.OS === 'ios';
+/** Which hero card leads the page: the closest station's peek, or the
+ *  commute suggestion (which itself falls back to the peek when there is no
+ *  commute to offer). Fixed for now; the rider will get to pick. */
+const HOME_CARD: 'nearby' | 'commute' = 'nearby';
 
 // No title: the "Where to?" capsule IS the top of the page. Still just the
 // one prompt, not the results screen's full origin+destination+swap layout,
@@ -79,7 +82,8 @@ export default function SearchScreen() {
   }
 
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const tabBarInset = useTabBarInset();
+  const header = useScrollHeader();
   const dockInset = useJourneyDockInset();
   const savedLocations = useSavedLocations();
   const search = useSearch();
@@ -112,10 +116,12 @@ export default function SearchScreen() {
 
   function removeLocation(location: SavedLocation) {
     // The one destructive action on this screen, and it happens with no
-    // confirmation step -- the chip is simply gone. Worth feeling.
+    // confirmation step -- the chip (or a preset's address) is simply gone.
+    // Worth feeling.
     hapticWarned();
     setActionsFor(null);
-    savedLocations.removeCustom(location.id);
+    if (location.isPreset) savedLocations.clearPreset(location.id === 'home' ? 'home' : 'work');
+    else savedLocations.removeCustom(location.id);
   }
 
   // Every state renders inside the same root so the journey dock is always
@@ -164,69 +170,71 @@ export default function SearchScreen() {
 
   return screen(
     <>
-      {/* The page scrolls as ONE column -- search, shortcuts, the suggestion
-          and the stations -- and this is the screen's first scroll view on
-          purpose: native tabs on iOS find it to pad it for the floating tab
-          bar and to minimise that bar on scroll. A tall suggestion card can
-          push the stations down without either scrolling inside the other. */}
+      {/* Everything under the search cluster scrolls as ONE column, and this
+          is the screen's main scroll view on purpose: native tabs on iOS find
+          it to minimise the floating tab bar on scroll. It runs under the
+          header, so it pads its top by the header's height, and its bottom
+          by the tab bar's and the journey dock's. */}
       <ScrollView
         style={styles.pageScroll}
-        contentInsetAdjustmentBehavior="automatic"
+        // The header and tab bar insets are applied by hand above; iOS's own
+        // adjustment would add the status bar a second time.
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[
           styles.pageContent,
-          !IOS && { paddingTop: insets.top + Space.lg },
-          // Only the journey dock's room: the tab bar's own inset comes from
-          // the automatic adjustment above (iOS) or the bar sitting outside
-          // this screen's frame (Android).
-          { paddingBottom: Layout.sectionGap + dockInset },
+          { paddingTop: header.height + Space.sm, paddingBottom: Layout.sectionGap + dockInset + tabBarInset },
         ]}
+        onScroll={header.onScroll}
+        scrollEventThrottle={header.scrollEventThrottle}
         showsVerticalScrollIndicator={false}
       >
-        {/* The search capsule and the shortcut chips are one cluster -- how
-            you leave this screen -- so they sit closer to each other than
-            to the sections below. */}
-        <View style={styles.cluster}>
-          <View style={styles.searchRow}>
-            {controlsAway ? (
-              <>
-                <View style={styles.searchSlot} />
-                <View style={styles.mapSlot} />
-              </>
-            ) : (
-              <>
-                <SearchButton ref={searchRef} label={t('search.destinationPlaceholder')} onPress={openSearch} />
-                <MapPickButton ref={mapRef} onPress={() => router.push('/map-picker')} />
-              </>
-            )}
-          </View>
-
-          {/* Hidden, not unmounted, while away: the row keeps its height, so
-              nothing under it moves. Chips are solid, not glass, so they come
-              back from opacity 0 fine. */}
-          <View ref={chipsRef} collapsable={false} style={controlsAway && styles.away}>
-          <SavedLocationChips
-            locations={savedLocations.locations}
-            onSelect={selectSavedLocation}
-            onLongPress={setActionsFor}
-            footer={
-              <Chip
-                icon="add"
-                label={t('savedLocations.add')}
-                muted
-                onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
-              />
-            }
-          />
-          </View>
-        </View>
-
         {/* Above Nearby stops on purpose: an answer outranks a list of
-            places to look. Renders nothing at all when there is no commute
-            worth suggesting, so the list simply moves up. */}
-        <SmartSuggestion onSelect={selectDestination} />
+            places to look. */}
+        {HOME_CARD === 'nearby' ? <NearbySuggestion /> : <SmartSuggestion onSelect={selectDestination} />}
 
         <NearbyStops />
       </ScrollView>
+
+      {/* The search capsule and the shortcut chips are one cluster -- how
+          you leave this screen -- so they sit closer to each other than
+          to the sections below. A fixed header the page scrolls under,
+          which takes a glass backing once it does. */}
+      <ScrollHeader scrolled={header.scrolled} progress={header.progress} onLayout={header.onLayout}>
+      <View style={styles.cluster}>
+        <View style={styles.searchRow}>
+          {controlsAway ? (
+            <>
+              <View style={styles.searchSlot} />
+              <View style={styles.mapSlot} />
+            </>
+          ) : (
+            <>
+              <SearchButton ref={searchRef} label={t('search.destinationPlaceholder')} onPress={openSearch} />
+              <MapPickButton ref={mapRef} onPress={() => router.push('/map-picker')} />
+            </>
+          )}
+        </View>
+
+        {/* Hidden, not unmounted, while away: the row keeps its height, so
+            nothing under it moves. Chips are solid, not glass, so they come
+            back from opacity 0 fine. */}
+        <View ref={chipsRef} collapsable={false} style={controlsAway && styles.away}>
+        <SavedLocationChips
+          locations={savedLocations.locations}
+          onSelect={selectSavedLocation}
+          onLongPress={setActionsFor}
+          footer={
+            <Chip
+              icon="add"
+              label={t('savedLocations.add')}
+              muted
+              onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
+            />
+          }
+        />
+        </View>
+      </View>
+      </ScrollHeader>
 
       {/* The long-press actions for one saved place. The chip already fired
           the "long press recognised" haptic, which is what covers the beat
@@ -244,10 +252,12 @@ export default function SearchScreen() {
               title={t('savedLocations.edit')}
               onPress={() => editLocation(actionsFor)}
             />
-            {!actionsFor.isPreset && (
+            {/* Home and Work stay as chips, so theirs is a clear rather than
+                a removal -- and only once there is an address to clear. */}
+            {(!actionsFor.isPreset || actionsFor.place !== null) && (
               <ListRow
                 leading={<Icon name="delete" color="danger" />}
-                title={t('savedLocations.remove')}
+                title={t(actionsFor.isPreset ? 'savedLocations.clear' : 'savedLocations.remove')}
                 destructive
                 onPress={() => removeLocation(actionsFor)}
               />
@@ -284,11 +294,13 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     paddingHorizontal: Layout.pageInset,
-    paddingTop: Space.sm,
     gap: Layout.sectionGap,
   },
   cluster: {
     gap: Space.lg,
+    paddingHorizontal: Layout.pageInset,
+    paddingTop: Space.sm,
+    paddingBottom: Space.md,
   },
   away: { opacity: 0 },
   searchRow: {

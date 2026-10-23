@@ -15,6 +15,7 @@ import { useNow } from '@/hooks/use-now';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
 import { placeToQueryValue, type SelectedPlace } from '@/lib/place';
 
+import { NearbySuggestion } from './nearby-suggestion';
 import { resolveSmartTarget } from './resolve-smart-target';
 
 /** The map is the card, so the card needs a height of its own -- there is
@@ -55,9 +56,10 @@ export type SmartSuggestionProps = {
  *
  * Standing at home, that's the trip to work; anywhere else, it's the trip
  * home. `resolveSmartTarget` owns that decision and the conditions under which
- * there simply isn't one -- this component renders nothing at all in that
- * case, and nothing again when the plan comes back empty. A suggestion that
- * has to apologise for itself is worse than no suggestion.
+ * there simply isn't one. In that case, and again when the plan comes back
+ * empty, the card stays and shows what is around the rider instead
+ * (`NearbySuggestion`) -- a suggestion that has to apologise for itself is
+ * worse than no suggestion, but the card itself is worth keeping.
  *
  * A hero card: the map clipped inside it (not behind it), with a glass panel
  * floating over its lower stretch that holds the text. The rider's three
@@ -97,7 +99,7 @@ export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
   // in front of them.
   const best = data?.itineraries[0] ?? null;
 
-  if (target === null) return null;
+  if (target === null) return <NearbySuggestion />;
 
   if (isLoading) {
     return (
@@ -107,7 +109,7 @@ export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
     );
   }
 
-  if (best === null) return null;
+  if (best === null) return <NearbySuggestion />;
 
   const icon = LOCATION_ICON_NAMES[target.preset === 'home' ? 'home' : 'briefcase'];
   const label = (target.preset === 'home' ? home?.label : work?.label) ?? '';

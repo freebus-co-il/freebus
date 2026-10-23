@@ -52,13 +52,13 @@ const NO_STOPS: readonly StopDot[] = [];
 const FRAME_HALF_LAT = 0.0065;
 /** The station sign's size in points: `assets/images/station-pin*.png` are
  *  drawn at exactly this, @1x to @3x. */
-const STATION_PIN_WIDTH = 24;
-const STATION_PIN_HEIGHT = 32;
+export const STATION_PIN_WIDTH = 24;
+export const STATION_PIN_HEIGHT = 32;
 
 export type { StationKind };
 /** Every sign shares one size and one pole, so either hangs from the same
  *  bottom-centre point. */
-const STATION_PIN_SOURCES = {
+export const STATION_PIN_SOURCES = {
   bus: require('@/assets/images/station-pin.png'),
   train: require('@/assets/images/train-station-pin.png'),
   lightRail: require('@/assets/images/light-rail-station-pin.png'),
