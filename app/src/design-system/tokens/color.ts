@@ -56,6 +56,10 @@ const light = {
   getOff: '#FF5B24',
   /** Content on a danger / getOff / walk fill. */
   onStatus: '#FFFFFF',
+  /** A bus's own front sign: amber dot-matrix on black, for matching the
+   *  vehicle at a glance. The same in both schemes, like the real thing. */
+  busSign: '#FFB21A',
+  busSignPanel: '#0B0B0B',
   scrim: 'rgba(0,0,0,0.40)',
 
   /** The ring around map markers. Theme-aware: a white ring on a dark map glows. */
@@ -92,6 +96,8 @@ const dark: Palette = {
   walk: '#f59e0b',
   getOff: '#FF5B24',
   onStatus: '#FFFFFF',
+  busSign: '#FFB21A',
+  busSignPanel: '#0B0B0B',
   scrim: 'rgba(0,0,0,0.60)',
 
   mapMarkerRing: '#1C1C1E',

@@ -47,6 +47,9 @@ export type NavigationBannerProps = {
   destinationLabel: string;
 };
 
+/** Maneuvers whose glyph adds nothing to the words beside it. */
+const GLYPHLESS = new Set<WalkManeuver>(['depart', 'arrive', 'straight']);
+
 /** Glass, not a card: the banner is chrome floating over the map (it says
  *  what to do, it is not part of the plan), so it is the functional layer. */
 function Frame({ glyph, children }: { glyph: ReactNode; children: ReactNode }) {
@@ -85,15 +88,19 @@ export function NavigationBanner({ itinerary, state, guidance, rerouting, destin
     return (
       <Frame
         glyph={
-          <View style={[styles.glyph, { backgroundColor: colors.walk }]}>
-            <Icon name={MANEUVER_ICONS[guidance.maneuver]} size="lg" color="onStatus" weight="semibold" />
-          </View>
+          // A turn earns its arrow; "start walking" and "arrive" say nothing a
+          // pin can add, and the tile only cost the banner its width.
+          GLYPHLESS.has(guidance.maneuver) ? null : (
+            <View style={[styles.glyph, { backgroundColor: colors.walk }]}>
+              <Icon name={MANEUVER_ICONS[guidance.maneuver]} size="md" color="onStatus" weight="semibold" />
+            </View>
+          )
         }
       >
         <Text variant="title2" numeric numberOfLines={1}>
           {formatDistanceMeters(guidanceMeters(guidance.metersToManeuver))}
         </Text>
-        <Text variant="title3" numberOfLines={2}>
+        <Text variant="headline" numberOfLines={2}>
           {rerouting ? t('journey.nav.rerouting') : t(instruction.key, instruction.values)}
         </Text>
       </Frame>
@@ -114,11 +121,10 @@ const styles = StyleSheet.create({
     gap: Space.md,
     padding: Space.md,
   },
-  // Concentric with the panel: its `Radius.xl` less the `Space.md` padding.
   glyph: {
-    width: Size.control.md,
-    height: Size.control.md,
-    borderRadius: Radius.md,
+    width: Size.control.sm,
+    height: Size.control.sm,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

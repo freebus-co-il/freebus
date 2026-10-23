@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,22 +7,33 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
-import { SnapCarousel, type SnapCarouselHandle } from '@/components/snap-carousel';
 import { Button, EmptyState, IconButton, Layout, MapStyle, Space, useColors } from '@/design-system';
 import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
-import { JourneyLegCard } from '@/features/journey/journey-leg-card';
 import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
 import { LiveBusCard } from '@/features/journey/live-bus-card';
 import { NavigationBanner } from '@/features/journey/navigation/navigation-banner';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { navigationCamera } from '@/features/journey/navigation/navigation-camera';
 import { useCompassHeading } from '@/features/journey/navigation/use-compass-heading';
 import { useNavigationFix } from '@/features/journey/navigation/use-navigation-fix';
 import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
-import { OffPlanCard } from '@/features/journey/off-plan-card';
+import { backboneAhead } from '@/features/journey/replan/backbone';
+import { EtaHeader } from '@/features/journey/sheet/eta-header';
+import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
+import { JourneyMenu } from '@/features/journey/sheet/journey-menu';
+import {
+  AlightView,
+  ArrivingView,
+  OfferView,
+  RecalculatingView,
+  RidingView,
+  WaitingView,
+  WalkingView,
+} from '@/features/journey/sheet/phase-views';
+import { SwitchToast } from '@/features/journey/sheet/switch-toast';
 import { TripMap, type LineShape } from '@/features/results/trip-map';
-import { buildStepCards, cardFocusLegIndex, journeyCardIndex, type StepCard } from '@/features/trip/step-cards';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
 import { countEvent } from '@/lib/analytics';
@@ -31,11 +42,6 @@ import { routeColor } from '@/lib/route-color';
 /** The back button's height below the safe area, plus breathing room: the
  *  part of the map's top it covers before the header has been measured. */
 const BACK_CHIP_CLEARANCE = 64;
-
-/** How long a swipe of the rider's own holds the carousel where they put it.
- *  A rider reading ahead to their transfer should not have the card pulled
- *  out from under them the moment the walk to the stop ends. */
-const MANUAL_BROWSE_HOLD_MS = 20_000;
 
 /**
  * The running journey, full screen.
@@ -55,9 +61,10 @@ export default function JourneyScreen() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
-  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end } = useJourney();
+  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan } = useJourney();
+  const { alertSettings } = usePreferences();
 
-  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  const [sheetHeight, setSheetHeight] = useState(0);
   // The header grows with the navigation banner, so its real height -- not a
   // fixed allowance for the back chip -- is what the map keeps clear.
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -68,61 +75,16 @@ export default function JourneyScreen() {
     () => ({
       top: headerHeight > 0 ? headerHeight + Space.lg : insets.top + BACK_CHIP_CLEARANCE,
       right: MapStyle.edgePadding,
-      bottom: bottomBarHeight + Space.lg,
+      bottom: sheetHeight + Space.lg,
       left: MapStyle.edgePadding,
     }),
-    [headerHeight, insets.top, bottomBarHeight],
+    [headerHeight, insets.top, sheetHeight],
   );
 
-  // The running journey has no overview card. Its two facts -- the rail and
-  // the arrival -- are on the strip row of every leg card, so a card whose
-  // whole job was to repeat the hero sentence one swipe away is exactly the
-  // duplication this screen was built to remove. `journeyCardIndex` and
-  // `cardFocusLegIndex` both test `kind`, never index 0, so nothing counts.
-  const cards = useMemo<StepCard[]>(() => {
-    if (!journey) return [];
-    // Off plan is the one exception, and it is not optional: `journeyCardIndex`
-    // falls back to index 0 for this phase, and with the leg cards filtered
-    // out below, index 0 would be a REAL leg -- so the map's `focusLegIndex`
-    // (via `cardFocusLegIndex`) would zoom to leg 0 and dim every other leg,
-    // regardless of which leg the rider actually fell off. A single overview
-    // entry restores every invariant at once: `journeyCardIndex` returns 0
-    // because that is genuinely the only card, `cardFocusLegIndex` sees
-    // `kind: 'overview'` and hands the map `null` (frame the whole journey,
-    // undimmed), and `renderCard` already renders `OffPlanCard` for it -- one
-    // card, one thing to do, instead of N identical `OffPlanCard`s to swipe
-    // between.
-    if (state?.phase === 'off-plan') return [{ kind: 'overview' }];
-    return buildStepCards(journey.itinerary).filter((card) => card.kind !== 'overview');
-  }, [journey, state?.phase]);
-  const followIndex = state ? journeyCardIndex(cards, state) : 0;
-  const [activeIndex, setActiveIndex] = useState(followIndex);
-  const carouselRef = useRef<SnapCarouselHandle>(null);
-  const alighting = state?.phase === 'alight-soon';
-  const lastSwipeAt = useRef(0);
-  // Bumped by each swipe of the rider's own, so the follow effect below
-  // re-arms its hold from the latest one.
-  const [swipeCount, setSwipeCount] = useState(0);
   // The leg index whose line switcher is open, or null. By index rather than
   // by leg, so a `chooseLine` that swaps the leg underneath cannot leave the
   // sheet holding the run the rider just moved off.
   const [switchingLegIndex, setSwitchingLegIndex] = useState<number | null>(null);
-
-  // Follow the journey onto its next leg -- unless the rider is browsing, in
-  // which case they keep the card they chose until the hold since their last
-  // swipe is up, and are then brought back to the leg they are on. A leg that
-  // changed during the hold is caught up with when it ends, not skipped. The
-  // get-off moment overrides the hold: it is the one card that must be on
-  // screen when the alarm sounds.
-  useEffect(() => {
-    const wait = alighting ? 0 : Math.max(0, MANUAL_BROWSE_HOLD_MS - (Date.now() - lastSwipeAt.current));
-    if (wait === 0) {
-      carouselRef.current?.scrollToIndex(followIndex);
-      return;
-    }
-    const timer = setTimeout(() => carouselRef.current?.scrollToIndex(followIndex), wait);
-    return () => clearTimeout(timer);
-  }, [followIndex, alighting, swipeCount]);
 
   // Every transit leg, not just the one being ridden: the rider watching for
   // their connection is watching this map too, and the whole chain is well
@@ -156,18 +118,17 @@ export default function JourneyScreen() {
   const guiding = state !== null && state.phase !== 'off-plan' && state.phase !== 'arrived';
   const currentLeg = journey && state ? journey.itinerary.legs[state.legIndex] : undefined;
   const walkLeg = guiding && currentLeg?.type === 'walk' ? currentLeg : null;
-  const onCurrentCard = activeIndex === followIndex;
   const appActive = useAppActive();
   const [cameraPaused, setCameraPaused] = useState(false);
   const walkFix = useNavigationFix(walkLeg !== null && appActive);
   const riderFix = walkFix ?? position;
-  const compassHeading = useCompassHeading(walkLeg !== null && onCurrentCard && !cameraPaused && appActive);
+  const compassHeading = useCompassHeading(walkLeg !== null && !cameraPaused && appActive);
   const walkRoute = useWalkReroute({ legIndex: state?.legIndex ?? -1, leg: walkLeg, fix: riderFix });
   const guidance = walkRoute ? walkGuidance(walkRoute.path, walkRoute.steps, riderFix) : null;
   const currentVehicle = currentLeg?.type === 'transit'
     ? live?.vehicles.find((vehicle) => vehicle.tripId === currentLeg.tripId) ?? null
     : null;
-  const camera = journey && state && guiding && onCurrentCard
+  const camera = journey && state && guiding
     ? navigationCamera({
         itinerary: journey.itinerary,
         state,
@@ -263,7 +224,6 @@ export default function JourneyScreen() {
     ]);
   }
 
-  const offPlan = state.phase === 'off-plan';
 
   // The open sheet's leg, re-asked of the same predicate the card's trigger
   // uses on EVERY render rather than captured when the sheet opened: the
@@ -285,35 +245,51 @@ export default function JourneyScreen() {
       : undefined;
   if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
 
-  const renderCard = (card: StepCard) => {
-    // The off-plan card stands in place of whatever card is showing: the legs
-    // after the one the rider fell off are no longer the journey.
-    if (offPlan) return <OffPlanCard state={state} />;
-    // Unreachable: the running journey's card list never carries an
-    // `overview` entry outside the off-plan branch above, which already
-    // returned. Returning null rather than an empty `StepCardFrame` means a
-    // future change that DOES reach this can't render a blank bordered card.
-    if (card.kind === 'overview') return null;
-    return (
-      <JourneyLegCard
-        card={card}
-        state={state}
-        itinerary={journey.itinerary}
-        destinationLabel={journey.destinationLabel}
-        // Faded rather than dropped: a rider three legs in still looks back to
-        // check they did the earlier part right.
-        done={card.legIndex < state.legIndex}
-        current={card.legIndex === state.legIndex}
-        onSwitchLine={card.kind === 'ride' ? () => setSwitchingLegIndex(card.legIndex) : undefined}
-      />
-    );
-  };
+  const nowMs = now.getTime();
+  const body = (() => {
+    switch (state.phase) {
+      case 'off-plan':
+        return replan.offer ? null : <RecalculatingView stuck={replan.stuck && replan.status !== 'recalculating'} />;
+      case 'walking-to-stop':
+      case 'transferring':
+        return <WalkingView state={state} itinerary={journey.itinerary} position={position} transfer={state.phase === 'transferring'} />;
+      case 'waiting':
+        return state.leg && (
+          <WaitingView
+            state={state}
+            leg={state.leg}
+            candidates={replan.candidates}
+            nowMs={nowMs}
+            backbone={backboneAhead(journey.backbone ?? null, journey.itinerary.legs.slice(0, state.legIndex))}
+          />
+        );
+      case 'riding':
+        return state.leg && <RidingView state={state} leg={state.leg} />;
+      case 'alight-soon':
+        return state.leg && (
+          <AlightView
+            state={state}
+            itinerary={journey.itinerary}
+            leg={state.leg}
+            nowMs={nowMs}
+            canSilence={alertSettings.repeatUntilAcknowledged}
+            onSilence={acknowledgeAlight}
+          />
+        );
+      case 'arriving':
+      case 'arrived':
+        return <ArrivingView state={state} destinationLabel={journey.destinationLabel} />;
+    }
+  })();
+  const switchLine = state.leg !== null && canSwitchLine(state, state.legIndex)
+    ? () => setSwitchingLegIndex(state.legIndex)
+    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
       <TripMap
         itinerary={journey.itinerary}
-        focusLegIndex={cardFocusLegIndex(cards[activeIndex])}
+        focusLegIndex={null}
         vehicles={live?.vehicles}
         vehiclePredictions={vehiclePredictions}
         vehiclesTowardsAlighting
@@ -363,7 +339,9 @@ export default function JourneyScreen() {
               destinationLabel={journey.destinationLabel}
             />
           </View>
+          <JourneyMenu onEnd={confirmEnd} onSwitchLine={switchLine} />
         </View>
+        <SwitchToast change={replan.lastSwitch} />
         {camera !== null && cameraPaused && (
           <Button
             variant="glass"
@@ -376,38 +354,15 @@ export default function JourneyScreen() {
         )}
       </SafeAreaView>
 
-      <SafeAreaView
-        style={styles.bottomBar}
-        edges={['bottom']}
-        pointerEvents="box-none"
-        onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
-      >
-        <SnapCarousel
-          ref={carouselRef}
-          data={cards}
-          keyExtractor={(card) => (card.kind === 'overview' ? 'overview' : `leg-${card.legIndex}`)}
-          initialIndex={followIndex}
-          onActiveIndexChange={setActiveIndex}
-          onUserSwipe={() => {
-            lastSwipeAt.current = Date.now();
-            setSwipeCount((count) => count + 1);
-          }}
-          renderItem={renderCard}
-        />
-
-        <View style={styles.footer}>
-          {/* One button at a time, and the phase picks it. While the alarm is
-              sounding the only thing a rider wants is to silence it, and asking
-              them to pick their action out of two -- one of which throws the
-              journey away -- is how that goes wrong at the exact moment it must
-              not. Ending stays one phase away, and this window is ~90 seconds. */}
-          {alighting ? (
-            <Button variant="prominent" fullWidth label={t('journey.alert.gotIt')} onPress={acknowledgeAlight} />
-          ) : (
-            <Button variant="destructive" size="md" label={t('journey.end')} onPress={confirmEnd} style={styles.endButton} />
-          )}
-        </View>
-      </SafeAreaView>
+      <FloatingSheet onHeightChange={setSheetHeight}>
+        <EtaHeader arrivalTime={state.arrivalTime} live={state.timeSource === 'live'} />
+        {/* A different kind of trip, offered because the rider's own way broke
+            -- in whatever phase that was found, above what the phase says. */}
+        {replan.offer && (
+          <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
+        )}
+        {body}
+      </FloatingSheet>
 
       <LineSwitchSheet
         leg={switchingLeg?.type === 'transit' ? switchingLeg : null}
@@ -448,28 +403,6 @@ const styles = StyleSheet.create({
   // Only while the rider has moved the map off where following would put it.
   recenter: {
     alignSelf: 'flex-end',
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingBottom: Space.lg,
-    gap: Space.sm,
-  },
-  footer: {
-    paddingHorizontal: Layout.pageInset,
-  },
-  // A compact, centred button, not a full-width one -- ending is the
-  // destructive option and the one thing a rider never came to this screen
-  // to do; `Got it` above is the one that has to be hittable without
-  // looking. Solid `destructive` (danger glass on iOS 26) rather than danger
-  // text: this sits directly over live map tiles, and danger-coloured text
-  // with nothing opaque behind it can lose contrast against whatever the map
-  // is showing underneath. Hugging its label at `md` keeps it a chip-sized
-  // control rather than restoring the old full-width bordered button.
-  endButton: {
-    alignSelf: 'center',
   },
   empty: {
     flex: 1,

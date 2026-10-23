@@ -15,7 +15,7 @@ import { useSearch } from '@/features/search/search-context';
 import { withLineChosen } from '@/features/trip/line-options';
 import { useNow } from '@/hooks/use-now';
 import i18n from '@/i18n';
-import type { SelectedPlace } from '@/lib/place';
+import { placeToQueryValue, type SelectedPlace } from '@/lib/place';
 
 import { planAlightAlerts } from './alerts';
 import { boardedEarlierRun, withEarlierRunAtStart } from './earlier-run';
@@ -32,6 +32,10 @@ import { liveLabelFor } from './journey-labels';
 import { journeyEndsAt, resolveJourneyState } from './journey-machine';
 import { reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
+import { legToAcknowledge } from './replan/apply';
+import type { Backbone } from './replan/backbone';
+import { withBackbone } from './replan/restore';
+import { useLiveReplan } from './replan/use-live-replan';
 import {
   addAcknowledgeAlightListener,
   liveSurface,
@@ -136,7 +140,7 @@ async function readStoredJourney(): Promise<ActiveJourney | null> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ActiveJourney;
-    return Array.isArray(parsed?.itinerary?.legs) ? parsed : null;
+    return Array.isArray(parsed?.itinerary?.legs) ? withBackbone(parsed) : null;
   } catch {
     return null;
   }
@@ -305,15 +309,24 @@ async function acceptsBackgroundDisclosure(): Promise<boolean> {
   });
 }
 
-async function armGeofences(journey: ActiveJourney): Promise<void> {
+/** `prompt: false` re-arms only with what the rider already granted: a
+ *  journey that re-plans itself must never put a permission dialog in front of
+ *  them -- they did not do anything to be asked. */
+async function armGeofences(journey: ActiveJourney, { prompt = true }: { prompt?: boolean } = {}): Promise<void> {
   try {
-    // Foreground first: iOS will not even offer the always-on prompt until
-    // when-in-use has been granted.
-    const foreground = await Location.requestForegroundPermissionsAsync();
-    if (!foreground.granted) return;
-    if (!(await acceptsBackgroundDisclosure())) return;
-    const background = await Location.requestBackgroundPermissionsAsync();
-    if (!background.granted) return;
+    if (prompt) {
+      // Foreground first: iOS will not even offer the always-on prompt until
+      // when-in-use has been granted.
+      const foreground = await Location.requestForegroundPermissionsAsync();
+      if (!foreground.granted) return;
+      if (!(await acceptsBackgroundDisclosure())) return;
+      const background = await Location.requestBackgroundPermissionsAsync();
+      if (!background.granted) return;
+    } else {
+      const foreground = await Location.getForegroundPermissionsAsync();
+      const background = await Location.getBackgroundPermissionsAsync();
+      if (!foreground.granted || !background.granted) return;
+    }
 
     await Location.startGeofencingAsync(
       GEOFENCE_TASK,
@@ -343,11 +356,16 @@ async function disarmGeofences(): Promise<void> {
   }
 }
 
-async function scheduleAlightAlerts(journey: ActiveJourney, settings: AlertSettings): Promise<void> {
+async function scheduleAlightAlerts(
+  journey: ActiveJourney,
+  settings: AlertSettings,
+  { prompt = true }: { prompt?: boolean } = {},
+): Promise<void> {
   try {
-    const permission = await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowSound: true },
-    });
+    // See `armGeofences` for `prompt: false`.
+    const permission = prompt
+      ? await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true } })
+      : await Notifications.getPermissionsAsync();
     if (!permission.granted) return;
 
     if (Platform.OS === 'android') {
@@ -767,7 +785,10 @@ function useJourneyState() {
         next,
         nextCopy,
         shouldAlert && next.leg ? alightAlert(next.leg.to.stop.name ?? '', settings) : undefined,
-      );
+      ).catch(() => {
+        // No surface to update -- Live Activities off, or one restarting after
+        // a re-plan. The in-app journey is complete without it.
+      });
     },
     [settings],
   );
@@ -879,7 +900,7 @@ function useJourneyState() {
       // `withEarlierRunAtStart`).
       const plan = withEarlierRunAtStart(itinerary, Date.now());
 
-      const draft: ActiveJourney = {
+      const draft: ActiveJourney = withBackbone({
         id: newJourneyId(),
         itinerary: plan,
         signature,
@@ -887,7 +908,7 @@ function useJourneyState() {
         startedAt: new Date().toISOString(),
         destinationLabel,
         acknowledgedAlightLegIndex: null,
-      };
+      });
       const opening = resolveJourneyState(draft, position, new Date(), settings);
       // Placed by the fix the rider started with, if there is one: a rider
       // standing still at their stop sends no new fix for `recordFix` to
@@ -970,9 +991,11 @@ function useJourneyState() {
     router.push('/results');
   }, [journey, state, position, setOriginOverride, setDestination, setTimeMode, setCustomTime]);
 
-  const acknowledgeAlight = useCallback(async () => {
-    if (!journey || !state) return;
-    const legIndex = state.legIndex;
+  /** Marks one leg's get-off alert as answered: it never re-fires, and its
+   *  pending repeats are cancelled. Takes the leg explicitly so it can answer
+   *  for a ride the rider has already stepped off (see the effect below). */
+  const acknowledgeAlightLeg = useCallback(async (legIndex: number) => {
+    if (!journey) return;
 
     const next = { ...journey, acknowledgedAlightLegIndex: legIndex };
     setJourney(next);
@@ -982,9 +1005,99 @@ function useJourneyState() {
     await writeStoredJourney(next);
 
     // Only THIS leg's alerts. A journey with a second ride still needs its own
-    // get-off alarm, and "Got it" was an answer to one stop, not to the trip.
+    // get-off alarm, and an answer to one stop is not an answer to the trip.
     await cancelAlertsMatching(`${journey.id}:alight:${legIndex}:`);
-  }, [journey, state]);
+  }, [journey]);
+
+  const acknowledgeAlight = useCallback(async () => {
+    if (!state) return;
+    await acknowledgeAlightLeg(state.legIndex);
+  }, [state, acknowledgeAlightLeg]);
+
+  /**
+   * Getting off IS the answer to "get off at the next stop".
+   *
+   * The journey sheet has no "Got it" button: the get-off moment is an
+   * instruction, not a dialogue. So the moment the journey moves past a ride
+   * whose alarm fired and was never silenced, that alarm is acknowledged for
+   * the rider -- otherwise a "repeat until acknowledged" alarm would keep
+   * ringing at someone already on the pavement.
+   */
+  const lastLegIndex = useRef<number | null>(null);
+  useEffect(() => {
+    const legIndex = state?.legIndex ?? null;
+    const previous = lastLegIndex.current;
+    lastLegIndex.current = legIndex;
+    if (!journey) return;
+    // Whether or not the in-app alert fired: the app may have been asleep
+    // while the OS rang, and cancelling an alarm that never sounded is harmless.
+    const leg = legToAcknowledge(previous, legIndex, journey.itinerary, journey.acknowledgedAlightLegIndex);
+    if (leg !== null) void acknowledgeAlightLeg(leg);
+  }, [journey, state?.legIndex, acknowledgeAlightLeg]);
+
+  /**
+   * Swaps the journey onto a re-planned itinerary without ending it.
+   *
+   * The live re-planner (`replan/use-live-replan`) calls this with the
+   * current itinerary's done legs spliced onto the new way (`spliceItinerary`),
+   * so every leg up to `keepThroughLegIndex` is the same leg at the same
+   * index. Same journey id, same backbone. What the OS holds was armed for the
+   * old way -- get-off alarms, stop regions, the Live Activity's rail -- so all
+   * of it is rebuilt, as `chooseLine` does for a single leg.
+   */
+  const replaceItinerary = useCallback(
+    async (
+      itinerary: Itinerary,
+      keepThroughLegIndex: number,
+      { backbone }: { backbone?: Backbone | null } = {},
+    ) => {
+      if (!journey) return;
+      const gps = journey.gpsLegIndex;
+      const acknowledged = journey.acknowledgedAlightLegIndex;
+      const next: ActiveJourney = {
+        ...journey,
+        itinerary,
+        // Only an explicit choice -- an offer the rider accepted -- redefines
+        // what the trip is; an automatic switch keeps the one they chose.
+        ...(backbone !== undefined ? { backbone } : {}),
+        gpsLegIndex: gps === null || gps === undefined ? gps : Math.min(gps, keepThroughLegIndex + 1),
+        acknowledgedAlightLegIndex: acknowledged !== null && acknowledged > keepThroughLegIndex ? null : acknowledged,
+      };
+
+      setJourney(next);
+      armedWith.current = { journeyId: next.id, settings };
+      for (const legIndex of [...alertedLegs.current]) {
+        if (legIndex > keepThroughLegIndex) alertedLegs.current.delete(legIndex);
+      }
+      await writeStoredJourney(next);
+
+      await cancelAlertsMatching(`${next.id}:alight:`);
+      await scheduleAlightAlerts(next, settings, { prompt: false });
+      await armGeofences(next, { prompt: false });
+
+      const resolved = resolveJourneyState(next, position, new Date(), settings);
+      const copy = copyFor(next, resolved);
+      pushedFacts.current = surfaceFacts(resolved, copy);
+      // Restarted rather than updated: the rail is fixed when a surface starts.
+      // Both platforms replace a running surface on start. A surface that
+      // cannot start (Live Activities turned off) costs the Island, not the
+      // switch, which has already happened.
+      try {
+        await liveSurface.start(next, resolved, buildJourneyRail(itinerary), copy);
+      } catch {
+        // See above.
+      }
+    },
+    [journey, position, settings, copyFor],
+  );
+
+  const replanTo = useMemo(() => {
+    const place = journey ? replanDestination(journey) : null;
+    return place ? placeToQueryValue(place) : null;
+  }, [journey]);
+  const replan = useLiveReplan({
+    journey, state, live, position, destination: replanTo, lang: i18n.language, replaceItinerary,
+  });
 
   /**
    * The rider saying which bus they are actually on.
@@ -1146,7 +1259,7 @@ function useJourneyState() {
   );
 
   return {
-    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replanFromHere, end,
+    journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replan, replanFromHere, end,
     pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
   };
 }

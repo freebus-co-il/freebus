@@ -1,6 +1,7 @@
 import type { Itinerary, TransitLeg } from '@/api/types';
 
 import type { LiveBusProgress } from './live-bus';
+import type { Backbone } from './replan/backbone';
 
 /** What the rider is doing right now. One hero line each -- see the spec. */
 export type JourneyPhase =
@@ -39,6 +40,12 @@ export type ActiveJourney = {
    *  by the timetable. Never decreases. Optional so a journey stored before
    *  this existed still reads back. */
   gpsLegIndex?: number | null;
+  /** The ride the rider chose this trip for -- its kind of vehicle and its two
+   *  stations -- captured at Start and kept through every live re-plan, which
+   *  may change anything around it but never it (see `replan/backbone`). Null
+   *  for a trip with no ride; optional so a journey stored before this existed
+   *  still reads back (`withBackbone` fills it in). */
+  backbone?: Backbone | null;
 };
 
 export type RiderPosition = {
