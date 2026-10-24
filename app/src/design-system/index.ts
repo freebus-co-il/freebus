@@ -5,6 +5,7 @@
 export * from './tokens';
 export {
   GLASS_SUPPORTED,
+  GlassInk,
   applyColorSchemeOverride,
   useColors,
   useGlassEnabled,

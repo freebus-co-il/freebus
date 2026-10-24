@@ -5,7 +5,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LineBadge } from '@/components/line-badge';
-import { GLASS_SUPPORTED, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { GLASS_SUPPORTED, GlassInk, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { readableTextColor, routeColor } from '@/lib/route-color';
 
@@ -90,7 +90,11 @@ function Content({ compact }: { compact: boolean }) {
  */
 export function JourneyAccessoryContent() {
   const placement = NativeTabs.BottomAccessory.usePlacement();
-  return <Content compact={placement === 'inline'} />;
+  return (
+    <GlassInk>
+      <Content compact={placement === 'inline'} />
+    </GlassInk>
+  );
 }
 
 /** Whether the tab bar should show the journey accessory right now. */

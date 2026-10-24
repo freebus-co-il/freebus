@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, Radius, Space, useColors, useGlassEnabled } from '@/design-system';
+import { Border, Glass, GlassInk, Radius, Space, useColors, useGlassEnabled } from '@/design-system';
 
 /** How much of the screen the sheet may grow to before its content scrolls:
  *  the map above it stays the larger part of the screen at rest, but a long
@@ -66,7 +66,7 @@ export function FloatingSheet({
         style={styles.content}
         onLayout={(event) => onHeightChange?.(Math.round(event.nativeEvent.layout.height) + bottomInset)}
       >
-        {children}
+        <GlassInk>{children}</GlassInk>
       </BottomSheetView>
     </BottomSheet>
   );
