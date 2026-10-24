@@ -97,3 +97,10 @@ export const TEXT_ALIGN_START = 'left' as const;
 export const INPUT_ALIGN_START: 'left' | 'right' =
   // eslint-disable-next-line no-restricted-syntax -- the one sanctioned case, see above
   I18nManager.isRTL ? 'right' : 'left';
+
+/**
+ * The direction to hand native UIKit containers (the tab bar) explicitly. They
+ * take theirs from the PHONE's language, not from `forceRTL`, so a Hebrew app
+ * on an English phone would get a left-to-right tab bar under an RTL layout.
+ */
+export const NATIVE_DIRECTION: 'ltr' | 'rtl' = I18nManager.isRTL ? 'rtl' : 'ltr';

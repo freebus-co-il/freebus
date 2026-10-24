@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { glyphFor, useColors } from '@/design-system';
 import { JourneyAccessoryContent, useJourneyAccessoryVisible } from '@/features/journey/journey-bar';
+import { NATIVE_DIRECTION } from '@/i18n/direction';
 
 /**
  * The tab bar is the platform's own: a floating Liquid Glass bar on iOS 26 that
@@ -27,6 +28,7 @@ export default function TabsLayout() {
       rippleColor={colors.fillPressed}
       labelVisibilityMode="labeled"
       minimizeBehavior="onScrollDown"
+      unstable_nativeProps={{ direction: NATIVE_DIRECTION }}
     >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon {...tab('home', 'homeFill')} />
