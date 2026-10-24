@@ -55,6 +55,7 @@ updates:
       - dependency-name: "react-native-maps"
       - dependency-name: "@react-native-async-storage/async-storage"
       - dependency-name: "@react-native-community/datetimepicker"
+      - dependency-name: "@sentry/react-native"
     groups:
       minor-and-patch:
         update-types:

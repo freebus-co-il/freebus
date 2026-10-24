@@ -1,7 +1,7 @@
-// The runtime version is this fingerprint (app.config.js -> runtimeVersion),
-// and the deploy workflow (.eas/workflows/deploy-production.yml) uses it to
-// choose between an OTA update and a store build. A native change the
-// fingerprint misses ships as an OTA update and never reaches users.
+// The runtime version is this fingerprint (app.config.js, runtimeVersion),
+// and the deploy workflow (.github/workflows/deploy-app.yml) uses it to choose
+// between an OTA update and a store build. A native change the fingerprint
+// misses ships as an OTA update to binaries that cannot run it.
 /** @type {import('expo/fingerprint').Config} */
 module.exports = {
   // The widget's Swift sources are compiled by @bacons/apple-targets, but

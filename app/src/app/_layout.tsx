@@ -22,6 +22,7 @@ import { ShareIntentGate } from '@/features/share-intent/share-intent-gate';
 import { Palettes } from '@/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { initAnalytics } from '@/lib/analytics';
+import { initCrashReports } from '@/lib/crash-reports';
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,10 @@ export const unstable_settings = { anchor: '(tabs)' };
 // language and then swaps -- and never has to reload itself just to get the
 // direction right on a normal launch.
 SplashScreen.preventAutoHideAsync();
+
+// Release builds only, JavaScript errors with nothing about the rider. First,
+// so an error in anything set up after it is still reported.
+initCrashReports();
 
 // Release builds only, one event per open, no properties -- see the module.
 initAnalytics();

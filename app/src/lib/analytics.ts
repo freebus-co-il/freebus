@@ -20,7 +20,8 @@ import { AppState, Platform, type AppStateStatus } from 'react-native';
  * Off unless all of these hold: a release build (`__DEV__` builds send
  * nothing), a native platform (no web), and `EXPO_PUBLIC_APTABASE_APP_KEY` set,
  * which only `.env.production` does -- so a fork of this repo reports nowhere.
- * Crash reporting is left off: a stack trace can carry whatever was in scope.
+ * Crash reports are separate, and scrubbed of anything about the rider: see
+ * `crash-reports.ts`.
  *
  * The SDK has a native module (for the app version), but its JS falls back
  * cleanly without it, so an over-the-air update reaching a binary built
