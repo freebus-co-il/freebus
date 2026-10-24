@@ -10,7 +10,7 @@ import { useVehicles } from '@/api/vehicles';
 import type { NearbyStop } from '@/api/types';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
 import { Card, Glass, Loading, Radius, Space, Text } from '@/design-system';
-import { DepartureEntry } from '@/features/nearby/nearby-stops';
+import { DepartureEntry } from '@/features/nearby/departure-entry';
 import type { EdgePadding } from '@/features/results/trip-map';
 import { useSearch } from '@/features/search/search-context';
 import { stationTripIds, stationVehicleMarkers } from '@/features/stations/station-vehicle-markers';
