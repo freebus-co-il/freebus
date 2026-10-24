@@ -394,6 +394,19 @@
       "sooner_two": "הגעה {{count}} דק׳ מוקדם יותר",
       "sooner_many": "הגעה {{count}} דק׳ מוקדם יותר",
       "sooner_other": "הגעה {{count}} דק׳ מוקדם יותר"
+    },
+    "surface": {
+      "departsIn": "יציאה בעוד",
+      "arrivesIn": "הגעה בעוד",
+      "arrivesAt": "הגעה ב-{{time}}",
+      "fromStop": "מתחנת {{name}}",
+      "getOffAt": "ירידה ב{{name}}",
+      "nextStop": "התחנה הבאה: {{name}}",
+      "transferTo": "החלפה לקו {{line}}",
+      "then": "אחריו: {{rides}}",
+      "stops_one": "תחנה",
+      "stops_two": "תחנות",
+      "stops_other": "תחנות"
     }
   },
   "run": {
@@ -471,7 +484,10 @@
     "alertSound": "צליל",
     "alertVibrate": "רטט",
     "alertRepeat": "להמשיך להתריע עד שאאשר",
-    "aboutRow": "אודות האפליקציה"
+    "aboutRow": "אודות האפליקציה",
+    "liveSurface": "הנסיעה במסך הנעילה",
+    "liveSurfaceAndroid": "התראת נסיעה קבועה",
+    "liveSurfaceFooter": "מציג את הנסיעה במסך הנעילה ועוקב אחר המיקום בזמן הנסיעה, כך שמספר התחנות שנותרו מתעדכן. כיבוי חוסך סוללה; התראות הירידה ימשיכו לפעול."
   },
   "recentSearches": {
     "title": "חיפושים אחרונים"

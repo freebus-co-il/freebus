@@ -58,6 +58,7 @@ const GLYPHS = {
   sound: { ios: 'speaker.wave.2', android: 'volume_up' },
   repeat: { ios: 'repeat', android: 'repeat' },
   vibrate: { ios: 'iphone.radiowaves.left.and.right', android: 'vibration' },
+  lockScreen: { ios: 'lock.iphone', android: 'notifications_active' },
   language: { ios: 'globe', android: 'language' },
   appearance: { ios: 'circle.lefthalf.filled', android: 'dark_mode' },
   share: { ios: 'square.and.arrow.up', android: 'share' },

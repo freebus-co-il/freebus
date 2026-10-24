@@ -75,6 +75,9 @@ class JourneyStateRecord : Record {
   @Field var offPlan: String? = null
 
   @Field var progress: Double = 0.0
+
+  /** "live" or "scheduled": which clock the countdown runs to. */
+  @Field var timeSource: String = "scheduled"
 }
 
 /** `RailSegment`. */
@@ -125,6 +128,36 @@ class JourneySurfaceCopyRecord : Record {
   /** "Live" / "Scheduled" beside a departure countdown, already translated.
    *  Empty when there is nothing to label. */
   @Field var liveLabel: String = ""
+
+  /** "Get off" in one word, for the status-bar chip at the alight stop. */
+  @Field var alightNow: String = ""
+
+  /** "Departs in" / "Arrives in". Unused here: the chronometer sits in the
+   *  header beside the app name, where Android already reads it as a time
+   *  remaining. Declared so the record matches the JS contract. */
+  @Field var countdownLabel: String = ""
+
+  /** While waiting: the later rides from the same stop, already formatted. */
+  @Field var then: String? = null
+
+  /** The stop strip while on a ride. */
+  @Field var ride: SurfaceRideRecord? = null
+
+  /** The line in play's colour, theme-independent. Empty off a line. */
+  @Field var routeColor: String = ""
+}
+
+/** `SurfaceRide`. `passed` is null without a fix: no stop count is drawn then. */
+class SurfaceRideRecord : Record {
+  @Field var stops: Int = 1
+
+  @Field var passed: Int? = null
+
+  @Field var stopsLabel: String = ""
+
+  @Field var from: String = ""
+
+  @Field var to: String = ""
 }
 
 /** `LiveSurfaceAlert`. `title` and `body` arrive already resolved through

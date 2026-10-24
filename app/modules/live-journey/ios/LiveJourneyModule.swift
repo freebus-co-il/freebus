@@ -46,6 +46,8 @@ struct JourneyStateRecord: Record {
   @Field var timer: TimerRecord?
   @Field var offPlan: String?
   @Field var progress: Double = 0
+  /// "live" or "scheduled": which clock the countdown runs to.
+  @Field var timeSource: String = "scheduled"
 }
 
 /// `RailSegment`.
@@ -87,6 +89,24 @@ struct JourneySurfaceCopyRecord: Record {
   @Field var alightNow: String = ""
   /// "Live" / "Scheduled" beside a departure countdown, already translated.
   @Field var liveLabel: String = ""
+  /// "Departs in" / "Arrives in", over the countdown.
+  @Field var countdownLabel: String = ""
+  /// The later rides from the same stop, while waiting.
+  @Field var then: String?
+  @Field var ride: SurfaceRideRecord?
+  @Field var rtl: Bool = false
+  /// The line in play's colour, sent with every update so an activity that
+  /// outlived the process that started it still has one. Empty off a line.
+  @Field var routeColor: String = ""
+}
+
+/// `SurfaceRide`: the stop strip while on a ride.
+struct SurfaceRideRecord: Record {
+  @Field var stops: Int = 1
+  @Field var passed: Int?
+  @Field var stopsLabel: String = ""
+  @Field var from: String = ""
+  @Field var to: String = ""
 }
 
 /// `LiveSurfaceAlert`. `title` and `body` arrive already resolved through
@@ -282,7 +302,7 @@ public class LiveJourneyModule: Module {
       alightNow: copy.alightNow.isEmpty ? nil : copy.alightNow,
       liveLabel: copy.liveLabel.isEmpty ? nil : copy.liveLabel,
       routeShortName: state.leg?.route?.shortName ?? "",
-      routeColorHex: segment?.color ?? "#666666",
+      routeColorHex: copy.routeColor.isEmpty ? (segment?.color ?? "#666666") : copy.routeColor,
       routeType: state.leg?.route?.type ?? 3,
       stopsRemaining: state.stopsRemaining,
       progress: min(max(state.progress, 0), 1),
@@ -290,6 +310,15 @@ public class LiveJourneyModule: Module {
       timerTo: Self.date(state.timer?.to),
       alertTitle: alert?.title,
       alertBody: alert?.body,
+      countdownLabel: copy.countdownLabel.isEmpty ? nil : copy.countdownLabel,
+      then: copy.then?.isEmpty == false ? copy.then : nil,
+      isLive: state.timeSource == "live",
+      rideStops: copy.ride.map { max(1, $0.stops) },
+      ridePassed: copy.ride?.passed,
+      rideStopsLabel: copy.ride?.stopsLabel,
+      rideFrom: Self.date(copy.ride?.from),
+      rideTo: Self.date(copy.ride?.to),
+      rtl: copy.rtl,
       acknowledged: acknowledged
     )
   }

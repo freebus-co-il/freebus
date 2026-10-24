@@ -33,6 +33,11 @@ type StoredState = {
   mapStyle: MapStylePreference;
   timeFormat: TimeFormat;
   alertSettings: AlertSettings;
+  /** The journey on the Lock Screen (Live Activity) or in the shade (the
+   *  ongoing notification), and the ride-time location that keeps it current.
+   *  Off for a rider who finds it noisy or wants the battery; the get-off
+   *  alarm does not depend on it. */
+  liveSurface: boolean;
 };
 
 const DEFAULT_STATE: StoredState = {
@@ -41,6 +46,7 @@ const DEFAULT_STATE: StoredState = {
   mapStyle: 'app',
   timeFormat: 'countdown',
   alertSettings: DEFAULT_ALERT_SETTINGS,
+  liveSurface: true,
 };
 
 /**
@@ -80,6 +86,7 @@ function parseStoredState(raw: string | null): StoredState {
       mapStyle: ['app', 'light', 'dark'].includes(parsed?.mapStyle) ? parsed.mapStyle : 'app',
       timeFormat: ['countdown', 'clock'].includes(parsed?.timeFormat) ? parsed.timeFormat : 'countdown',
       alertSettings: parseAlertSettings(parsed?.alertSettings),
+      liveSurface: typeof parsed?.liveSurface === 'boolean' ? parsed.liveSurface : true,
     };
   } catch {
     return DEFAULT_STATE;
@@ -212,6 +219,10 @@ function usePreferencesState() {
     setState((current) => ({ ...current, alertSettings: next }));
   }
 
+  function setLiveSurface(next: boolean) {
+    setState((current) => ({ ...current, liveSurface: next }));
+  }
+
   return {
     loaded: loaded && directionSettled,
     language,
@@ -220,11 +231,13 @@ function usePreferencesState() {
     mapStylePreference: state.mapStyle,
     timeFormat: state.timeFormat,
     alertSettings: state.alertSettings,
+    liveSurface: state.liveSurface,
     setLanguage,
     setTheme,
     setMapStyle,
     setTimeFormat,
     setAlertSettings,
+    setLiveSurface,
   };
 }
 

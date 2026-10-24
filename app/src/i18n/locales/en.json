@@ -355,6 +355,18 @@
       "stopChanged": "Your stop changed: {{name}}",
       "sooner_one": "Arriving {{count}} min sooner",
       "sooner_other": "Arriving {{count}} min sooner"
+    },
+    "surface": {
+      "departsIn": "Departs in",
+      "arrivesIn": "Arrives in",
+      "arrivesAt": "Arrives at {{time}}",
+      "fromStop": "From {{name}}",
+      "getOffAt": "Get off at {{name}}",
+      "nextStop": "Next: {{name}}",
+      "transferTo": "Change to {{line}}",
+      "then": "Then: {{rides}}",
+      "stops_one": "stop",
+      "stops_other": "stops"
     }
   },
   "run": {
@@ -428,7 +440,10 @@
     "alertSound": "Sound",
     "alertVibrate": "Vibration",
     "alertRepeat": "Keep alerting until I acknowledge",
-    "aboutRow": "About FreeBus"
+    "aboutRow": "About FreeBus",
+    "liveSurface": "Trip on Lock Screen",
+    "liveSurfaceAndroid": "Ongoing trip notification",
+    "liveSurfaceFooter": "Shows your trip on the Lock Screen and follows your location while you ride, so the stops left stay current. Turn it off to save battery; get-off alerts still work."
   },
   "recentSearches": {
     "title": "Recent searches"

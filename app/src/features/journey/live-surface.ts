@@ -1,60 +1,12 @@
 import { NativeModule, requireOptionalNativeModule, type EventSubscription } from 'expo-modules-core';
-import type { TFunction } from 'i18next';
 
-import type { JourneyCopy } from './journey-copy';
 import type { JourneyRail } from './journey-rail';
+import type { JourneySurfaceCopy } from './surface-copy';
 import type { ActiveJourney, JourneyState } from './types';
 
 export type LiveSurfaceAlert = { title: string; body: string; sound: boolean; vibrate: boolean };
 
-/**
- * The words a live surface prints, resolved on this side of the bridge.
- *
- * A `JourneyState` carries facts and no prose, so a renderer handed only the
- * state has to invent its own -- which is how the Android module ended up with
- * a second copy of the `journey.*` keys in `strings.xml`, one per locale, free
- * to drift from the JSON the rest of the app reads. `react-i18next` lives here
- * and only here; the surfaces are handed the finished sentences.
- *
- * `hero` is fed from `JourneyCopy.heroStatic`, NOT from its `hero`: these
- * surfaces render their own countdown from a date range the OS animates, so a
- * sentence with a minute baked into it would both cost an update a minute and
- * freeze mid-count the moment the app suspends. `action` is dropped because
- * neither OS surface has anywhere to put a control that re-plans.
- */
-export type JourneySurfaceCopy = {
-  hero: string;
-  supporting: string | null;
-  accent: string;
-  /**
-   * "Get off" in one word, for the slot beside the camera.
-   *
-   * The Dynamic Island's compact trailing element is about 46pt wide -- room
-   * for a clock or a glyph, and nothing like room for the `alight-soon` hero.
-   * It printed a hardcoded "NOW", which is the one thing this whole contract
-   * exists to prevent: an English word, on a Hebrew phone, on the surface the
-   * rider is most likely to be reading at a run. So it crosses the bridge
-   * translated like every other word does.
-   */
-  alightNow: string;
-  /** "Live" / "Scheduled" beside a departure countdown, already translated;
-   *  empty when there is nothing to label (see `liveLabelFor`). */
-  liveLabel: string;
-};
-
-/** Narrows the full in-app copy to what an OS surface should print. The one
- *  place `heroStatic` is chosen over `hero`, so no caller has to remember. */
-export function surfaceCopy(copy: JourneyCopy, t: TFunction, liveLabel = ''): JourneySurfaceCopy {
-  return {
-    hero: copy.heroStatic,
-    supporting: copy.supporting,
-    accent: copy.accent,
-    // Phase-independent: the widget reads it only while alighting, and paying
-    // for one lookup per update is cheaper than threading a phase in here.
-    alightNow: t('journey.phase.alightSoonCompact'),
-    liveLabel,
-  };
-}
+export type { JourneySurfaceCopy, SurfaceRide } from './surface-copy';
 
 type LiveSurfaceEvents = {
   /** The rider pressed "Got it" on the Lock Screen or in the shade. Fired by

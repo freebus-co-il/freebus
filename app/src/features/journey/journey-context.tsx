@@ -39,13 +39,15 @@ import { useLiveReplan } from './replan/use-live-replan';
 import {
   addAcknowledgeAlightListener,
   liveSurface,
-  surfaceCopy,
   type JourneySurfaceCopy,
   type LiveSurfaceAlert,
 } from './live-surface';
+import { RIDE_PHASES, setRideFixListener, startRideUpdates, stopRideUpdates } from './ride-tracking';
 import { pip, useJourneyPipPosition, useJourneyVisible } from './pip';
+import { surfaceCopy } from './surface-copy';
 import { sameFacts, surfaceFacts, type SurfaceFacts } from './surface-facts';
 import { countEvent } from '@/lib/analytics';
+import { formatClockTime } from '@/lib/format';
 import { hapticSucceeded, hapticWarned } from '@/lib/haptics';
 
 import type { ActiveJourney, AlertSettings, JourneyState, RiderPosition } from './types';
@@ -422,6 +424,7 @@ async function scheduleAlightAlerts(
  *  the rider has finished is worse than never having armed one. */
 async function releaseOsResources(journey: ActiveJourney | null): Promise<void> {
   await liveSurface.stop();
+  await stopRideUpdates();
   await disarmGeofences();
   if (journey) await cancelAlertsMatching(`${journey.id}:`);
 }
@@ -498,7 +501,7 @@ function useJourneyState() {
   // surface and the scheduler can never disagree about how early to shout.
   // Safe to depend on because `JourneyProvider` sits inside
   // `PreferencesProvider` (see `_layout.tsx`).
-  const { alertSettings: settings } = usePreferences();
+  const { alertSettings: settings, liveSurface: surfaceEnabled } = usePreferences();
 
   // The live surface is handed finished sentences rather than left to invent
   // its own, so the words the Lock Screen says are resolved HERE -- the one
@@ -546,7 +549,10 @@ function useJourneyState() {
       // countdown as soon as the app suspends.
       surfaceCopy(
         journeyCopy(resolved, of.itinerary, of.destinationLabel, t, palette),
+        resolved,
+        of.itinerary,
         t,
+        { clock: formatClockTime, rtl: i18n.dir() === 'rtl' },
         liveLabelFor(resolved, realtimeAvailable, t),
       ),
     [t, palette, realtimeAvailable],
@@ -615,6 +621,13 @@ function useJourneyState() {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+  /** Read by every path that would draw the OS surface. A ref because
+   *  `start()` and the re-plan path are callbacks that must not be rebuilt,
+   *  and re-armed, just because the rider flipped a switch. */
+  const surfaceEnabledRef = useRef(surfaceEnabled);
+  useEffect(() => {
+    surfaceEnabledRef.current = surfaceEnabled;
+  }, [surfaceEnabled]);
 
   /**
    * Takes a fix from wherever one comes from -- the foreground watch, the PiP
@@ -781,6 +794,7 @@ function useJourneyState() {
       // no-op, so on those builds the scheduled alert is the ONLY loud thing
       // that will happen -- cancelling it here would trade a duplicate alarm
       // for no alarm at all. The rider's acknowledgement is what retires it.
+      if (!surfaceEnabledRef.current) return;
       void liveSurface.update(
         next,
         nextCopy,
@@ -796,6 +810,58 @@ function useJourneyState() {
   useEffect(() => {
     if (state && copy) pushSurface(state, copy);
   }, [state, copy, pushSurface]);
+
+  /** The latest of everything a surface starts from, for the switch below to
+   *  start one mid-journey without keying on values that change every tick. */
+  const latest = useRef({ journey, state, copy });
+  useEffect(() => {
+    latest.current = { journey, state, copy };
+  }, [journey, state, copy]);
+
+  /**
+   * The rider flipping the Lock Screen switch during a journey. Only a CHANGE
+   * acts: on launch the surface is already whatever the last session left it,
+   * and a running activity must not be restarted just because the app opened.
+   */
+  const surfaceWas = useRef(surfaceEnabled);
+  useEffect(() => {
+    if (surfaceWas.current === surfaceEnabled) return;
+    surfaceWas.current = surfaceEnabled;
+    const { journey: running, state: now, copy: words } = latest.current;
+    if (!surfaceEnabled) {
+      void liveSurface.stop().catch(() => {});
+      return;
+    }
+    if (!running || !now || !words || now.phase === 'arrived') return;
+    pushedFacts.current = surfaceFacts(now, words);
+    void liveSurface.start(running, now, buildJourneyRail(running.itinerary), words).catch(() => {
+      // Live Activities switched off in iOS Settings: the in-app journey is
+      // complete without it.
+    });
+  }, [surfaceEnabled]);
+
+  /**
+   * Fixes from the ride tier, wherever the app is. Subscribed for the
+   * provider's life: the task only delivers while it is registered, which the
+   * effect below decides.
+   */
+  useEffect(() => setRideFixListener(recordFix), [recordFix]);
+
+  /**
+   * The ride tier: background location while at the stop and on the bus, so
+   * the Lock Screen keeps counting stops with the phone in a pocket. Off with
+   * the Lock Screen switch, since a stop count nobody can see is battery spent
+   * for nothing; the get-off alarm keeps its geofences either way.
+   */
+  const ridePhase = state !== null && RIDE_PHASES.has(state.phase);
+  const rideTracked = journeyId !== null && ridePhase && surfaceEnabled;
+  // Keyed on the journey as well: `start()` releases the previous journey's
+  // OS resources, ride tier included, and a new journey that is also at a stop
+  // would otherwise leave `rideTracked` true throughout and never restart it.
+  useEffect(() => {
+    if (rideTracked) void startRideUpdates();
+    else void stopRideUpdates();
+  }, [rideTracked, journeyId]);
 
   /**
    * The PiP window is offered for exactly as long as there is a journey still
@@ -942,7 +1008,9 @@ function useJourneyState() {
       pushedFacts.current = surfaceFacts(opening, openingCopy);
       alertedLegs.current = new Set();
 
-      await liveSurface.start(next, opening, buildJourneyRail(itinerary), openingCopy);
+      if (surfaceEnabledRef.current) {
+        await liveSurface.start(next, opening, buildJourneyRail(next.itinerary), openingCopy);
+      }
       await armGeofences(next);
       await scheduleAlightAlerts(next, settings);
     },
@@ -1083,7 +1151,7 @@ function useJourneyState() {
       // cannot start (Live Activities turned off) costs the Island, not the
       // switch, which has already happened.
       try {
-        await liveSurface.start(next, resolved, buildJourneyRail(itinerary), copy);
+        if (surfaceEnabledRef.current) await liveSurface.start(next, resolved, buildJourneyRail(itinerary), copy);
       } catch {
         // See above.
       }

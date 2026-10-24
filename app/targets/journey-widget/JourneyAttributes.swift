@@ -129,6 +129,28 @@ struct JourneyAttributes: ActivityAttributes {
     /// whether to draw the acknowledge button.
     var alertTitle: String?
     var alertBody: String?
+    /// "Departs in" / "Arrives in" over the countdown, which is what stops a
+    /// bare `4:12` reading as a time of day beside the Lock Screen clock.
+    /// Every field from here down is optional for the activity a previous
+    /// build already has running.
+    var countdownLabel: String?
+    /// While waiting: the later rides from the same stop, already formatted.
+    var then: String?
+    /// The countdown runs to a live prediction rather than the timetable.
+    var isLive: Bool?
+    /// The ride as a stop strip: stops to ride (alight stop included), how
+    /// many are behind the rider (nil without a fix, when the strip fills by
+    /// time between `rideFrom` and `rideTo` instead), and the word under the
+    /// big stop count.
+    var rideStops: Int?
+    var ridePassed: Int?
+    var rideStopsLabel: String?
+    var rideFrom: Date?
+    var rideTo: Date?
+    /// The APP's reading direction. The widget extension declares no
+    /// localisations of its own, so without this a Hebrew card lays out left
+    /// to right.
+    var rtl: Bool?
     /// Set by the "Got it" App Intent, in the app's process, without the phone
     /// ever being unlocked.
     var acknowledged: Bool
@@ -154,6 +176,12 @@ struct JourneyAttributes: ActivityAttributes {
     var nudging: Bool {
       guard !acknowledged, let stops = stopsRemaining else { return false }
       return stops <= silentNudgeStopsRemaining
+    }
+
+    /// The ride's span for the time-filled strip, or nil.
+    var rideRange: ClosedRange<Date>? {
+      guard let from = rideFrom, let to = rideTo, to > from else { return nil }
+      return from...to
     }
 
     var alerting: Bool {

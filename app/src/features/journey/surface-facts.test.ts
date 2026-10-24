@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { JourneySurfaceCopy } from './live-surface';
+import type { JourneySurfaceCopy } from './surface-copy';
 import { sameFacts, surfaceFacts } from './surface-facts';
 import type { JourneyState } from './types';
 
-const copy: JourneySurfaceCopy = { hero: '480', supporting: 'towards Bat Yam', accent: '#000', alightNow: 'NOW', liveLabel: 'Live' };
+const copy: JourneySurfaceCopy = { hero: '480', supporting: 'towards Bat Yam', accent: '#000', alightNow: 'NOW', liveLabel: 'Live',
+  countdownLabel: 'Departs in', then: null, ride: null, rtl: false, routeColor: '#123456' };
 function state(to: string | null, overrides: Partial<JourneyState> = {}): JourneyState {
   return {
     phase: 'waiting', legIndex: 1, leg: null, stopsRemaining: null,
