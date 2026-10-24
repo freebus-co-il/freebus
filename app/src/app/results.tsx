@@ -358,6 +358,9 @@ const styles = StyleSheet.create({
    *  floats over the map. */
   topChipScroll: {
     flexGrow: 0,
+    // A scroll view clips to its bounds, and the chips are glass that grows
+    // past its frame under a touch.
+    overflow: 'visible',
   },
   topChipRow: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, View, type StylePro
 
 import { useColors, useGlassEnabled } from '../theme';
 import { Opacity, Radius, Size, Space, type ColorRole } from '../tokens';
-import { Glass } from './glass';
+import { Glass, GLASS_TARGET_CLIP } from './glass';
 import { Icon, type IconName } from './icon';
 import { Text } from './text';
 
@@ -80,6 +80,7 @@ export function Button({
       android_ripple={variant === 'plain' ? undefined : { color: colors.fillPressed, borderless: false }}
       style={({ pressed }) => [
         styles.shape,
+        usesGlass ? GLASS_TARGET_CLIP : styles.clip,
         fullWidth ? styles.full : styles.hug,
         inactive && { opacity: Opacity.disabled },
         // Glass answers a press itself; everything else dims.
@@ -114,8 +115,10 @@ export function Button({
 
 const styles = StyleSheet.create({
   // The press target takes the pill's shape, so Android's ripple and focus
-  // highlight follow it instead of drawing a square around it.
-  shape: { borderRadius: Radius.full, overflow: 'hidden' },
+  // highlight follow it instead of drawing a square around it. Clipped only
+  // when it holds no glass: glass grows past its frame under a touch.
+  shape: { borderRadius: Radius.full },
+  clip: { overflow: 'hidden' },
   full: { alignSelf: 'stretch' },
   hug: { alignSelf: 'flex-start' },
   fill: { borderRadius: Radius.full, overflow: 'hidden' },

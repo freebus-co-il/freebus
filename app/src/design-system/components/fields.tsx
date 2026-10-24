@@ -7,7 +7,7 @@ import { INPUT_ALIGN_START } from '@/i18n/direction';
 import { useColors } from '../theme';
 import { Opacity, Radius, Size, Space, Type } from '../tokens';
 
-import { Glass } from './glass';
+import { Glass, GLASS_TARGET_CLIP } from './glass';
 import { Icon } from './icon';
 import { IconButton } from './icon-button';
 import { Text } from './text';
@@ -115,7 +115,7 @@ export const SearchButton = forwardRef<View, { label: string; onPress: () => voi
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
-      style={({ pressed }) => [styles.grow, styles.pill, pressed && Platform.OS !== 'ios' && { opacity: Opacity.pressed }, style]}
+      style={({ pressed }) => [styles.grow, styles.pill, GLASS_TARGET_CLIP, pressed && Platform.OS !== 'ios' && { opacity: Opacity.pressed }, style]}
     >
       <Glass interactive shape="capsule" style={styles.button}>
         <Icon name="search" size="md" weight="medium" />
@@ -180,8 +180,9 @@ const styles = StyleSheet.create({
   glassField: { borderWidth: 0, paddingStart: Space.lg },
   fieldPlaceholder: { height: Size.control.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  // Android draws its focus highlight on the press target: give it the pill's shape.
-  pill: { borderRadius: Radius.full, overflow: 'hidden' },
+  // Android draws its focus highlight on the press target: give it the pill's
+  // shape (clipped there only -- iOS 26's glass grows past it under a touch).
+  pill: { borderRadius: Radius.full },
   button: {
     flexDirection: 'row',
     alignItems: 'center',

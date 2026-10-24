@@ -159,6 +159,7 @@ function SnapCarouselInner<T>(
       // One card per swipe, however hard the fling: a rider reading a journey
       // step by step should never skip past the step they meant to read.
       disableIntervalMomentum
+      style={styles.list}
       contentContainerStyle={styles.content}
       onViewableItemsChanged={handleViewableChanged}
       viewabilityConfig={viewabilityConfig}
@@ -187,6 +188,11 @@ export const SnapCarousel = forwardRef(SnapCarouselInner) as <T>(
 ) => ReactElement;
 
 const styles = StyleSheet.create({
+  // A scroll view clips to its bounds, and a pressable glass card grows past
+  // its frame under a touch.
+  list: {
+    overflow: 'visible',
+  },
   content: {
     paddingHorizontal: SIDE_INSET,
     gap: GAP,
