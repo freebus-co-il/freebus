@@ -8,49 +8,19 @@ import { useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
 import { useNearbyStops } from '@/api/stops';
 import type { Departure, NearbyStop } from '@/api/types';
-import { LineBadge } from '@/components/line-badge';
-import { LiveIndicator } from '@/components/live-indicator';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
-import { Banner, ListRow, ListSection, Size, SkeletonRow, Space, Text, useColors, withAlpha } from '@/design-system';
+import { Banner, ListRow, ListSection, SkeletonRow, Space, Text, useColors, withAlpha } from '@/design-system';
 import { useSearch } from '@/features/search/search-context';
 import { useNow } from '@/hooks/use-now';
-import { departureTime } from '@/lib/departure-time';
-import { formatDistanceMeters, formatDurationMinutes } from '@/lib/format';
+import { formatDistanceMeters } from '@/lib/format';
+
+import { DepartureEntry } from './departure-entry';
+import { CLOSEST_STATION_MAP, ClosestStationMap, ClosestStationMapPlaceholder } from './nearby-stops-map';
 
 const DEPARTURES_PER_STATION = 4;
 /** How many placeholder rows stand in for the list while the fix and the
  *  stops are on their way -- about what the section shows once loaded. */
 const SKELETON_ROWS = 3;
-
-function secondsUntil(iso: string, now: Date): number {
-  return Math.max(0, (new Date(iso).getTime() - now.getTime()) / 1000);
-}
-
-/** One departure, read as a line of text rather than as an object: the
- *  route badge, then how long until it goes.
- *
- *  Not a capsule: a row of capsules reads as a row of
- *  buttons, and none of these is pressable -- the whole station row is.
- *  The pairing is carried by spacing instead: `Space.xs` inside a
- *  departure against `Space.lg` between them, so each time sits
- *  visibly closer to its own badge than to the next one. */
-export function DepartureEntry(
-  { departure, showLive, now }: { departure: Departure; showLive: boolean; now: Date },
-) {
-  const colors = useColors();
-  const time = departureTime(departure.departureTime, departure.realtime);
-  const live = showLive && time.live;
-
-  return (
-    <View style={styles.departure}>
-      <LineBadge route={departure.route} size="small" />
-      {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
-      <Text variant="footnote" numeric color={live ? 'live' : 'textSecondary'}>
-        {formatDurationMinutes(secondsUntil(time.iso, now))}
-      </Text>
-    </View>
-  );
-}
 
 /**
  * The departures for one stop, on ONE line however many there are.
@@ -177,12 +147,16 @@ function StationRow(
  *  the home screen scrolls as one page, and a list that scrolled inside that
  *  page would trap the gesture and cut itself off at whatever height was
  *  left over. */
-export function NearbyStops({ limit, footer }: {
+export function NearbyStops({ limit, footer, featureClosest = false }: {
   /** How many stops. The home screen keeps the API's default handful; the
    *  Stations tab shows more, because there nearby IS the browse list. */
   limit?: number;
   /** A note under the list (where to look for anything further away). */
   footer?: string;
+  /** Draws the closest station as a map at the top of the group instead of
+   *  as a row, and lists the rest under it -- so `limit` is the map's station
+   *  plus the rows. The home screen's hero. */
+  featureClosest?: boolean;
 } = {}) {
   const { t, i18n } = useTranslation();
   const showLive = useRealtimeAvailable();
@@ -196,6 +170,7 @@ export function NearbyStops({ limit, footer }: {
 
   const { data, isLoading } = useNearbyStops(here && { lat: here.lat, lon: here.lon }, i18n.language, limit);
   const stops = data?.stops ?? [];
+  const withMap = featureClosest && CLOSEST_STATION_MAP;
 
   if (originState.status === 'error') {
     const denied = originState.message === 'location_permission_denied';
@@ -213,7 +188,10 @@ export function NearbyStops({ limit, footer }: {
 
   if (here === null || isLoading) {
     return (
-      <ListSection title={t('nearby.title')}>
+      <ListSection
+        title={withMap ? undefined : t('nearby.title')}
+        media={withMap ? <ClosestStationMapPlaceholder /> : undefined}
+      >
         {Array.from({ length: SKELETON_ROWS }, (_, index) => <SkeletonRow key={index} />)}
       </ListSection>
     );
@@ -228,8 +206,13 @@ export function NearbyStops({ limit, footer }: {
   }
 
   return (
-    <ListSection title={t('nearby.title')} footer={footer}>
-      {stops.map((stop) => (
+    <ListSection
+      // With the map, its panel carries the title.
+      title={withMap ? undefined : t('nearby.title')}
+      media={withMap ? <ClosestStationMap here={here} stops={stops} lang={i18n.language} /> : undefined}
+      footer={footer}
+    >
+      {(withMap ? stops.slice(1) : stops).map((stop) => (
         <StationRow
           key={stop.stopId}
           stop={stop}
@@ -257,13 +240,6 @@ const styles = StyleSheet.create({
   // end edge, it never squeezes the departures to fit.
   departureSlot: {
     flexShrink: 0,
-  },
-  // Tighter than the gap BETWEEN departures, which is the whole of what
-  // binds a time to its own badge now that no capsule does.
-  departure: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.xs,
   },
   // `end`, not `right`: the hidden tail is at the writing direction's end,
   // which is the LEFT edge in Hebrew.

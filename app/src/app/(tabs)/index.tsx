@@ -28,7 +28,6 @@ import type { SavedLocation } from '@/features/saved-locations/types';
 import { useSearch } from '@/features/search/search-context';
 import { onSearchMorph, setSearchMorphOrigin, type MorphFrame } from '@/features/search/search-morph';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
-import { NearbySuggestion } from '@/features/smart-suggestion/nearby-suggestion';
 import { SmartSuggestion } from '@/features/smart-suggestion/smart-suggestion';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { hapticWarned } from '@/lib/haptics';
@@ -37,6 +36,8 @@ import { hapticWarned } from '@/lib/haptics';
  *  commute suggestion (which itself falls back to the peek when there is no
  *  commute to offer). Fixed for now; the rider will get to pick. */
 const HOME_CARD: 'nearby' | 'commute' = 'nearby';
+/** The closest station on the map, then ten more as rows under it. */
+const HOME_NEARBY_STOPS = 11;
 
 // No title: the "Where to?" capsule IS the top of the page. Still just the
 // one prompt, not the results screen's full origin+destination+swap layout,
@@ -188,11 +189,18 @@ export default function SearchScreen() {
         scrollEventThrottle={header.scrollEventThrottle}
         showsVerticalScrollIndicator={false}
       >
-        {/* Above Nearby stops on purpose: an answer outranks a list of
-            places to look. */}
-        {HOME_CARD === 'nearby' ? <NearbySuggestion /> : <SmartSuggestion onSelect={selectDestination} />}
-
-        <NearbyStops />
+        {/* The commute card sits above Nearby stops on purpose: an answer
+            outranks a list of places to look. Without one, the nearby map
+            heads the stations it draws, as one group, rather than being a
+            card of its own that repeats the list's title and first row. */}
+        {HOME_CARD === 'nearby' ? (
+          <NearbyStops limit={HOME_NEARBY_STOPS} featureClosest />
+        ) : (
+          <>
+            <SmartSuggestion onSelect={selectDestination} />
+            <NearbyStops />
+          </>
+        )}
       </ScrollView>
 
       {/* The search capsule and the shortcut chips are one cluster -- how

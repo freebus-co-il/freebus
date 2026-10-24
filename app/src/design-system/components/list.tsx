@@ -21,6 +21,10 @@ export type ListSectionProps = {
    *  default a separator clears the leading slot of the row under it when that
    *  row has one, and starts at the row's text inset when it doesn't. */
   separatorInsetStart?: number;
+  /** Full-bleed content at the top of the group, above the first row and with
+   *  no separator under it (a map over a list of the places on it). The group
+   *  rounds its top corners; it draws its own height. Grouped variant only. */
+  media?: ReactNode;
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
@@ -36,6 +40,7 @@ export function ListSection({
   footer,
   variant = 'grouped',
   separatorInsetStart,
+  media,
   children,
   style,
 }: ListSectionProps) {
@@ -54,7 +59,7 @@ export function ListSection({
           {headerAccessory}
         </View>
       )}
-      {rows.length > 0 && (
+      {(rows.length > 0 || (grouped && media)) && (
         <View
           style={
             grouped
@@ -62,6 +67,7 @@ export function ListSection({
               : null
           }
         >
+          {grouped && media}
           {rows.map((row, index) => (
             <Fragment key={row.key ?? index}>
               {index > 0 && <Separator insetStart={separatorInsetStart ?? insetFor(row)} />}
