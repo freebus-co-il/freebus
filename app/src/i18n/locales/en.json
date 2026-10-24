@@ -405,6 +405,7 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "alerts": "Get off alerts",
+    "alertLead": "When to alert",
     "alertLeadOneStop": "1 stop",
     "alertLeadTwoStops": "2 stops",
     "alertLeadThreeMinutes": "3 min",
@@ -412,7 +413,6 @@
     "alertSound": "Sound",
     "alertVibrate": "Vibration",
     "alertRepeat": "Keep alerting until I acknowledge",
-    "about": "About & legal",
     "aboutRow": "About FreeBus"
   },
   "recentSearches": {

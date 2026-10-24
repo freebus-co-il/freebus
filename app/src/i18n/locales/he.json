@@ -448,6 +448,7 @@
     "themeLight": "בהיר",
     "themeDark": "כהה",
     "alerts": "התראות ירידה",
+    "alertLead": "מתי להתריע",
     "alertLeadOneStop": "תחנה אחת",
     "alertLeadTwoStops": "שתי תחנות",
     "alertLeadThreeMinutes": "3 דק׳",
@@ -455,7 +456,6 @@
     "alertSound": "צליל",
     "alertVibrate": "רטט",
     "alertRepeat": "להמשיך להתריע עד שאאשר",
-    "about": "אודות ומידע משפטי",
     "aboutRow": "אודות האפליקציה"
   },
   "recentSearches": {

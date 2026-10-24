@@ -117,6 +117,10 @@ function App() {
                 <Stack.Screen name="map-picker" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="save-location" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="about" />
+                {/* The Settings tab's pages, pushed over the tab bar like `about`. */}
+                <Stack.Screen name="settings/language" />
+                <Stack.Screen name="settings/appearance" />
+                <Stack.Screen name="settings/alerts" />
                 {/* Same reasoning, plus one of its own: the journey screen is what
                     the docked bar EXPANDS into, so it has to cover the bar. */}
                 <Stack.Screen name="journey" options={{ animation: 'slide_from_bottom' }} />
