@@ -8,7 +8,7 @@ import {
 // Set once the server exists, so warnings raised by an import go to the same
 // structured log as everything else. Imports can only be triggered after the
 // server is built (cron arming and the startup check both happen below), so
-// this is never read while still null in practice — the fallback is there so
+// this is never read while still null in practice; the fallback is there so
 // a future caller reordering the bootstrap degrades to stderr rather than
 // throwing.
 let warn: (message: string) => void = (message) => console.warn(message);
@@ -56,7 +56,7 @@ try {
   await app.listen({ port: config.port, host: config.host });
   app.log.info({ nextRun: schedule.nextRun() }, "schedule armed");
 
-  // Bootstrap rather than waiting for the first cron — not only when the
+  // Bootstrap rather than waiting for the first cron, not only when the
   // data directory is empty, but also when what is live has gone stale,
   // which is what happens to a service that was down across its 03:00
   // window. See startupImportReason.

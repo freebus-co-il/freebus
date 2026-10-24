@@ -11,13 +11,13 @@ export interface RouteBriefByIdx {
  * Everything a route handler reads from the live database OUTSIDE the RAPTOR
  * index: the raw connection, translations, the active calendar, and a
  * route-index-aligned brief/type lookup (parallel to `TimetableIndex`'s own
- * `routeIds` ordering — `ORDER BY route_id`, exactly as `buildIndex` orders
- * it — so `/plan` can resolve a transit leg's route without a database query
+ * `routeIds` ordering, `ORDER BY route_id`, exactly as `buildIndex` orders
+ * it, so `/plan` can resolve a transit leg's route without a database query
  * per leg).
  *
  * Built as one unit from one resolved path and swapped as one unit by
  * `IndexManager` (see its class comment). Refreshing these fields
- * independently of one another — or independently of the RAPTOR index —
+ * independently of one another, or independently of the RAPTOR index,
  * is exactly the bug this type exists to make structurally impossible: a
  * request could otherwise read, say, a route's `type` from a newly swapped
  * feed while every stop name still came from the previous one.
@@ -31,7 +31,7 @@ export interface AppBundle {
 }
 
 /**
- * Builds a fresh `AppBundle` from an already-resolved database path — see
+ * Builds a fresh `AppBundle` from an already-resolved database path; see
  * `openTransitDbAtPath`'s comment for why the caller, not this function,
  * must be the one to resolve the live symlink.
  */

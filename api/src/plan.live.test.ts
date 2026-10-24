@@ -26,5 +26,5 @@ test("builds the real index within the measured budget", { skip: !live }, () => 
   // Late-night service is real and must survive the load unclamped.
   let maxDeparture = 0;
   for (const t of ix.departureTime) if (t > maxDeparture) maxDeparture = t;
-  assert.ok(maxDeparture > 86_400, `max departure ${maxDeparture} — times were clamped`);
+  assert.ok(maxDeparture > 86_400, `max departure ${maxDeparture}: times were clamped`);
 });

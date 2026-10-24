@@ -102,7 +102,7 @@ test("gives up after exhausting retries", async () => {
 
 /**
  * A Response whose body is a stream deliberately left open (not closed) so
- * that calling `.cancel()` on it is an unambiguous, observable release —
+ * that calling `.cancel()` on it is an unambiguous, observable release,
  * not a no-op on an already-finished stream.
  */
 function cancellableResponse(
@@ -221,12 +221,12 @@ test("does not send conditional headers on a first run with no previous version"
   assert.equal(
     seen!.has("if-none-match"),
     false,
-    "a cold start must never send If-None-Match — a stray value could draw a 304 and the service would silently never build a database",
+    "a cold start must never send If-None-Match: a stray value could draw a 304 and the service would silently never build a database",
   );
   assert.equal(
     seen!.has("if-modified-since"),
     false,
-    "a cold start must never send If-Modified-Since — a stray value could draw a 304 and the service would silently never build a database",
+    "a cold start must never send If-Modified-Since: a stray value could draw a 304 and the service would silently never build a database",
   );
 });
 
@@ -234,7 +234,7 @@ test("does not send conditional headers on a first run with no previous version"
 //
 // A stall timeout aborts a stream that stops producing bytes for longer than
 // the configured window. Without it, a half-open connection could wedge the
-// import — and with it the single-flight lock — permanently, while /health
+// import (and with it the single-flight lock) permanently, while /health
 // kept answering 200.
 
 /** A response body that emits `head`, then goes silent forever. */
@@ -302,7 +302,7 @@ test("the stall timeout is an idle timer, not a total-duration cap", async () =>
 test("a stalled body aborts the request signal, releasing the socket", async () => {
   // Racing the read is what makes the *stream* fail; aborting is what frees
   // the real connection. An injected fetchImpl's body is not wired to the
-  // signal, so only the abort is observable here — but it is the half that
+  // signal, so only the abort is observable here, but it is the half that
   // matters against a live socket, and it would be easy to drop.
   const zip = await buildFixtureZip();
   let signal: AbortSignal | undefined;

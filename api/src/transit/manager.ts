@@ -21,8 +21,8 @@ export type FootpathMode = "valhalla" | "straight-line" | "none";
  * a new feed version by unlinking the symlink and recreating it, so any
  * reload landing inside that window finds nothing. `maybeReload()` treats it
  * that way (it catches and returns false); `rebuild()` must agree rather than
- * letting `resolveLiveTarget`'s raw error escape instead — SYNCHRONOUSLY,
- * before the returned promise even exists — which would surface through
+ * letting `resolveLiveTarget`'s raw error escape instead (SYNCHRONOUSLY,
+ * before the returned promise even exists), which would surface through
  * `POST /admin/reload` as a 500 whose message was the ABSOLUTE SERVER PATH
  * of the symlink. This type is what lets the two agree: `rebuild()` rejects
  * with it, and the route maps it to a 503 the caller can simply retry, with
@@ -38,7 +38,7 @@ export class LiveDatabaseUnavailableError extends Error {
 /**
  * A client that always reports Valhalla absent, and would throw if
  * `buildFootpaths` ever actually tried to call `matrix` on it (it must
- * not — `ping()` returning `false` makes `buildFootpaths` skip straight to
+ * not: `ping()` returning `false` makes `buildFootpaths` skip straight to
  * the straight-line estimate for every pair without ever touching
  * `matrix`). Used only as the last-resort fallback in `attachFootpathsTo`
  * when the configured real client/cache path threw outright, to recompute
@@ -65,8 +65,8 @@ export interface FootpathDeps {
  *
  * - Dev (`tsx watch src/index.ts`): only `buildWorker.ts` exists. tsx makes
  *   `.ts` sources runnable from the *main* thread by registering Node's ESM
- *   customization hooks via `--import tsx`, but those hooks are thread-local
- *   — `new Worker()` spawns a fresh realm that does not inherit them. A
+ *   customization hooks via `--import tsx`, but those hooks are thread-local:
+ *   `new Worker()` spawns a fresh realm that does not inherit them. A
  *   worker pointed at `buildWorker.js` fails immediately with "Cannot find
  *   module" (nothing by that name exists); pointing it at `buildWorker.ts`
  *   directly gets further (Node/tsx can load a literal `.ts` path with no
@@ -76,23 +76,23 @@ export interface FootpathDeps {
  *   was verified empirically, including that passing
  *   `execArgv: ["--import", "tsx"]` does not help: `--import` only sets up
  *   tsx's hooks in time for a worker's *own* entry-file resolution, not for
- *   modules that entry file goes on to import — the port/MessageChannel
+ *   modules that entry file goes on to import; the port/MessageChannel
  *   handshake tsx's hook registration relies on isn't established until
  *   after the entry module has already started linking.
  *
  *   The fix that does work: register tsx's hooks *programmatically*, from
  *   inside the worker, via `tsx/esm/api`'s `register()` (the same function
  *   `--import tsx` calls under the hood, minus the CLI-only bootstrapping),
- *   and only *then* import the real worker file — as a *dynamic* import, so
+ *   and only *then* import the real worker file, as a *dynamic* import, so
  *   it starts a fresh module job after the hooks are live, rather than being
  *   hoisted and linked alongside them. A one-line `eval: true` worker does
  *   exactly that and nothing else; the real logic still lives entirely in
  *   `buildWorker.ts`. `tsx/esm/api` is a devDependency, so this branch must
- *   never run against compiled output — it is gated on `import.meta.url`
+ *   never run against compiled output; it is gated on `import.meta.url`
  *   ending in `.ts`, which is only true when *this* module itself is being
  *   served by tsx (tsx resolves the `./manager.js` specifier that imported
  *   this file back to `manager.ts` on disk; compiled output naturally ends
- *   in `.js`). Do not "simplify" this away — it is the whole fix.
+ *   in `.js`). Do not "simplify" this away; it is the whole fix.
  */
 function spawnBuildWorker(dbPath: string): Worker {
   const dev = import.meta.url.endsWith(".ts");
@@ -150,7 +150,7 @@ export class IndexManager {
       dbBuildFn?: (dbPath: string, target: string) => AppBundle;
       drain?: Drain;
       /**
-       * When provided, every successful `rebuild()` — not just the first —
+       * When provided, every successful `rebuild()`, not just the first,
        * (re)attaches footpaths to the freshly built index before it can ever
        * be served. Omitting this is an explicit opt-out: nothing manages
        * footpaths automatically, and `footpathMode()` stays whatever it was
@@ -191,7 +191,7 @@ export class IndexManager {
     // endpoints and /meta's top-level fields must be servable the instant
     // this manager exists, not only once the (asynchronous, worker-thread)
     // index has finished its first build. This mirrors exactly what this
-    // constructor replaces — a bare `openTransitDb(paths.dataDir)` call at
+    // constructor replaces: a bare `openTransitDb(paths.dataDir)` call at
     // the very top of index.ts, before the server even started listening.
     // A missing symlink throws here for the identical reason it threw there.
     const target = resolveLiveTarget(dataDir);
@@ -202,7 +202,7 @@ export class IndexManager {
   current(): TimetableIndex | null { return this.index; }
   /**
    * The database, translator, calendar and route lookups currently being
-   * served. Never null — see the constructor. Callers should re-invoke this
+   * served. Never null; see the constructor. Callers should re-invoke this
    * on every access rather than caching the result: it changes identity on
    * every successful feed swap (see `rebuild()`).
    */
@@ -243,19 +243,19 @@ export class IndexManager {
    * baked into the arrays), not the feed version, so a normal nightly swap
    * (stops rarely change, options do not change at all) hits the cache and
    * attaches in milliseconds rather than re-querying Valhalla for several
-   * hundred thousand pairs — while a retuned `WALK_MAX_METERS` and friends
+   * hundred thousand pairs, while a retuned `WALK_MAX_METERS` and friends
    * correctly miss it and rebuild.
    *
    * DEGRADED-VS-STALE DECISION: if the cache-and-Valhalla path throws
    * outright (not merely "Valhalla unreachable", which `buildFootpaths`
-   * already degrades to a `"straight-line"` MODE rather than an exception —
+   * already degrades to a `"straight-line"` MODE rather than an exception;
    * this catch is for something actually broken: a corrupt cache file that
    * fails to parse, or a future change violating an invariant), this falls
    * back to recomputing footpaths against `ALWAYS_DOWN_CLIENT`, i.e. a
    * fresh index with straight-line footpaths, rather than leaving the
    * caller to fall back to the OLD index. Reasoning: the RAPTOR index
    * carries the actual schedule, and the live feed's calendar window is
-   * only ~30 days wide — a service that refuses to adopt a new index
+   * only ~30 days wide; a service that refuses to adopt a new index
    * because footpath attachment glitched risks eventually serving a
    * calendar window that no longer covers "today" at all (a guaranteed
    * `422` for every query), which is strictly worse than degraded walking
@@ -266,7 +266,7 @@ export class IndexManager {
    * (`WALK_MAX_METERS`/`TRANSFER_MIN_SECONDS`/etc. are bounds-checked at
    * process start in config.ts, before any `IndexManager` exists), so it
    * cannot itself throw for a config reason; if it somehow still throws,
-   * `rebuild()`'s caller sees that rejection and — correctly — keeps
+   * `rebuild()`'s caller sees that rejection and (correctly) keeps
    * serving the OLD index, since nothing has been swapped yet at that point.
    */
   private async attachFootpathsTo(ix: TimetableIndex, deps: FootpathDeps): Promise<FootpathMode> {
@@ -300,7 +300,7 @@ export class IndexManager {
   /**
    * Single-flight, matching gtfs's ImportRunner: overlapping callers
    * share one build rather than starting a second 200 MB one. The previous
-   * index (and the previous db bundle) keep serving throughout — nothing is
+   * index (and the previous db bundle) keep serving throughout; nothing is
    * replaced until the new build succeeds, so a request landing mid-rebuild
    * never sees null, a half-built index, or a mix of old and new db state.
    *
@@ -318,7 +318,7 @@ export class IndexManager {
     // A missing symlink is transient (see LiveDatabaseUnavailableError), and
     // must leave this method the same way every other failure does: as a
     // REJECTED PROMISE, never as a synchronous throw. `void manager.rebuild()
-    // .catch(...)` — how the reload route and the poller both call it — does
+    // .catch(...)` (how the reload route and the poller both call it) does
     // not catch a synchronous throw at all, so the old behaviour turned a
     // routine publish window into an unhandled 500 carrying a server path.
     const target = this.liveTarget();
@@ -341,7 +341,7 @@ export class IndexManager {
         // `rebuild()` always rebuilds the RAPTOR index even when asked to
         // redo an unchanged target (POST /admin/reload's whole point is
         // "force it now"), but the bundle reflects a FEED VERSION, not
-        // "was rebuild called" — an unchanged target is already the right
+        // "was rebuild called"; an unchanged target is already the right
         // bundle, and reopening it would reparse the ~10 MB translations
         // table and re-run the route-lookup query for no observable
         // difference.
@@ -360,7 +360,7 @@ export class IndexManager {
         if (oldBundle !== nextBundle) {
           // Close the handle the PREVIOUS bundle held only once no request
           // that read `currentBundle()` before this swap can still be
-          // reading through it — never synchronously with the swap itself.
+          // reading through it, never synchronously with the swap itself.
           // See requestDrain.ts's own comment: this can only wait too long,
           // never close too soon.
           void this.drain.whenDrained().then(() => oldBundle.db.close());
@@ -376,7 +376,7 @@ export class IndexManager {
 
   /**
    * The live symlink's current target, or `null` when it is (transiently)
-   * absent — briefly, during one of the fetcher's swaps, or permanently
+   * absent: briefly, during one of the fetcher's swaps, or permanently
    * before the very first import. Neither is worth taking the service down
    * for, which is why this reports absence as a value rather than throwing.
    * The single place `resolveLiveTarget`'s path-carrying error is swallowed.

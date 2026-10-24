@@ -6,7 +6,7 @@ export const refreshRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(409).send({ status: "already_running" });
     }
     // Fire and forget: an import runs for minutes, far longer than a request.
-    // The .catch here is load-bearing — without it, a rejected run would be
+    // The .catch here is load-bearing: without it, a rejected run would be
     // an unhandled promise rejection (ImportRunner.run() re-throws after
     // recording the failure in lastResult()).
     app.runner.run().catch((err: unknown) => {

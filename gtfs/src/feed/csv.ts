@@ -8,7 +8,7 @@ import type { Readable } from "node:stream";
  * `bom: true` strips the UTF-8 BOM every file in this feed carries; without it
  * the first column parses as "﻿stop_id". csv-parse handles CRLF natively.
  *
- * `relax_quotes: true` — found against the real feed, not the fixture:
+ * `relax_quotes: true`, found against the real feed, not the fixture:
  * `translations.txt` (and others) contain Hebrew gershayim rendered as a
  * literal ASCII `"` inside an otherwise-unquoted field, e.g.
  * `784/שדרות קק"ל`. csv-parse's default (`relax_quotes: false`) treats any
@@ -24,7 +24,7 @@ import type { Readable } from "node:stream";
  * that fails mid-file would emit on a stream with no listener and kill the
  * process instead of rejecting this iterator. Errors thrown by the parser
  * itself (a malformed quote, say) already travelled the destination side and
- * were always catchable — it is the source direction that was not, and it is
+ * were always catchable; it is the source direction that was not, and it is
  * the only direction the existing mid-stream test did not cover.
  */
 export function csvRows(src: Readable): AsyncIterable<Record<string, string>> {

@@ -42,7 +42,7 @@ test("orders departures by time and honours the limit", () => {
   h.close();
 });
 
-// limit: 10 above never exercises the limit at all — both results fit.
+// limit: 10 above never exercises the limit at all: both results fit.
 // With limit: 1 the query must keep the EARLIER departure (T1, 08:00) over
 // the later one (T2, 09:00), which only holds if the limit is applied after
 // the merge sort across service days, not before it.
@@ -82,7 +82,7 @@ test("returns nothing on a day the service does not run", () => {
   h.close();
 });
 
-// pickup_type = 1 marks a stop where boarding is not possible — the trip's
+// pickup_type = 1 marks a stop where boarding is not possible: the trip's
 // final stop. Showing it as a departure advertises a service nobody can take.
 test("excludes stops where boarding is not allowed", () => {
   const { h, tr, cal } = fixture();
@@ -90,7 +90,7 @@ test("excludes stops where boarding is not allowed", () => {
     stopIds: ["2000"], at: new Date("2026-08-24T07:30:00+03:00"),
     windowSeconds: 3600, limit: 10, lang: "he", tz: TZ,
   });
-  // T1 arrives at 2000 as its last stop (pickup_type = 1) — not a departure.
+  // T1 arrives at 2000 as its last stop (pickup_type = 1), not a departure.
   assert.equal(out.length, 0);
   h.close();
 });
@@ -100,7 +100,7 @@ test("excludes stops where boarding is not allowed", () => {
  *
  * On 2026-10-25 the clocks go back at 02:00 IDT (+03:00) to 01:00 IST
  * (+02:00), so the two service days this board merges carry DIFFERENT UTC
- * offsets — and the local-time digits of one are not comparable with those
+ * offsets, and the local-time digits of one are not comparable with those
  * of the other at all:
  *
  *   TDST_LATE   service day 2026-10-24, GTFS 91800 (25:30)
@@ -152,7 +152,7 @@ test("orders a board across a DST fall-back by absolute time, not by rendered st
 });
 
 // `limit` truncates AFTER the sort, so a mis-sorted board does not merely
-// reorder the answer — it returns a different departure.
+// reorder the answer; it returns a different departure.
 test("limit across a DST fall-back keeps the genuinely earliest departure", () => {
   const { h, tr, cal } = dstFixture();
   const out = departuresAt(h.db, tr, cal, {

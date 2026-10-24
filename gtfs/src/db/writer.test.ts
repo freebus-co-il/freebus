@@ -149,15 +149,15 @@ test("counts bad rows without aborting", () => {
 //
 // shapes.txt is grouped by shape_id in practice, but that is an assumption
 // about today's feed, not a guarantee. #flushShape fires on shape_id change,
-// so if a shape_id ever reappears *after* being flushed — non-contiguous
-// grouping — a naive writer queues a second INSERT OR REPLACE row for the
+// so if a shape_id ever reappears *after* being flushed (non-contiguous
+// grouping), a naive writer queues a second INSERT OR REPLACE row for the
 // same primary key. Because the physical write happens in later batched
 // transactions, the *second* occurrence's row silently overwrites the
 // first's polyline with no error.
 //
 // Chosen handling: track every shape_id that has completed a flush. If a
 // point for that shape_id arrives again, refuse to start a second group for
-// it — count every point row belonging to the reappearance as bad, and keep
+// it: count every point row belonging to the reappearance as bad, and keep
 // the first group's polyline intact. The condition is also exposed
 // separately via nonContiguousShapeIds() so a caller (the sanity gates)
 // can distinguish "shapes.txt is not grouped, geometry truncated" from
@@ -212,7 +212,7 @@ test("a non-contiguous shape_id does not silently overwrite the first group", ()
 // #flushTable fires when a table's pending buffer reaches batchSize. Nothing
 // in the brief's tests ever exercises more than one batch, so a bug where a
 // batch reset drops a partial trailing batch, or double-counts a flushed
-// batch, would only show up at the scale of the real feed (~10.4M rows) —
+// batch, would only show up at the scale of the real feed (~10.4M rows),
 // impossible to diagnose there. Use a tiny batchSize and cross it multiple
 // times, including a non-full trailing batch.
 test("every row lands and rowsQueued stays accurate across multiple batch flushes", () => {
@@ -236,8 +236,8 @@ test("every row lands and rowsQueued stays accurate across multiple batch flushe
 });
 
 // The batch test above only exercises the generic (default-path) insert.
-// stop_times is the table batching exists for — 10.4M rows, plus the
-// interning path — so it needs its own batch-boundary coverage rather than
+// stop_times is the table batching exists for (10.4M rows, plus the
+// interning path), so it needs its own batch-boundary coverage rather than
 // relying on the generic-path test to stand in for it.
 test("batches stop_times across multiple flushes without losing interned rows", () => {
   const db = newDb();
@@ -267,7 +267,7 @@ test("batches stop_times across multiple flushes without losing interned rows", 
 // back by better-sqlite3; without unconditionally clearing the buffer, the
 // next writeRow call would push onto an already-full buffer, which
 // immediately re-triggers a flush attempt (since length >= batchSize), which
-// fails again, forever — the buffer would grow without bound and every
+// fails again, forever; the buffer would grow without bound and every
 // subsequent row for that table would be lost, undercounted as a single bad
 // row per call instead of the whole lost batch. On stop_times (10.4M rows)
 // that is an OOM; on finish() an uncaught exception would kill the entire
@@ -277,18 +277,18 @@ test("a failed flush clears the buffer and counts the whole batch as bad, withou
   const w = new FeedWriter(db, { batchSize: 2 });
 
   // translations.lang is NOT NULL; a blank lang violates that constraint at
-  // insert time (inside the batched transaction), not at coercion time —
+  // insert time (inside the batched transaction), not at coercion time;
   // parseText legitimately returns null for a blank field.
   w.writeRow("translations.txt", { trans_id: "T1", lang: "en", translation: "hello" });
-  w.writeRow("translations.txt", { trans_id: "T2", lang: "", translation: "bad" }); // flush #1 (batchSize=2) — fails
+  w.writeRow("translations.txt", { trans_id: "T2", lang: "", translation: "bad" }); // flush #1 (batchSize=2), fails
   w.writeRow("translations.txt", { trans_id: "T3", lang: "en", translation: "world" });
-  w.writeRow("translations.txt", { trans_id: "T4", lang: "fr", translation: "monde" }); // flush #2 — succeeds
+  w.writeRow("translations.txt", { trans_id: "T4", lang: "fr", translation: "monde" }); // flush #2, succeeds
 
   w.finish(); // must not throw: a failed batch must not abort the rest of the import
 
   const rowCount = (db.prepare("SELECT COUNT(*) c FROM translations").get() as { c: number }).c;
   // T1 shared a transaction with the constraint-violating T2, so it is
-  // rolled back too — an accepted batching trade-off. What must hold is
+  // rolled back too, an accepted batching trade-off. What must hold is
   // that this is counted correctly and the run continues.
   assert.equal(rowCount, 2, "only the second, all-good batch actually lands");
   assert.equal(w.badRows(), 2, "the whole failed batch (T1 + T2) counts as bad, not just 1");
@@ -297,7 +297,7 @@ test("a failed flush clears the buffer and counts the whole batch as bad, withou
 });
 
 // A poisoned batch must not leave the buffer oversized for the NEXT table
-// that shares the writer either — regression coverage for the buffer
+// that shares the writer either: regression coverage for the buffer
 // actually being cleared (not just "happens to look right" from counts
 // alone). Cross the batch boundary many times with only bad rows, then
 // confirm a subsequent good batch on the same table still flushes at
@@ -340,7 +340,7 @@ test("repeated failed flushes on the same table never accumulate an unbounded bu
 test("a failed flush caused by the storage layer raises instead of being counted as bad rows", () => {
   const db = newDb();
   const w = new FeedWriter(db, { batchSize: 2 });
-  // query_only makes every write fail with SQLITE_READONLY — a stand-in for
+  // query_only makes every write fail with SQLITE_READONLY, a stand-in for
   // the SQLITE_FULL / SQLITE_IOERR / corrupt-page family, which cannot be
   // produced on demand but reach this catch by exactly the same route.
   db.pragma("query_only = ON");
@@ -369,7 +369,7 @@ test("a raised flush failure still empties the buffer, not just a counted one", 
 
   // Keep writing past the failure, as a caller that swallowed the throw
   // would. Without the `finally` that clears the buffer, each new row would
-  // push onto an already-full buffer and re-trigger a flush immediately —
+  // push onto an already-full buffer and re-trigger a flush immediately:
   // unbounded growth over a 10.4M-row table.
   let flushAttempts = 0;
   for (let i = 0; i < 20; i++) {
@@ -393,7 +393,7 @@ test("a raised flush failure still empties the buffer, not just a counted one", 
 // trips and stops: `trip_id`/`stop_id` where the columns are the interned
 // `trip_ref`/`stop_ref`. The only thing that stopped those arrays reaching an
 // INSERT was a `switch` in writeRow. Deleting a case produced SQL naming
-// columns that do not exist — an error the catch-all then reported as bad
+// columns that do not exist, an error the catch-all then reported as bad
 // rows, pointing the diagnosis at the upstream feed.
 
 test("a writer refuses to construct against a schema its INSERTs would not fit", () => {
@@ -418,7 +418,7 @@ test("the hand-written column arrays for the custom tables match the live schema
   // schema.ts and writer.ts's STOP_TIME_COLUMNS/TRIP_COLUMNS/STOP_COLUMNS/
   // SHAPE_COLUMNS ever drift, or if the `custom` treatment is dropped so
   // stop_times falls back to its header names, every FeedWriter in the suite
-  // stops constructing — starting here.
+  // stops constructing, starting here.
   const db = newDb();
   assert.doesNotThrow(() => new FeedWriter(db));
   db.close();
@@ -428,7 +428,7 @@ test("a flush that fails while PREPARING still empties the buffer", () => {
   // The narrow case the previous test cannot reach: db.prepare() succeeds
   // under query_only, so a read-only database only ever fails at execution
   // time, safely inside the try. Dropping the table makes prepare() itself
-  // throw instead — confirming that throw is still inside the try/finally
+  // throw instead, confirming that throw is still inside the try/finally
   // that clears the buffer. Were it not, the buffer would stay at or past
   // batchSize forever, so every single subsequent row would re-trigger and
   // re-fail a flush: unbounded growth over a 10.4M-row table.

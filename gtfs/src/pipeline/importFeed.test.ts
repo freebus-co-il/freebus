@@ -116,7 +116,7 @@ test("golden query: departures from a stop resolve through interned keys, includ
 
   assert.deepEqual(rows.map((r) => r.trip_id), ["T1", "T2"]);
   assert.equal(rows[0]!.departure_time, 18600);
-  // T2's stop_times.txt row is "25:30:00" — GTFS past-midnight notation for
+  // T2's stop_times.txt row is "25:30:00": GTFS past-midnight notation for
   // a trip that departs after local midnight. It must survive coercion in
   // gtfs/values.ts, interning in FeedWriter, batched insertion, the sanity
   // gates, and the live-symlink swap unchanged: 25*3600 + 30*60 = 91800.
@@ -157,7 +157,7 @@ test("treats a stored empty-string etag as absent, not as a real conditional val
   // null for both, and importFeed persists that as "" in feed_meta (see
   // setMeta.run("etag", result.version.etag ?? "")). readFeedMeta must
   // read that "" back as absent (null), not as a legitimate empty
-  // conditional value — `Map#get(...) ?? null` would wrongly pass "" through
+  // conditional value. `Map#get(...) ?? null` would wrongly pass "" through
   // as truthy-looking-but-empty, and fetchFeed only skips the header on a
   // falsy check, so this specifically guards readFeedMeta's own contract
   // for any caller (health/status reporting, future conditional logic)
@@ -178,7 +178,7 @@ test("rejects a run whose shapes.txt reappears after its shape_id group was flus
   // SH2 is seen; SH1 then reappears with a second point. FeedWriter
   // discards that reappearance rather than corrupting the already-written
   // polyline, but the `shapes` table itself ends up with an SH1 row whose
-  // point_count/total_length_m look complete and authoritative — nothing
+  // point_count/total_length_m look complete and authoritative; nothing
   // queryable in the database reveals the truncation. Only
   // writer.nonContiguousShapeIds(), read from *this* writer instance and
   // passed into runSanityGates, can catch it. If importFeed ever stopped
@@ -224,7 +224,7 @@ test("refuses to build over the live database when a fixed clock reproduces the 
   // caller) injecting a fixed clock against the same dataDir can. Without
   // the version-collision guard, importFeed would call
   // cleanupBuild(buildPath) on a path that IS the live database's target,
-  // deleting it before the new build even starts — turning a caller
+  // deleting it before the new build even starts, turning a caller
   // mistake into silent data loss instead of a loud failure.
   await assert.rejects(
     importFeed({
@@ -300,7 +300,7 @@ test(
     });
 
     // Make the oldest version's file immutable so rmSync throws EPERM when
-    // gcVersions tries to remove it — rmSync's `force: true` only swallows
+    // gcVersions tries to remove it; rmSync's `force: true` only swallows
     // "does not exist" errors, not permission errors.
     const doomed = buildPathFor(dir, "2026-08-19T03-00-00-000Z");
     execSync(`chflags uchg ${JSON.stringify(doomed)}`);
@@ -380,7 +380,7 @@ test("a thrown mid-stream failure leaves the previous database live and cleans u
   // This throw happens mid-CSV-stream, well before finalizeForRead ever
   // switches the build db to WAL mode (openBuildDb uses journal_mode =
   // MEMORY throughout ingestion), so no -wal/-shm sidecars exist yet at
-  // this point — this assertion only covers the main .sqlite file.
+  // this point, so this assertion only covers the main .sqlite file.
   // cleanupBuild's removal of -wal/-shm suffixes is real protection for a
   // throw in the narrower window between finalizeForRead's WAL switch and
   // db.close() (e.g. finalizeForRead itself throwing on a failed
@@ -433,7 +433,7 @@ test("a dying socket mid-download is a catchable failure, not a process-killing 
   const dir = newDir();
   const zip = await buildFixtureZip();
 
-  // Before the fix this did not reject — it terminated the process with an
+  // Before the fix this did not reject; it terminated the process with an
   // unhandled 'error' event, leaving the build database behind (up to 666 MB
   // against the real feed, on a service with no uncaughtException handler).
   await assert.rejects(
@@ -510,7 +510,7 @@ test("the run-timeout backstop unwedges a stalled import even with no stall time
   // tick gets a real attempt. The stall timeout is set an order of magnitude
   // beyond the run timeout so it is provably not the mechanism doing the
   // work here (it is kept finite only so the abandoned run's timer does not
-  // hold this test process open — in production that abandoned run keeps its
+  // hold this test process open; in production that abandoned run keeps its
   // stall timer for the full configured window, which is the point).
   const dir = newDir();
   const zip = await buildFixtureZip();
@@ -642,7 +642,7 @@ test("an unreadable live database is reported, not silently swallowed", async ()
   const meta = readFeedMeta(dir, (m) => warnings.push(m));
 
   // The dangerous part is not the null itself but that it silently turns off
-  // the count-ratio gate for the next run — precisely when a corrupt live
+  // the count-ratio gate for the next run, precisely when a corrupt live
   // database means something is already wrong.
   assert.equal(meta.counts, null);
   assert.equal(warnings.length, 1, "the failure must produce exactly one warning");

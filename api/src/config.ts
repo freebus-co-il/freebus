@@ -53,7 +53,7 @@ export function floatEnv(
  *
  * This value decides where every service-day boundary falls and what offset
  * every ISO timestamp is rendered with, so a typo in it does not produce an
- * error anywhere — it produces a service that is quietly wrong by hours,
+ * error anywhere; it produces a service that is quietly wrong by hours,
  * everywhere, forever. `Intl.DateTimeFormat` already carries the full zone
  * database, so constructing one and catching the RangeError is a complete
  * check with no dependency and no table to maintain.
@@ -90,7 +90,7 @@ export const config = {
    * starts a multi-hundred-megabyte index rebuild, so an anonymous caller
    * able to reach it could hold one running continuously.
    *
-   * `null` (the variable unset) means the route REFUSES EVERY REQUEST — it
+   * `null` (the variable unset) means the route REFUSES EVERY REQUEST; it
    * does not mean "no auth configured, let everyone in". Failing closed is
    * the only safe default: an operator who forgets the variable gets a
    * reload endpoint that does not work, which they will notice, rather than
@@ -111,7 +111,7 @@ export const isProduction = config.env === "production";
 /**
  * Anchored on this module's own location, not process.cwd(). `src/config.ts`
  * (dev, via tsx) and `dist/config.js` (production) are both exactly one level
- * below `api/`, itself one level below the repo root — so the same
+ * below `api/`, itself one level below the repo root, so the same
  * two-hop reaches the repo root from either. The data directory is shared
  * with gtfs, which resolves it the same way; a cwd-relative default
  * would have the two services disagree about where the database lives the
@@ -124,7 +124,7 @@ export const paths = {
   dataDir: process.env.GTFS_DATA_DIR === undefined
     ? resolve(repoRoot, "data")
     : resolve(repoRoot, process.env.GTFS_DATA_DIR),
-  // Deliberately not inside data/ — gtfs garbage-collects that
+  // Deliberately not inside data/: gtfs garbage-collects that
   // directory and must never encounter our cache files there.
   cacheDir: process.env.TRANSIT_CACHE_DIR === undefined
     ? resolve(repoRoot, "cache")
@@ -193,7 +193,7 @@ export const planConfig = {
    * REOPTIMISATION pass (the second reverse RAPTOR search per itinerary, see
    * `routes/reoptimise.ts`). Every itinerary beyond this is still RE-ANCHORED
    * on its own first boarding, so no itinerary ever regresses to reporting
-   * the query instant — only the "can we leave even later for the same
+   * the query instant; only the "can we leave even later for the same
    * arrival?" refinement is skipped.
    *
    * 3, measured rather than assumed. Cost is linear in the number of Pareto
@@ -201,7 +201,7 @@ export const planConfig = {
    * superlinear per member because each later member is a higher round and so
    * a longer reverse search. Measured warm against the live feed, 15
    * iterations, median end-to-end latency by Pareto members returned
-   * (2026-08-23, Dimona -> Netanya, `maxTransfers=6&maxWalkMeters=2500` — the
+   * (2026-08-23, Dimona -> Netanya, `maxTransfers=6&maxWalkMeters=2500`, the
    * largest Pareto set found over a 16x16 sweep of long routes):
    *
    *   | members | 1   | 2   | 3   | 4   | 5   | 6   |
@@ -217,18 +217,18 @@ export const planConfig = {
    * Which members keep their reoptimisation is decided by `paretoRounds`'s
    * own fewest-transfers-first push order INSIDE each `search()` call, before
    * effort ranking ever runs (`reoptimise.ts`'s `reoptimiseBounded`, called
-   * from `routes/plan.ts`) — not by the position ranking later gives an
+   * from `routes/plan.ts`), not by the position ranking later gives an
    * itinerary in the `/plan` response. Before effort ranking existed those
    * were the same thing; they no longer are, since ranking both reorders and
    * filters the merged result of every `search()` call after every one of
    * them has already applied this bound. A candidate left past this limit at
    * search time can still rank first in the response a rider sees, and it is
-   * exactly that candidate — the one that skipped the "could the traveller
-   * leave even later for this same arrival?" refinement — that ends up on
+   * exactly that candidate, the one that skipped the "could the traveller
+   * leave even later for this same arrival?" refinement, that ends up on
    * top. Re-anchoring is unaffected: it stays unconditional either way, so no
    * itinerary ever regresses to reporting the query instant regardless of
    * where ranking puts it. The bound is still applied at search time, per
-   * `search()` call, for the cost reason measured above — only the claim
+   * `search()` call, for the cost reason measured above; only the claim
    * about WHICH members that protects has changed.
    *
    * 0 disables reoptimisation entirely, leaving re-anchoring in place.

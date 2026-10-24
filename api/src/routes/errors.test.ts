@@ -16,7 +16,7 @@ import { buildServer } from "../server.js";
  *   {"statusCode":500,"code":"SQLITE_ERROR","error":"Internal Server Error",
  *    "message":"no such column: nope"}
  *
- * — driver identity plus a fragment of the internal schema, handed to an
+ * That is driver identity plus a fragment of the internal schema, handed to an
  * anonymous caller of a public API.
  */
 async function serve() {

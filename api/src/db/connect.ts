@@ -36,9 +36,9 @@ export function resolveLiveTarget(dataDir: string): string {
  * live symlink itself.
  *
  * A caller that needs to build more than one thing from "the current live
- * database" — as `IndexManager.rebuild()` does, building both the RAPTOR
+ * database" (as `IndexManager.rebuild()` does, building both the RAPTOR
  * index and the db-derived `AppBundle` (translator, calendar, route lookups)
- * from what should be the SAME feed version — must resolve the symlink
+ * from what should be the SAME feed version) must resolve the symlink
  * exactly once and pass the resulting path to every builder. Two independent
  * `resolveLiveTarget` calls a few lines apart are not atomic with each other;
  * a swap landing in that gap would let the index and the bundle disagree
@@ -58,7 +58,7 @@ export function openTransitDbAtPath(path: string, target: string): DbHandle {
   const rawCounts = meta.get("counts");
   if (rawCounts !== undefined) {
     // feed_meta is written by the fetcher, but a truncated or hand-edited
-    // value must not take the whole service down at boot — the counts are
+    // value must not take the whole service down at boot; the counts are
     // reporting metadata, not something any query depends on.
     try {
       counts = JSON.parse(rawCounts) as Record<string, number>;

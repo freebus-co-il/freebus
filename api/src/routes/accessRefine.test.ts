@@ -5,7 +5,7 @@ import type { LatLon } from "../geo.js";
 import type { WalkCost } from "../walking/valhalla.js";
 import { refineAccessByWalking } from "./accessRefine.js";
 
-/** Four stops in a line east of the query point; coordinates are incidental —
+/** Four stops in a line east of the query point; coordinates are incidental;
  *  what matters is that the stub returns a chosen cost per index. */
 function fakeIndex(): TimetableIndex {
   return {

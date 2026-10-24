@@ -6,7 +6,7 @@ import type { Itinerary, WalkLeg } from "../transit/itinerary.js";
  * routing each one through Valhalla at request time.
  *
  * Without this, walk legs carry `geometry: null` and a haversine * 1.35
- * estimate, so a client can only draw a straight line between the endpoints —
+ * estimate, so a client can only draw a straight line between the endpoints,
  * across buildings, rail corridors and motorways alike.
  *
  * `durationSeconds` is deliberately NOT overwritten. It is the value RAPTOR
@@ -21,13 +21,13 @@ import type { Itinerary, WalkLeg } from "../transit/itinerary.js";
  * ever searches. Either way, `durationSeconds` here is real once that upstream
  * step succeeded, and falls back to the 1.33 m/s / footpath-matrix estimate
  * only on its own degrade path (Valhalla down, timed out, or a malformed
- * response) — see each leg producer's own `walkEstimated` derivation for
+ * response); see each leg producer's own `walkEstimated` derivation for
  * exactly which case applies to a given leg.
  *
  * This function does NOT touch `walkEstimated`, and must not: that field
  * describes `durationSeconds`'s provenance (a real routed walking time vs.
  * the 1.33 m/s / footpath-matrix estimate), which this function never
- * computes or overwrites — see `durationSeconds` above and each leg
+ * computes or overwrites; see `durationSeconds` above and each leg
  * producer's own `walkEstimated` derivation (`routes/plan.ts`'s `walkLeg`
  * for access/egress, `transit/itinerary.ts`'s transfer-leg construction for
  * everything else). Setting it here on the strength of a geometry call that
@@ -37,11 +37,11 @@ import type { Itinerary, WalkLeg } from "../transit/itinerary.js";
  * `false` flag back to `true` when the path failed to resolve while the
  * duration was genuinely real. A caller wanting to know whether THIS leg's
  * path is real, as opposed to its duration, should test `geometry !== null`
- * directly — that is already exact, since `geometry` is only ever
+ * directly; that is already exact, since `geometry` is only ever
  * non-null once this function has actually attached a real routed one.
  *
- * A failed or slow Valhalla call leaves the leg exactly as it was —
- * estimated distance, null geometry — because `route()` degrades rather
+ * A failed or slow Valhalla call leaves the leg exactly as it was
+ * (estimated distance, null geometry), because `route()` degrades rather
  * than throwing. A walk we cannot draw must never fail a whole plan.
  */
 export async function resolveWalkGeometry(

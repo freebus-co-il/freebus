@@ -14,7 +14,7 @@ const newDb = (path: string = newPath()) => openBuildDb(path);
 
 /**
  * Writes a minimal but referentially complete dataset via a fresh FeedWriter,
- * without calling finish() — callers that need to add more rows (e.g. shape
+ * without calling finish(), so callers that need to add more rows (e.g. shape
  * points) before the batches flush can do so first.
  */
 function seedWriter(db: ReturnType<typeof newDb>): FeedWriter {
@@ -103,7 +103,7 @@ test("sanity gates catch an all-empty shapes table (Important-1: shapes is requi
   seed(db);
   db.prepare("DELETE FROM shapes").run();
   createIndexes(db);
-  // previousCounts is null (cold start), so Gate 2 can't help here — this is
+  // previousCounts is null (cold start), so Gate 2 can't help here; this is
   // exactly the scenario a fresh deploy or a wiped history hits, and it must
   // be caught by Gate 1 alone.
   const report = runSanityGates(db, null);
@@ -119,11 +119,11 @@ test("ratio gate does not flag a table with no baseline in previousCounts", () =
   const db = newDb();
   seed(db);
   createIndexes(db);
-  // previousCounts mentions only "agency" — as if a caller's persisted
+  // previousCounts mentions only "agency", as if a caller's persisted
   // history predates stop_times being tracked, or this is the very first
   // comparison point recorded. stop_times has no baseline to compare
   // against, so it must not be flagged just because it's absent from the
-  // map — only Gate 2's absence-of-baseline branch can produce this.
+  // map. Only Gate 2's absence-of-baseline branch can produce this.
   const report = runSanityGates(db, { agency: 1 });
   assert.equal(report.ok, true, report.failures.join("; "));
 });
@@ -133,7 +133,7 @@ test("ratio gate does not flag growth from a legitimately-empty table", () => {
   seed(db);
   // translations is legitimately 0 in the seeded dataset (no
   // translations.txt rows written). Populate it now, so this run's count
-  // goes from a previous baseline of 0 to a positive number — division by
+  // goes from a previous baseline of 0 to a positive number. Division by
   // zero would occur here if the prev===0 branch didn't short-circuit first,
   // and growth from empty must not itself be treated as a collapse.
   db.prepare("INSERT INTO translations (trans_id, lang, translation) VALUES ('x', 'he', 'y')").run();
@@ -233,7 +233,7 @@ test("finalizeForRead switches the database to WAL", () => {
 
 test("finalizeForRead fully checkpoints so the main file alone holds every committed row, even with a reader connection open", () => {
   // better-sqlite3's automatic WAL checkpoint on close() only runs when the
-  // closing connection is the LAST connection to the database — opening the
+  // closing connection is the LAST connection to the database, and opening the
   // live database concurrently to read feed_meta is exactly this scenario.
   // Open a reader, switch to WAL, commit one more row, finalize, close the
   // writer while the reader stays open, then copy ONLY the main .sqlite
@@ -247,14 +247,14 @@ test("finalizeForRead fully checkpoints so the main file alone holds every commi
   const reader = openReadDb(path);
   assert.equal((reader.prepare("SELECT COUNT(*) n FROM stop_times").get() as { n: number }).n, 2);
 
-  // A write that lands after the switch to WAL — analogous to whatever the
+  // A write that lands after the switch to WAL, analogous to whatever the
   // last committed batch of a real run looks like.
   db.prepare(
     "INSERT INTO stop_times (trip_ref, stop_ref, stop_sequence, arrival_time, departure_time, pickup_type, drop_off_type, shape_dist_traveled) VALUES (1, 1, 3, 2000, 2000, 0, 0, 0)",
   ).run();
 
   finalizeForRead(db);
-  db.close(); // reader is still open here — the designed concurrent-reader scenario.
+  db.close(); // reader is still open here: the designed concurrent-reader scenario.
 
   assert.ok(existsSync(`${path}-wal`), "expected a -wal sidecar to exist");
 
@@ -264,7 +264,7 @@ test("finalizeForRead fully checkpoints so the main file alone holds every commi
   assert.equal(
     (copyDb.prepare("SELECT COUNT(*) n FROM stop_times").get() as { n: number }).n,
     3,
-    "the main-file-only copy is missing a row that was committed before finalizeForRead ran — the checkpoint did not fully persist it",
+    "the main-file-only copy is missing a row that was committed before finalizeForRead ran; the checkpoint did not fully persist it",
   );
   copyDb.close();
   reader.close();
@@ -274,7 +274,7 @@ test("finalizeForRead throws rather than silently accepting a partial checkpoint
   // Forces the specific busy/blocked path: a reader holding an explicit,
   // uncommitted read transaction pins a WAL snapshot, so
   // wal_checkpoint(TRUNCATE) cannot complete. SQLite reports this as
-  // { busy: 1, checkpointed: 0, log: 1 } without throwing — finalizeForRead
+  // { busy: 1, checkpointed: 0, log: 1 } without throwing; finalizeForRead
   // must be the one to turn that into a hard failure instead of silently
   // returning as if the database were safely self-contained.
   const path = newPath();
@@ -303,7 +303,7 @@ test("finalizeForRead throws rather than silently accepting a partial checkpoint
  * are what make "departures from this stop" and "stops on this trip" cheap
  * over ~10.4M stop_times rows. Nothing asserted they existed, so an empty
  * `createIndexes` body would have passed the entire suite while every query
- * downstream silently degraded to a full table scan — a performance
+ * downstream silently degraded to a full table scan: a performance
  * regression, never a test failure.
  */
 test("createIndexes creates exactly the six indexes downstream queries rely on", () => {
@@ -328,7 +328,7 @@ test("createIndexes creates exactly the six indexes downstream queries rely on",
 
 test("the stop_times indexes cover the two shapes of lookup the app makes", () => {
   // Names alone would survive an index being redefined over the wrong
-  // columns, so pin the column lists too — and prove the planner actually
+  // columns, so pin the column lists too, and prove the planner actually
   // reaches for them rather than scanning.
   const db = newDb();
   seedWriter(db).finish();

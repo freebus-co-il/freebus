@@ -54,7 +54,7 @@ test("respects the minimum transfer time in reverse", () => {
   const ix = makeTestIndex(3, [
     { stops: [0, 1], dep: [3600, 4200], arr: [3600, 4200] },
     { stops: [0, 1], dep: [3000, 3600], arr: [3000, 3600] },
-    // Departs 60 s after the 4200 arrival — too tight with a 120 s buffer.
+    // Departs 60 s after the 4200 arrival: too tight with a 120 s buffer.
     { stops: [1, 2], dep: [4260, 4800], arr: [4260, 4800] },
   ]);
   const res = runRaptorReverse(ix, {

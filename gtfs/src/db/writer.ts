@@ -33,7 +33,7 @@ interface ShapeBuffer {
  * A failure that is emphatically NOT data noise.
  *
  * Everything thrown inside `writeRow` is otherwise swallowed into `#bad` and
- * measured against `maxBadRowRatio` — correct for a row that failed
+ * measured against `maxBadRowRatio`: correct for a row that failed
  * coercion, catastrophic for anything else. A batch transaction failing
  * (SQLITE_FULL, SQLITE_IOERR, a corrupt page) loses an entire batch per
  * occurrence, and at the default 1% budget over ~10.4M rows roughly 104,000
@@ -55,7 +55,7 @@ export class WriterFailure extends Error {
  *
  * `columnNames` is null for files whose rows FeedWriter assembles itself
  * (stop_times, trips, stops, shapes). For those, TABLE_SPECS.columns
- * describes SOURCE CSV HEADERS and their coercions — `trip_id`, `stop_id` —
+ * describes SOURCE CSV HEADERS and their coercions (`trip_id`, `stop_id`),
  * not destination columns, which are the interned `trip_ref`/`stop_ref`
  * forms. Carrying null rather than a wrong-but-plausible string[] is what
  * makes the difference visible: the generic path cannot silently emit
@@ -71,7 +71,7 @@ interface PreparedSpec {
 
 /**
  * Destination columns for the files FeedWriter assembles by hand, keyed by
- * table. Checked against the live schema at construction — see
+ * table. Checked against the live schema at construction; see
  * #assertColumnsExist.
  */
 const CUSTOM_TABLE_COLUMNS: Record<string, string[]> = {
@@ -105,7 +105,7 @@ export class FeedWriter {
   // assumption about today's data, not a guarantee across daily
   // regenerations. #flushShape fires purely on shape_id change, so a
   // reappearing shape_id would otherwise queue a second INSERT OR REPLACE
-  // row for the same primary key — and because the physical write happens
+  // row for the same primary key, and because the physical write happens
   // later, in a batched transaction, the *second* occurrence would silently
   // overwrite the first's polyline with no error. Tracking completed ids
   // lets #writeShapePoint refuse to start a second group for a shape_id
@@ -157,8 +157,8 @@ export class FeedWriter {
    *
    * This is the guard that makes the header-vs-column distinction impossible
    * to get wrong silently. Three tables (stop_times, trips, stops) have
-   * TABLE_SPECS.columns naming CSV headers rather than SQLite columns —
-   * `trip_id` where the column is `trip_ref` — and the only thing that ever
+   * TABLE_SPECS.columns naming CSV headers rather than SQLite columns
+   * (`trip_id` where the column is `trip_ref`), and the only thing that ever
    * stopped those reaching an INSERT was a `switch` in writeRow routing them
    * elsewhere. Delete one `case` and the generic path emits SQL against a
    * column that does not exist; the error lands in writeRow's catch-all and
@@ -210,7 +210,7 @@ export class FeedWriter {
     // Every file, including shapes.txt, goes through this one try/catch so
     // a downstream failure (e.g. a batch flush failing on a constraint
     // violation) is handled identically regardless of which path triggered
-    // it — see #flushTable for why that failure is now always recoverable
+    // it; see #flushTable for why that failure is now always recoverable
     // rather than propagating out.
     try {
       if (file === "shapes.txt") {
@@ -234,7 +234,7 @@ export class FeedWriter {
           if (!spec.columnNames) {
             // Reachable only by deleting one of the cases above. Loud and
             // fatal rather than a SQL error laundered into the bad-row
-            // count — see PreparedSpec.
+            // count (see PreparedSpec).
             throw new WriterFailure(
               `${file} must be written by a dedicated FeedWriter path: its `
               + "TABLE_SPECS columns name CSV headers, not the columns of "
@@ -396,7 +396,7 @@ export class FeedWriter {
     try {
       // prepare() and transaction() are inside the try, not above it.
       // Outside, a throw from either skipped the `finally` below and left
-      // the buffer full — which is precisely the unbounded-growth cycle
+      // the buffer full, which is precisely the unbounded-growth cycle
       // that finally exists to prevent: the next writeRow pushes onto an
       // already-full buffer, immediately re-triggers a flush, and re-fails,
       // forever.
@@ -411,15 +411,15 @@ export class FeedWriter {
       this.#rowsQueued[table] = (this.#rowsQueued[table] ?? 0) + count;
     } catch (cause) {
       // better-sqlite3 rolls the whole transaction back on any throw, so
-      // none of these `count` rows landed — not just the one that failed.
+      // none of these `count` rows landed, not just the one that failed.
       //
       // Two very different things can land here, and treating them alike was
       // the bug. A CONSTRAINT violation is caused by the row: a blank
       // NOT NULL field, a duplicate key. That is upstream data noise, it is
       // what maxBadRowRatio exists to tolerate, and the import continues.
-      // Anything else — SQLITE_FULL, SQLITE_IOERR, SQLITE_CORRUPT,
+      // Anything else (SQLITE_FULL, SQLITE_IOERR, SQLITE_CORRUPT,
       // SQLITE_READONLY, or a plain SQLITE_ERROR from SQL naming a column
-      // that does not exist — is the machine or this code failing, and has
+      // that does not exist) is the machine or this code failing, and has
       // nothing to do with the feed. Counting those as bad rows made them
       // *budgeted*: at the default 1% over ~10.4M rows, roughly 104,000 rows
       // could vanish into disk errors and the run would still publish, with
@@ -429,14 +429,14 @@ export class FeedWriter {
       // The code prefix is the discriminator better-sqlite3 gives us:
       // SqliteError#code is the extended result code name, e.g.
       // "SQLITE_CONSTRAINT_NOTNULL". Anything not recognisably a constraint
-      // — including an error carrying no code at all — is treated as
+      // (including an error carrying no code at all) is treated as
       // infrastructure, so an unfamiliar failure fails the run rather than
       // being quietly absorbed.
       const code = (cause as { code?: unknown }).code;
       if (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT")) {
         this.#bad += count;
       } else {
-        // Raised, not counted — and raised at the first occurrence rather
+        // Raised, not counted, and raised at the first occurrence rather
         // than after grinding the remaining ten million rows into a disk
         // that is already full.
         const failure = new WriterFailure(
@@ -450,11 +450,11 @@ export class FeedWriter {
         throw failure;
       }
     } finally {
-      // Always clear, success or failure — including on the throw above,
+      // Always clear, success or failure, including on the throw above,
       // which propagates only after this runs. Without it a failing batch
       // stays in the buffer; the next writeRow call pushes onto an
       // already-full buffer, which immediately re-triggers (and re-fails)
-      // a flush, forever — unbounded memory growth on a 10.4M-row table.
+      // a flush, forever: unbounded memory growth on a 10.4M-row table.
       // This invariant holds regardless of whether a flush failure is
       // counted as bad or raised: a caller that chooses to keep writing
       // after a flush failure still cannot make the buffer grow without
@@ -485,7 +485,7 @@ export class FeedWriter {
    * Deliberately separate from `badRows()`: these two numbers answer
    * different questions ("is the upstream feed malformed?" versus "is this
    * machine broken?") and have different consequences (budgeted versus
-   * fatal). Collapsing them was the bug — see WriterFailure.
+   * fatal). Collapsing them was the bug; see WriterFailure.
    */
   flushFailure(): WriterFailure | null {
     return this.#flushFailure;
@@ -493,7 +493,7 @@ export class FeedWriter {
 
   /**
    * shape_ids for which a shapes.txt point arrived after that shape_id's
-   * group had already been flushed — i.e. shapes.txt was not grouped by
+   * group had already been flushed, i.e. shapes.txt was not grouped by
    * shape_id as expected. When this is non-empty, the corresponding rows in
    * the `shapes` table hold only the first contiguous run of points: their
    * point_count and total_length_m are not authoritative for the full

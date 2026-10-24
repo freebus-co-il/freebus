@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-FreeBus is deployed as a single rolling release — one production box running
+FreeBus is deployed as a single rolling release: one production box running
 whatever is on `main`. There are no maintained release branches or version
 numbers to choose between, so security fixes are made against `main` and
 deployed immediately; there is no older version that continues to receive
@@ -32,7 +32,7 @@ If you are unable to use that flow for any reason, contact the maintainer,
 [@ShalomSagi](https://github.com/ShalomSagi), privately through GitHub.
 
 You can expect an initial response within a few days. There is no bug bounty
-— this is an unfunded open-source project — but genuine reports are taken
+(this is an unfunded open-source project), but genuine reports are taken
 seriously and credited in the resulting advisory unless you ask otherwise.
 
 ## Scope

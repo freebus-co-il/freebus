@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 
 // `shapes` is required: the real feed's shapes.txt is ~229 MB and always
-// populated, so zero rows means a parse failure, never a legitimate state —
+// populated, so zero rows means a parse failure, never a legitimate state:
 // a cold-start run (previousCounts === null) that produced no shapes would
 // otherwise pass Gate 1 and publish a database with no map geometry at all.
 // `translations` stays counted-but-not-required (see below): its absence
@@ -29,7 +29,7 @@ export function createIndexes(db: Database.Database): void {
  *
  * FTS tokenizer: `unicode61` (the default FTS5 tokenizer) treats '/' as a
  * separator and folds Hebrew script into tokens on codepoint category, same
- * as any other letters — it does not need Hebrew-specific configuration.
+ * as any other letters; it does not need Hebrew-specific configuration.
  * Verified directly against this project's better-sqlite3 build: querying
  * "הרצל" against the stop name "הרצל/צומת בילו" matches, a prefix-only query
  * ("הר") and an unrelated word ("רכבת") both correctly miss. See
@@ -70,7 +70,7 @@ export interface SanityOptions {
    * whose points reappeared in shapes.txt after that shape_id's group had
    * already been flushed. The writer keeps only the first contiguous run of
    * points and silently discards the rest, so the `shapes` row that survives
-   * has an authoritative-looking but wrong point_count/total_length_m — the
+   * has an authoritative-looking but wrong point_count/total_length_m, and the
    * database itself carries no trace of the truncation. This is the only
    * place that condition is visible, so it must be passed in explicitly.
    */
@@ -120,18 +120,18 @@ export function runSanityGates(
       const now = counts[t];
       const prev = previousCounts[t];
       if (now === undefined) {
-        // Tracked by the previous run but not produced by this one at all —
+        // Tracked by the previous run but not produced by this one at all,
         // not a ratio question. If it's one of REQUIRED_TABLES, Gate 1
         // already failed the run; otherwise there is nothing to compare.
         continue;
       }
       if (!prev) {
-        // `prev` is either undefined (no baseline recorded for this table —
+        // `prev` is either undefined (no baseline recorded for this table:
         // first run ever, or a table added after the caller's persisted
         // history was written) or legitimately 0 (previously empty). Both
         // are handled the same way and for the same reason: a ratio needs
         // two real data points, and "no history" / "growing from empty"
-        // are not collapses — dividing by zero or undefined would otherwise
+        // are not collapses. Dividing by zero or undefined would otherwise
         // produce Infinity/NaN, which is exactly the kind of implicit
         // fallthrough this explicit check replaces. A table that must never
         // legitimately be empty is Gate 1's job, not this gate's.
@@ -147,7 +147,7 @@ export function runSanityGates(
   }
 
   // Gate 3: no foreign-key orphans. Checked here because loading runs with
-  // foreign_keys off — stop_times.txt precedes stops.txt and trips.txt.
+  // foreign_keys off: stop_times.txt precedes stops.txt and trips.txt.
   const orphanChecks: [string, string][] = [
     ["stop_times -> trips", "SELECT COUNT(*) AS n FROM stop_times st LEFT JOIN trips t ON t.trip_ref = st.trip_ref WHERE t.trip_ref IS NULL"],
     ["stop_times -> stops", "SELECT COUNT(*) AS n FROM stop_times st LEFT JOIN stops s ON s.stop_ref = st.stop_ref WHERE s.stop_ref IS NULL"],
@@ -173,7 +173,7 @@ export function runSanityGates(
   // Gate 5: shapes.txt must have been grouped by shape_id. If FeedWriter
   // reports a shape_id as non-contiguous, the corresponding row in `shapes`
   // holds a truncated polyline whose point_count/total_length_m look valid
-  // but aren't — nothing queryable in the database reveals this, so the
+  // but aren't; nothing queryable in the database reveals this, so the
   // condition has to be supplied by the caller from the writer.
   if (nonContiguousShapeIds.length > 0) {
     const shown = nonContiguousShapeIds.slice(0, 5).join(", ");
@@ -202,7 +202,7 @@ interface WalCheckpointResult {
  * checkpoint at `close()` when the closing connection is the *last* open
  * connection to that database file. The live database is opened
  * concurrently via `openReadDb` to read `feed_meta`, so a second connection
- * being open at close time is a designed, expected part of this system —
+ * being open at close time is a designed, expected part of this system,
  * not an edge case. When that happens, the passive checkpoint silently does
  * not run at all: `close()` raises nothing, and any rows committed while in
  * WAL mode stay in the `-wal` sidecar. A naive publish step that copies (or
@@ -216,7 +216,7 @@ interface WalCheckpointResult {
  *
  * So: force the checkpoint here explicitly, and verify it actually
  * completed. `wal_checkpoint(TRUNCATE)` reports `{busy, log, checkpointed}`
- * and does NOT throw on a partial checkpoint — confirmed directly against
+ * and does NOT throw on a partial checkpoint, confirmed directly against
  * this project's better-sqlite3 build: with a second connection holding an
  * open read transaction, the call returns `{busy: 1, log: 1, checkpointed:
  * 0}` and leaves the `-wal` file exactly as it was, with no exception. A

@@ -81,7 +81,7 @@ test("activeServiceIds is inclusive at the end_date boundary", () => {
 
 // Israel's spring-forward transition in 2026 is 2026-03-27 at 02:00 -> 03:00.
 // Without the noon-based origin, a query just after local midnight would
-// compute yesterday's baseEpoch as exactly 86400s earlier — it's actually
+// compute yesterday's baseEpoch as exactly 86400s earlier; it's actually
 // 82800s (23h), because the wall clock skipped an hour overnight. A
 // hardcoded 86400 gap, or `baseEpochOf` reverting to `startOf('day')`, must
 // fail this test.
@@ -127,7 +127,7 @@ test("noon-based origin yields the spec-correct wall clock on fall-back day", ()
 
 // On the fall-back day, a query shortly after local midnight falls *before*
 // the noon-based origin (which sits at 01:00 that day, because noon-12h
-// landed inside the repeated hour) — so secondsSinceMidnight is legitimately
+// landed inside the repeated hour), so secondsSinceMidnight is legitimately
 // negative. This is the noon-based design working as specified, not a bug;
 // pinned here so nobody "fixes" it with a clamp to zero.
 test("secondsSinceMidnight can be negative just after midnight on fall-back day", () => {

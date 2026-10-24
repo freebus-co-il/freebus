@@ -649,7 +649,7 @@ test("predictFromCalls: an operator's own ETA carries no anchor", () => {
   assert.equal(byStopIdx.get(1)!.anchorAt, undefined);
 });
 
-test("predictFromDistance: a null distance yields nothing — 0 and null are not the same", () => {
+test("predictFromDistance: a null distance yields nothing: 0 and null are not the same", () => {
   const ix = distanceTripIndex();
   const lookup = buildTripLookup(ix);
   const j = vmJourney({ distanceFromStart: null, recordedAt: epochOn(SERVICE_YMD, 36120) });
@@ -686,7 +686,7 @@ test("predictFromDistance: a gap in the shape distances is skipped, not treated 
   assert.equal(byStopIdx.get(2)!.expectedArrival, epochOn(SERVICE_YMD, 37200 + 60));
 });
 
-test("predictFromDistance: a null recordedAt yields nothing — there is no instant to compare", () => {
+test("predictFromDistance: a null recordedAt yields nothing; there is no instant to compare", () => {
   const ix = distanceTripIndex();
   const lookup = buildTripLookup(ix);
   const j = vmJourney({ distanceFromStart: 500, recordedAt: null });

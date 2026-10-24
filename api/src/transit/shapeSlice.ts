@@ -5,7 +5,7 @@ import { haversineMeters, type LatLon } from "../geo.js";
  * entry always 0.
  *
  * GTFS gives us `shape_dist_traveled` per stop but the `shapes` table stores
- * only the encoded polyline, `point_count` and `total_length_m` — there is no
+ * only the encoded polyline, `point_count` and `total_length_m`; there is no
  * per-vertex distance column. So the distances have to be recomputed here to
  * find where along the line a stop sits.
  */
@@ -119,8 +119,8 @@ export function nearestVertexIndex(points: readonly LatLon[], target: LatLon): n
  *
  * Like `sliceByDistance`, this always returns at least two points. When both
  * stops project to the same nearest vertex, `points.slice` alone would yield
- * a one-point array — exactly the invisible-geometry failure this module
- * exists to avoid — so that case is widened to a degenerate two-point line.
+ * a one-point array (exactly the invisible-geometry failure this module
+ * exists to avoid), so that case is widened to a degenerate two-point line.
  */
 export function sliceByNearestVertices(
   points: readonly LatLon[], from: LatLon, to: LatLon,

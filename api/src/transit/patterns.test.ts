@@ -50,7 +50,7 @@ test("a pattern's trips are ordered by departure at the first stop", () => {
 // makes the search exact instead of approximately right.
 test("an overtaking trip is split into its own pattern", () => {
   const set = buildPatterns([
-    // Departs first but arrives last — an express overtaken by a stopper.
+    // Departs first but arrives last: an express overtaken by a stopper.
     trip([1, 2, 3], [100, 500, 900]),
     trip([1, 2, 3], [200, 300, 400]),
   ]);
@@ -67,8 +67,8 @@ test("non-overtaking trips are not split", () => {
   assert.equal(set.nPatterns, 1);
 });
 
-// Critical: two trips can be perfectly ordered by DEPARTURE at every stop —
-// no departure-only overtake — while still crossing in ARRIVAL because of a
+// Critical: two trips can be perfectly ordered by DEPARTURE at every stop
+// (no departure-only overtake) while still crossing in ARRIVAL because of a
 // dwell-time difference. RAPTOR rides a held trip by reading its arrival at
 // each later stop, so a pattern whose arrivals aren't also jointly ordered
 // makes that read silently wrong. This is a real repro: trip A departs
@@ -90,7 +90,7 @@ test("an empty input yields an empty pattern set", () => {
 
 /**
  * Asserts that within every pattern, BOTH departures and arrivals are
- * non-decreasing at EVERY stop position along `patternTrips` order — not
+ * non-decreasing at EVERY stop position along `patternTrips` order, not
  * just the first stop, and not just departures. This is the actual
  * invariant RAPTOR depends on: it binary-searches on departure to board, but
  * then reads arrival at every later stop while riding the held trip, so an
@@ -129,7 +129,7 @@ function assertPatternsTotallyOrdered(trips: readonly TripTimes[], set: ReturnTy
 }
 
 // Counterexample: A and B tie at the first stop, so a departures[0]-only sort
-// falls back to insertion order (A, B) — but B dominates A pointwise (ties at
+// falls back to insertion order (A, B), but B dominates A pointwise (ties at
 // stop 0, strictly earlier at stop 1), so the correct pattern order is (B, A).
 // overtakes(A, B) is legitimately false (no crossing), so they must share one
 // pattern; the bug is purely in which order they land in within it.
@@ -157,13 +157,13 @@ function mulberry32(seed: number): () => number {
 }
 
 // Property test: 20,000 trials, seed 20260822 (fixed). Each trial builds a
-// batch of trips that all share one stop sequence — some generated with
+// batch of trips that all share one stop sequence, some generated with
 // deliberate overtakes, some with exact ties across all stops, some with
-// partial ties (equal at some stop positions, dominated at others) — and
+// partial ties (equal at some stop positions, dominated at others), and
 // checks that every resulting pattern is totally ordered at every stop, in
 // BOTH departure and arrival. Each trip carries its own random per-stop
 // dwell (arrival vs. departure gap), which is what lets two trips stay
-// perfectly ordered by departure while still crossing in arrival — the
+// perfectly ordered by departure while still crossing in arrival: the
 // dwell-time defect this generator must be able to produce and the fixed
 // `overtakes`/`compareTimes` must therefore handle.
 test("property: every pattern is totally ordered at every stop across many random trip sets", () => {

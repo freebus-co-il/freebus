@@ -12,7 +12,7 @@ import { RAIL_ROUTE_TYPE } from "../transit/routeTypes.js";
  *
  * This exists because a feed can disagree with itself. Trip
  * `584731495_210826` (shape `124297`, `total_length_m` 4,412) carries
- * `shape_dist_traveled` values of 0, 2 and 8 — some unit that is not metres —
+ * `shape_dist_traveled` values of 0, 2 and 8 (some unit that is not metres),
  * so cutting the shape between them yields an 8-metre, two-point line whose
  * far end is 3,675 m from the alight stop. Without this check that line shipped
  * with `geometryFallback: false`: the wrong line, presented as the operator's
@@ -28,11 +28,11 @@ import { RAIL_ROUTE_TYPE } from "../transit/routeTypes.js";
  *
  *   | trips        | p50   | p99    | p99.9  | max     |
  *   | good scale   | 9.6 m | 148 m  | 299 m  | 1,600 m |
- *   | broken scale | 3,675 m — every single one, tightly clustered |
+ *   | broken scale | 3,675 m; every single one, tightly clustered |
  *
  * Any threshold from 150 m to 1,500 m rejects 100% of the broken legs and
  * keeps essentially all the good ones; at 2,000 m broken legs start slipping
- * through. 500 m sits in the middle of that plateau — 3x the worst-case
+ * through. 500 m sits in the middle of that plateau: 3x the worst-case
  * p99.9 of a legitimate cut, 7x below the broken cluster. At 500 m exactly 20
  * of 70,386 legitimate legs (0.028%) fail the distance cut, and every one of
  * them is recovered by `sliceByNearestVertices` below, so none degrades to a
@@ -44,7 +44,7 @@ const SLICE_ENDPOINT_TOLERANCE_METERS = 500;
 
 /**
  * The line, oriented board-stop-first, if its endpoints really are this leg's
- * stops — otherwise null.
+ * stops; otherwise null.
  *
  * Reversal is tolerated (and corrected) rather than rejected: both slicing
  * functions return their result in SHAPE order, which is board-to-alight only
@@ -71,8 +71,8 @@ function orientedIfEndpointsMatch(
  *
  * This lives in the route layer, not in `itinerary.ts`, because it needs the
  * database. `itinerary.ts` is deliberately free of SQL so it can be
- * property-tested as pure computation — that is what found three real bugs in
- * it — and reaching into a database from there would end that.
+ * property-tested as pure computation (that is what found three real bugs in
+ * it), and reaching into a database from there would end that.
  *
  * MUST run AFTER departure reoptimisation. Reoptimisation can replace a
  * journey with a different one arriving at the same time, so resolving

@@ -28,7 +28,7 @@ export function usePlanTrip(query: PlanQuery | null) {
     queryKey: ['plan', query],
     // `{ ...query }` (not `query` directly) because `PlanQuery` has no index
     // signature and isn't assignable to apiGet's `Record<string, ...>` params
-    // type on its own — a fresh object literal is. Spreading `null` is valid
+    // type on its own; a fresh object literal is. Spreading `null` is valid
     // JS/TS and yields `{}`, which is fine since `enabled` prevents this from
     // ever running while `query` is null.
     queryFn: () => apiGet<PlanResponse>('/plan', { ...query }),

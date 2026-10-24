@@ -75,7 +75,7 @@ test("POST /refresh returns 409 while a run is in flight, and never starts a sec
 
   // The first run's promise is assigned to the runner's in-flight slot
   // synchronously inside runner.run(), before this inject() call even
-  // returns — so there is no race here despite the two awaits above and
+  // returns, so there is no race here despite the two awaits above and
   // below being separate microtask turns. The 150ms stub body just needs
   // to comfortably outlast the in-process HTTP round trip.
   const second = await app.inject({ method: "POST", url: "/refresh" });
@@ -198,7 +198,7 @@ test("GET /status still responds 200 (not 500), and reports liveError distinctly
 
   // The real defect this guards against: openReadDb's fileMustExist:true
   // throws on a dangling symlink. If that throw ever escaped the route
-  // handler uncaught, this request would 500 instead of 200 — the one
+  // handler uncaught, this request would 500 instead of 200, the one
   // thing an ops status endpoint must never do during an incident.
   assert.equal(res.statusCode, 200, "a broken live symlink must not crash the status endpoint");
   const body = res.json() as { live: unknown; liveError: unknown };
@@ -207,7 +207,7 @@ test("GET /status still responds 200 (not 500), and reports liveError distinctly
   // null` alone is identical to the cold-start response above, which would
   // wrongly tell an operator "nothing published yet" when a database was
   // in fact published and is now unreadable. liveError must be a non-null,
-  // short reason string — proof the two states are actually distinguishable
+  // short reason string: proof the two states are actually distinguishable
   // in the JSON, not just that the endpoint avoided a 500.
   assert.equal(typeof body.liveError, "string", "a broken live symlink must populate liveError");
   assert.match(body.liveError as string, /unreadable/i);

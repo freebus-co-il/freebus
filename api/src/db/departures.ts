@@ -142,7 +142,7 @@ export function departuresAt(
   }
 
   // Merged across two service days, so a final sort on absolute time is
-  // required — the per-day queries are each ordered, but not against each other.
+  // required: the per-day queries are each ordered, but not against each other.
   //
   // ON THE EPOCH, NOT ON THE RENDERED STRING. The two service days being
   // merged here do not always carry the same UTC offset: across Israel's
@@ -150,7 +150,7 @@ export function departuresAt(
   // the 24th renders as `2026-10-25T01:30:00+03:00` while a 01:10 departure
   // from the 25th renders as `2026-10-25T01:10:00+02:00`. Lexicographically
   // the second sorts first; by epoch the FIRST is 40 minutes earlier, and
-  // epoch is the truth — the offsets differ, so the local-time digits are
+  // epoch is the truth: the offsets differ, so the local-time digits are
   // not comparable at all. Sorting the strings inverted the board for those
   // rows, and `limit` then truncated the wrong departures. It happens
   // annually. ISO is rendered only after this sort and the slice, so the

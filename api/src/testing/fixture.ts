@@ -120,7 +120,7 @@ export function buildFixtureDb(dir: string, version = VERSION): string {
     INSERT INTO stop_times VALUES (2,1,1,32400,32400,0,1,0);
     -- T2's final stop.
     INSERT INTO stop_times VALUES (2,2,2,33000,33000,1,0,1200);
-    -- T3 departs 25:30 (91800) — past midnight, the >86400 case.
+    -- T3 departs 25:30 (91800), past midnight, the >86400 case.
     INSERT INTO stop_times VALUES (3,2,1,91800,91800,0,1,0);
     -- T3's final stop.
     INSERT INTO stop_times VALUES (3,4,2,92400,92400,1,0,900);
@@ -163,7 +163,7 @@ export function buildFixtureDb(dir: string, version = VERSION): string {
     INSERT INTO translations VALUES ('הרצל','AR','هرتسل');
     INSERT INTO translations VALUES ('הרצל','HE','הרצל');
     INSERT INTO translations VALUES ('מרכזית','EN','Central Station');
-    -- Note: no translation for 'תחנת השלום' — exercises the Hebrew fallback.
+    -- Note: no translation for 'תחנת השלום'; exercises the Hebrew fallback.
   `);
 
   db.prepare("INSERT INTO feed_meta VALUES (?, ?)").run("version", version);

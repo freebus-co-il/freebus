@@ -19,7 +19,7 @@ export interface ServerDeps {
 
 /**
  * `pino-pretty` runs as a worker thread (via `thread-stream`), and neither
- * Fastify's `close()` nor pino itself terminates that thread on shutdown —
+ * Fastify's `close()` nor pino itself terminates that thread on shutdown;
  * it is only reclaimed when the underlying stream is garbage-collected,
  * which is unbounded and, under CPU contention, can take far longer than a
  * test run. `node --test`'s parallel file runner is exactly that
@@ -27,7 +27,7 @@ export interface ServerDeps {
  * `buildServer` ~9 times, each spinning up its own pretty-print worker
  * thread, and none of them are ever explicitly torn down. Left unref'd
  * threads accumulating like that is what produced the full-suite hang this
- * guards against — every subtest passed, but the file's own process never
+ * guards against: every subtest passed, but the file's own process never
  * went idle enough to exit before its test-runner parent gave up.
  * `NODE_TEST_CONTEXT` is set by node's test runner in every child process
  * it spawns, so this opts out of the worker thread precisely for that

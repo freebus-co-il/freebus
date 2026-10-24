@@ -27,8 +27,8 @@ export function buildPathFor(dataDir: string, version: string): string {
  * A build carries this suffix until it has passed every gate and been
  * finalized, then is renamed to `buildPathFor(...)` immediately before the
  * swap. The point is that the final name becomes a *statement*: this file was
- * published. Without the distinction, a build killed halfway — OOM, SIGTERM,
- * a dead socket — left a truncated file that looked exactly like a completed
+ * published. Without the distinction, a build killed halfway (OOM, SIGTERM,
+ * a dead socket) left a truncated file that looked exactly like a completed
  * version to gcVersions and to an operator reading `ls`, took up a retention
  * slot, and could push a genuinely good rollback candidate off the end.
  */
@@ -96,7 +96,7 @@ export function gcVersions(dataDir: string, keep: number): string[] {
  * within the process.
  *
  * One caveat: because a run ceiling exists, a run that exceeds it is
- * *abandoned*, not cancelled — the lock is released while the abandoned run
+ * *abandoned*, not cancelled: the lock is released while the abandoned run
  * may still be writing. So a build CAN be in progress when a new one starts.
  * That case fails safely rather than corrupting anything: the sweep deletes
  * the abandoned `.building` file, and the abandoned run then throws ENOENT at
@@ -104,8 +104,8 @@ export function gcVersions(dataDir: string, keep: number): string[] {
  * database. Verified by probe, not assumed.
  *
  * Without this sweep, every crashed or
- * wedged run leaks its partial database — up to 666 MB against the real feed
- * — with nothing that would ever clean it up, since gcVersions correctly
+ * wedged run leaks its partial database (up to 666 MB against the real feed)
+ * with nothing that would ever clean it up, since gcVersions correctly
  * refuses to treat these files as versions.
  *
  * Never touches published versions or the live symlink: only names ending in

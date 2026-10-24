@@ -58,7 +58,7 @@ test("a two-leg journey appears in round 2, not round 1", () => {
 test("a transfer respects the minimum transfer time", () => {
   const ix = makeIndex(3, [
     { stops: [0, 1], dep: [3600, 4200], arr: [3600, 4200] },
-    // Departs 60 s after the first arrives — unreachable with a 120 s buffer.
+    // Departs 60 s after the first arrives: unreachable with a 120 s buffer.
     { stops: [1, 2], dep: [4260, 4800], arr: [4260, 4800] },
     { stops: [1, 2], dep: [4500, 5100], arr: [4500, 5100] },
   ]);

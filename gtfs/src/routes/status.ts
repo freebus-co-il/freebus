@@ -3,11 +3,11 @@ import { readLiveState } from "../pipeline/importFeed.js";
 
 export const statusRoutes: FastifyPluginAsync = async (app) => {
   app.get("/status", async () => {
-    // readLiveState never throws (see its own doc comment) — it reports
+    // readLiveState never throws (see its own doc comment); it reports
     // the persisted state of the live database, which survives a process
     // restart even though runner.lastResult() does not. `live`/`liveError`
     // distinguish "nothing published yet" (both null) from "a database
-    // was published but is now missing/unreadable" (liveError set) — an
+    // was published but is now missing/unreadable" (liveError set). An
     // ops endpoint that collapsed those two states would be misleading at
     // exactly the moment someone is relying on it during an incident.
     const { live, liveError } = app.dataDir

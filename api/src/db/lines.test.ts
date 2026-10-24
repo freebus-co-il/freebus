@@ -51,7 +51,7 @@ test("route shape decodes to GeoJSON", () => {
   assert.equal(shape.geometryFallback, false);
   assert.equal(shape.geometry.coordinates.length, 2);
   assert.equal(shape.attribution, null, "the feed's own shape is not OSM data");
-  // GeoJSON is [lon, lat], not [lat, lon] — inverting these silently puts
+  // GeoJSON is [lon, lat], not [lat, lon]; inverting these silently puts
   // every route in the wrong hemisphere.
   assert.ok(shape.geometry.coordinates[0]![0] > 34 && shape.geometry.coordinates[0]![0] < 35);
   h.close();
@@ -71,7 +71,7 @@ test("a shapeless route falls back to a stop-to-stop line and flags it", () => {
 
 test("trip detail lists every stop with its times", () => {
   const { h, tr, cal } = fixture();
-  // Wednesday 2026-08-26 — inside the fixture calendar, and S1 (Sun-Thu)
+  // Wednesday 2026-08-26: inside the fixture calendar, and S1 (Sun-Thu)
   // runs that day, so "the next date this trip runs" is that same date.
   const trip = getTrip(h.db, tr, "T1", "he",
     { calendar: cal, tz: TZ, now: new Date("2026-08-26T09:00:00+03:00") });
@@ -108,7 +108,7 @@ test("trip stop times carry ISO fields alongside the raw seconds", () => {
 });
 
 // 91800 s is 25:30 on the service day, so its ISO rendering must land on the
-// FOLLOWING calendar date at 01:30 — the whole reason the raw value is kept
+// FOLLOWING calendar date at 01:30. The whole reason the raw value is kept
 // unclamped is that this is a real time, not an overflow.
 test("a past-midnight raw value renders as the next calendar day in ISO", () => {
   const { h, tr, cal } = fixture();
@@ -121,7 +121,7 @@ test("a past-midnight raw value renders as the next calendar day in ISO", () => 
 });
 
 // S1 is Sun-Thu. Asked on a Friday, the rendered date must be the next
-// SUNDAY, not "today" — rendering a timetable against a day the trip does
+// SUNDAY, not "today"; rendering a timetable against a day the trip does
 // not operate is the failure mode `nextServiceDate` exists to prevent.
 test("the service date skips forward to a day the trip actually runs", () => {
   const { h, tr, cal } = fixture();

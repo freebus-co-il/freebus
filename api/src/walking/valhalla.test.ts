@@ -10,7 +10,7 @@ import { ValhallaClient, straightLineWalk, withoutQuietSteps, type WalkStep } fr
  *
  * The try/finally is the whole point: a helper that left each test to call
  * `close()` as its own last statement would leak a listening socket whenever
- * an assertion failed before that line — an open handle that keeps
+ * an assertion failed before that line, an open handle that keeps
  * `node --test`'s process alive after the run finishes, turning one honest
  * test failure into a hung suite with no output (the same class of bug that
  * leaked pino-pretty worker threads elsewhere in this codebase). A failing

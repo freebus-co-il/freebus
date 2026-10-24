@@ -3,7 +3,7 @@
 This repository's own code is licensed MIT (see `LICENSE`). That licence
 covers the code only. The data this project consumes at runtime comes from
 third parties under their own terms, described below. Deploying or
-distributing this project means also meeting those terms — they are not
+distributing this project means also meeting those terms; they are not
 satisfied by the MIT licence on the code.
 
 ## OpenStreetMap data (ODbL 1.0)
@@ -33,9 +33,9 @@ time and never enter the tree.**
   OpenStreetMap data, redistributed by the Photon project in a different
   file format, not an independently sourced address database.
 
-**What this obliges a deployer to do:** any output derived from these — the
+**What this obliges a deployer to do:** any output derived from these (the
 routes Valhalla returns, the addresses and places Photon geocodes, and the
-rail lines drawn from the baked geometry — must carry the attribution
+rail lines drawn from the baked geometry) must carry the attribution
 "© OpenStreetMap contributors" wherever it reaches an end user.
 
 **Where the app shows it:** "© OpenStreetMap contributors" appears under
@@ -56,7 +56,7 @@ https://gtfs.mot.gov.il/gtfsfiles/israel-public-transportation.zip
 
 This is Israel's Ministry of Transport and Road Safety (המשרד לתחבורה
 ולבטיחות בדרכים) GTFS feed, published at `gtfs.mot.gov.il`. It is fetched
-directly by URL — the repository has no licence file, terms-of-use document,
+directly by URL; the repository has no licence file, terms-of-use document,
 or usage-terms reference for this feed anywhere in its source, tests, or
 documentation.
 
@@ -83,13 +83,13 @@ saved locations; whether that fits Google's caching terms is an open item.
 ## Third-party services (containerised, not vendored)
 
 These run as separate containers per `docker-compose.yml` and are not
-modified or redistributed as source by this repository — only invoked over
+modified or redistributed as source by this repository, only invoked over
 HTTP:
 
-- **[Valhalla](https://github.com/valhalla/valhalla)** — routing engine.
+- **[Valhalla](https://github.com/valhalla/valhalla)**: routing engine.
   Licensed [MIT](https://github.com/valhalla/valhalla/blob/master/LICENSE.md).
   Run from the prebuilt image `ghcr.io/gis-ops/docker-valhalla/valhalla:latest`.
-- **[Photon](https://github.com/komoot/photon)** — geocoder, by komoot.
+- **[Photon](https://github.com/komoot/photon)**: geocoder, by komoot.
   Licensed [Apache License 2.0](https://github.com/komoot/photon/blob/master/LICENSE).
   Run from a custom image built in `api/photon/Dockerfile`, which downloads
   the official `photon-1.3.0.jar` release from the Photon project and adds an
@@ -100,8 +100,8 @@ HTTP:
 
 | Component | Source | Licence | Attribution required |
 | --- | --- | --- | --- |
-| This repository's code | — | MIT | Copyright notice (see `LICENSE`) |
-| `api/assets/rail-geometry.json` (committed) | OpenStreetMap via Overpass | ODbL 1.0 | "© OpenStreetMap contributors" — carried in the file's own `attribution` field |
+| This repository's code | n/a | MIT | Copyright notice (see `LICENSE`) |
+| `api/assets/rail-geometry.json` (committed) | OpenStreetMap via Overpass | ODbL 1.0 | "© OpenStreetMap contributors", carried in the file's own `attribution` field |
 | Valhalla routing tiles | Geofabrik regional extract (OpenStreetMap) | ODbL 1.0 | "© OpenStreetMap contributors" |
 | Photon geocoding index | Photon's Asia-continent OSM jsonl dump | ODbL 1.0 | "© OpenStreetMap contributors" |
 | GTFS schedule data | `gtfs.mot.gov.il` (Israel Ministry of Transport) | gov.il terms of use | State the source; "as is"; derivative-works clause under review |

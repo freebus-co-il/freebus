@@ -66,7 +66,7 @@ function toSummary(row: StopRow, tr: Translator, lang: Lang): StopSummary {
 /**
  * Builds an FTS5 MATCH expression that treats the user's input as literal
  * text. Every token is double-quoted (internal quotes doubled), so FTS5
- * operators the user happens to type — `OR`, `NEAR`, `*`, `"` — are matched
+ * operators the user happens to type (`OR`, `NEAR`, `*`, `"`) are matched
  * as words rather than executed as syntax. A prefix wildcard is appended to
  * the final token so search feels incremental as the user types.
  */
@@ -76,7 +76,7 @@ function ftsQuery(q: string): string {
     // Strip C0 control characters and DEL before quoting. FTS5's query
     // parser reads an embedded NUL as premature string termination even
     // inside a quoted token, throwing a syntax error the caller can't
-    // recover from — so this has to happen pre-quoting, not be replaced by
+    // recover from, so this has to happen pre-quoting, not be replaced by
     // quoting. A control character in a search box is noise, not a client
     // error, so it is silently dropped rather than rejected.
     .map((t) => t.replace(/[\u0000-\u001f\u007f]/g, ""))
@@ -147,7 +147,7 @@ export function searchStops(
   // Note this orders by the RAW `stop_name`, the Hebrew feed value, not the
   // translated one. A deliberate limitation: translations live in a separate
   // table and sorting by them would need a join per page for a list nobody
-  // scrolls far into. Sorting in JS after the LIMIT is not a fix — it would
+  // scrolls far into. Sorting in JS after the LIMIT is not a fix; it would
   // only sort each page within itself.
   if (opts.q.trim() === "") {
     const rows = db.prepare(`
@@ -186,7 +186,7 @@ export function searchStops(
   const needle = opts.q.trim().toLowerCase();
   return [...byRef.values()]
     .map((row) => ({ ...toSummary(row, tr, opts.lang), _ref: row.stop_ref }))
-    // Prefix matches first — someone typing "הרצל" wants the stop called
+    // Prefix matches first: someone typing "הרצל" wants the stop called
     // exactly that above one merely containing it.
     .sort((a, b) => {
       const aPre = (a.name ?? "").toLowerCase().startsWith(needle) ? 0 : 1;
@@ -349,7 +349,7 @@ export function getStop(
     routeId: r.route_id,
     agencyId: r.agency_id,
     shortName: r.route_short_name,
-    // route_long_name has zero translation coverage in this feed — it stays
+    // route_long_name has zero translation coverage in this feed; it stays
     // Hebrew whatever `lang` says.
     longName: r.route_long_name,
     type: r.route_type ?? 3,

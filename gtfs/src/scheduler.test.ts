@@ -10,7 +10,7 @@ const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Used instead of a fixed sleep for "eventually true" assertions against
  * croner's real wall-clock ticks: croner fires "* * * * * *" on absolute
  * second boundaries, not relative to when the test starts, so time-to-first-
- * tick is uniform over (0, 1000ms) — a fixed wait sized for the average case
+ * tick is uniform over (0, 1000ms), and a fixed wait sized for the average case
  * leaves too little slack for the worst case on a loaded CI box. Polling
  * removes the wall-clock dependency and typically finishes faster than a
  * fixed wait sized to cover the worst case.
@@ -93,7 +93,7 @@ test("a failed run does not wedge the lock", async () => {
 // condition (bounded by a generous ceiling) rather than sleeping a fixed
 // duration, so they have no dependency on how close to a boundary the test
 // happened to start. The "prove stop() halts it" assertion is a negative
-// (no more ticks) and can't be turned into a poll — it uses a fixed wait,
+// (no more ticks) and can't be turned into a poll; it uses a fixed wait,
 // but a generous one (comfortably over one second, i.e. more than a full
 // cron period) so a stray GC pause can't produce a false pass.
 
@@ -165,7 +165,7 @@ test("onError is invoked when a scheduled run rejects, without an unhandled reje
 //
 // The failure this exists for: a run whose promise never settles. #inFlight
 // is never cleared, isRunning() stays true forever, and every subsequent cron
-// tick and POST /refresh either joins the dead promise or gets a 409 — while
+// tick and POST /refresh either joins the dead promise or gets a 409, while
 // /health keeps answering 200 and /status reports running: true. The nightly
 // import stops permanently and nothing pages anyone. Ranked above the crash
 // in review for exactly that reason: a crash gets restarted by a supervisor
@@ -174,7 +174,7 @@ test("onError is invoked when a scheduled run rejects, without an unhandled reje
 // The backstop is deliberately cause-agnostic. The fetch layer's stall
 // timeout covers a download that goes silent, but not (for instance) a zip
 // entry that ends short, where the socket closes cleanly and the archive
-// reader simply never yields again — no stream idle, no error, nothing to
+// reader simply never yields again: no stream idle, no error, nothing to
 // abort.
 
 test("a run that never settles rejects at the run timeout instead of wedging forever", async () => {
@@ -266,7 +266,7 @@ test("jitter delays a tick's run rather than firing on the second", async () => 
   // 0`. random() is pinned to 1 so the delay is the full window and the
   // assertion is about the mechanism, not about luck: each run must land
   // roughly JITTER ms past its boundary. The tolerance is wide in both
-  // directions so a loaded machine cannot produce a false failure — what it
+  // directions so a loaded machine cannot produce a false failure. What it
   // cannot tolerate is a run firing ON the boundary, which is exactly the
   // no-jitter behaviour.
   const JITTER = 600;

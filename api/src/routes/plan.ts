@@ -310,7 +310,7 @@ export function nearestStops(
  * Validated rather than coerced, because `Number` is far too forgiving for a
  * filter that decides which vehicles a journey may use:
  *
- *  - `Number("")` is `0`, so a bare `modes=` would coerce to "tram only" — a
+ *  - `Number("")` is `0`, so a bare `modes=` would coerce to "tram only": a
  *    query that looks like "no filter" silently answering as the narrowest
  *    possible filter.
  *  - `Number("abc")` is `NaN`; filtering those out with `.filter(Number.

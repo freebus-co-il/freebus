@@ -316,7 +316,7 @@ test("every vehicle request is scoped to the newest loaded snapshot", async () =
   for (const u of vehicleUrls(h)) assert.match(u, /siri_snapshot_ids=899/);
 });
 
-test("a still-loading snapshot is skipped — a partial write looks like an empty country", async () => {
+test("a still-loading snapshot is skipped: a partial write looks like an empty country", async () => {
   const h = harness({ snapshots: [{ id: 900, etl_status: "loading" }], pages: [rows(3)] });
   h.poller.start();
   await h.runNext();

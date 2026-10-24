@@ -10,15 +10,15 @@ export interface RealtimeCall {
 
 /** One vehicle's journey, as SIRI describes it, before any resolution. */
 export interface RealtimeJourney {
-  /** SIRI LineRef — our routes.route_id. */
+  /** SIRI LineRef: our routes.route_id. */
   lineRef: string;
   /**
-   * GTFS direction_id (0,1,2) — already converted from SIRI's 1,2,3 — or
+   * GTFS direction_id (0,1,2), already converted from SIRI's 1,2,3, or
    * `null` when the source does not report one at all.
    *
    * SIRI-SM always does: `parseVisit` drops a visit without a DirectionRef.
    * The Stride SIRI-VM feed never does, and `resolveJourney` recovers it
-   * from the route instead — checked feed-wide on 2026-09-01, all 7,753
+   * from the route instead. Checked feed-wide on 2026-09-01, all 7,753
    * routes carry exactly one direction_id, so the route determines it. A
    * route that ever carried two resolves to nothing rather than to a guess.
    */
@@ -39,13 +39,13 @@ export interface RealtimeJourney {
   recordedAt: number | null;
   /** The monitored call plus every onward call, in the order SIRI gave
    *  them. Always EMPTY on the SIRI-VM path, which carries no predictions
-   *  at all — see `distanceFromStart`. */
+   *  at all; see `distanceFromStart`. */
   calls: RealtimeCall[];
   /**
    * Metres travelled along the trip's shape, as SIRI-VM reports it; `null`
    * on SIRI-SM, which has no such concept.
    *
-   * Zero is LEGITIMATE — a vehicle sitting at its origin — and must never
+   * Zero is LEGITIMATE (a vehicle sitting at its origin) and must never
    * be conflated with `null`. `match.ts`'s `predictFromDistance` turns this
    * into one delay for the vehicle, and thence into the per-stop
    * predictions SIRI-SM would have supplied directly.

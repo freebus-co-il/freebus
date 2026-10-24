@@ -47,7 +47,7 @@ export interface LiveStatus {
  * now missing/corrupt" into the same `live: null` would make `/status`
  * actively misleading during an incident: the former means "working as
  * designed, wait for the first import," the latter means "a database that
- * used to be live is gone or broken — investigate now." `liveError` is how
+ * used to be live is gone or broken; investigate now." `liveError` is how
  * an operator (or a monitoring check) tells those apart.
  */
 export interface LiveState {
@@ -55,7 +55,7 @@ export interface LiveState {
   /**
    * Null on a genuine cold start (no live symlink at all) or when `live`
    * is populated. Non-null only when a live symlink exists but its target
-   * could not be read — e.g. missing (post-GC race, mid-swap), or open
+   * could not be read, e.g. missing (post-GC race, mid-swap), or open
    * but not a valid GTFS database. A short, safe-to-expose reason, never
    * a raw stack trace or full error object.
    */
@@ -74,13 +74,13 @@ function shortReason(err: unknown): string {
 }
 
 /**
- * Reads the full persisted state of the live database — the counterpart to
+ * Reads the full persisted state of the live database, the counterpart to
  * readFeedMeta (which only surfaces what importFeed itself needs for its
  * next conditional request). This is for reporting: `/status` needs to
  * show an operator what is actually live on disk, independent of any
  * in-process run history, which is lost on every restart.
  *
- * Never throws, whatever state the filesystem is in — this backs an ops
+ * Never throws, whatever state the filesystem is in: this backs an ops
  * endpoint that must stay useful (never 500) precisely when something is
  * already wrong. See LiveState's doc comment for how cold-start and
  * broken-live are distinguished in the result.
@@ -120,7 +120,7 @@ export function readLiveState(dataDir: string): LiveState {
     }
   } catch (err) {
     // The symlink exists but its target couldn't be opened/read as a GTFS
-    // database — missing file, permission error, or a corrupt/mid-swap
+    // database: missing file, permission error, or a corrupt/mid-swap
     // file. That is meaningfully different from "nothing published yet."
     return { live: null, liveError: `unreadable: ${shortReason(err)}` };
   }
@@ -154,7 +154,7 @@ function cleanupBuild(buildPath: string): void {
  * Gate 2 (row counts within 50–200% of the previous run) has, and returning
  * `counts: null` turns that gate off for the run. Silently. A corrupt live
  * database would therefore cost the next import its ratio check with no
- * trace anywhere — the very run most likely to need it. The failure is
+ * trace anywhere, the very run most likely to need it. The failure is
  * still non-fatal (a cold-start-shaped import is better than no import), but
  * it must be audible.
  */
@@ -171,7 +171,7 @@ export function readFeedMeta(
   try {
     // db.close() lives in a `finally`, matching readLiveState. Without it a
     // throw anywhere between open and close leaks the SQLite handle for the
-    // process's lifetime — and this runs once per import, on a service whose
+    // process's lifetime, and this runs once per import, on a service whose
     // whole job is to run forever.
     db = openReadDb(live);
     const rows = db.prepare("SELECT key, value FROM feed_meta").all() as {
@@ -180,7 +180,7 @@ export function readFeedMeta(
     const meta = new Map(rows.map((r) => [r.key, r.value]));
     return {
       version: {
-        // Empty string means "absent" — a first-ever run persists "" for
+        // Empty string means "absent": a first-ever run persists "" for
         // both fields, and treating that as truthy would send an empty
         // If-None-Match on the next attempt, which some servers answer
         // with 304, leaving the service without a database while its logs
@@ -195,7 +195,7 @@ export function readFeedMeta(
   } catch (err) {
     onWarn(
       `could not read feed_meta from the live database at ${live}: `
-      + `${shortReason(err)} — this run has no baseline row counts, so the `
+      + `${shortReason(err)}; this run has no baseline row counts, so the `
       + "count-ratio sanity gate will not be applied",
     );
     return { version: null, counts: null };
@@ -273,7 +273,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
   // Two names, one file. The build is written under `.building` and only
   // renamed to its published `gtfs-<version>.sqlite` name in the instant
   // before the swap. Building directly at the final name made a partial
-  // build — from a crash, an OOM, or a SIGTERM mid-run — indistinguishable
+  // build (from a crash, an OOM, or a SIGTERM mid-run) indistinguishable
   // from a completed version: it matched swap.ts's VERSION_RE, consumed one
   // of the `keep` slots, and could evict a good rollback candidate in favour
   // of a truncated file nobody could tell was truncated. Under the final
@@ -285,7 +285,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
   // injected fixed clock (as this module's own tests use) could produce the
   // same version stamp twice against one dataDir. Checked up front so a
   // collision costs nothing rather than being discovered after a full
-  // ~800 MB load — and checked against *any* retained version, not just the
+  // ~800 MB load, and checked against *any* retained version, not just the
   // live one, because the promotion rename would silently overwrite either.
   // Definite-assignment: both are set by the try below, whose catch always
   // rethrows, so neither is readable while unassigned.
@@ -306,8 +306,8 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
   } catch (err) {
     // Everything between fetchFeed returning and the first byte being piped
     // is a window where we hold a live response body that nothing is
-    // consuming. A throw here — a version collision, a database that will
-    // not open, a writer whose columns do not match the schema — would
+    // consuming. A throw here (a version collision, a database that will
+    // not open, a writer whose columns do not match the schema) would
     // otherwise abandon the body, and fetch/undici keep an abandoned body's
     // connection open for the life of the process.
     result.body.destroy();
@@ -316,7 +316,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
   }
   let totalRows = 0;
   // Set the instant swapIn() returns. Once true, buildPath IS the live
-  // database (swapIn's rename is the last, atomic step of publication) —
+  // database (swapIn's rename is the last, atomic step of publication),
   // so the catch block below must never delete it again, no matter what
   // runs after the swap and throws. This makes that a structural
   // guarantee rather than one that depends on every future line added
@@ -346,7 +346,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
     // fails (SQLITE_FULL, SQLITE_IOERR, a corrupt page) is this machine
     // failing, and 5,000 rows vanish per occurrence. Budgeted at the default
     // 1% over ~10.4M rows, ~104,000 rows could be lost to disk errors and
-    // the run would still publish — Gate 2's 50–200% band cannot see a 1%
+    // the run would still publish: Gate 2's 50–200% band cannot see a 1%
     // dip, and Gate 3 finds no orphans for merely-missing stop_times rows.
     // FeedWriter raises these out of writeRow/finish rather than counting
     // them, so in practice the throw has already happened by the time we get
@@ -372,7 +372,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
     createIndexes(db);
     buildDerived(db);
 
-    // nonContiguousShapeIds comes from *this* writer instance — the writer is
+    // nonContiguousShapeIds comes from *this* writer instance; the writer is
     // the only place a shapes.txt group reappearing after its flush is ever
     // visible; nothing queryable in the database itself reveals it.
     const report = runSanityGates(db, previous.counts, {
@@ -398,7 +398,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
     // finalizeForRead runs on this single connection to the build database;
     // no other connection is ever opened against it (readFeedMeta only ever
     // opens the *previous*, already-finalized live database, and only
-    // before this connection exists) — the concurrent-opener scenario
+    // before this connection exists), so the concurrent-opener scenario
     // finalizeForRead guards against must never apply to the build file
     // itself, or its WAL checkpoint would spuriously fail.
     finalizeForRead(db);
@@ -423,7 +423,7 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
     // gcVersions runs after the swap has already committed: the import has
     // already succeeded and buildPath is now the live database. A failure
     // here (e.g. a permission error removing an old version) must never
-    // propagate to the catch block below — that cleanupBuild(buildPath)
+    // propagate to the catch block below. That cleanupBuild(buildPath)
     // exists to delete a build that failed *before* publication, and would
     // otherwise delete the file the live symlink now points to, turning a
     // successful import into data loss. Garbage collection is a nicety, not
@@ -449,14 +449,14 @@ export async function importFeed(opts: ImportOptions): Promise<ImportOutcome> {
     // Release the response body's socket. Once iteration has begun, zip.ts's
     // `pipeline` already tears the body down when the consumer breaks out,
     // so in the common case this is a second, harmless destroy. It is here
-    // for the paths where that is not true — a throw before the first
+    // for the paths where that is not true (a throw before the first
     // `for await` iteration, or any future step added between the fetch and
-    // the loop — because an abandoned fetch body holds its connection open
+    // the loop), because an abandoned fetch body holds its connection open
     // until the process exits (undici does not release it on garbage
     // collection), and this service is meant to run for months.
     result.body.destroy();
     // Once published, currentPath is the live database (swapIn's rename is
-    // atomic and is its last step) — deleting it here on some later,
+    // atomic and is its last step), so deleting it here on some later,
     // unrelated throw (a log call, a metrics emit, anything added after
     // swapIn in the future) would destroy data a successful run already
     // committed. Only a build that failed *before* publication may be

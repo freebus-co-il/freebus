@@ -7,7 +7,7 @@ import { resolveRealtimeConfig, resolveGeocoderConfig, floatEnv } from "./config
 
 // config.ts validates at MODULE LOAD time and throws. The only faithful way
 // to test "a bad env var makes the process fail loudly at boot" is to boot a
-// fresh process with that env var set — importing it here would be cached
+// fresh process with that env var set; importing it here would be cached
 // after the first load and could not be re-run with different env.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const configPath = join(__dirname, "config.ts");
@@ -33,7 +33,7 @@ test("a non-numeric PORT fails at boot, naming the value", () => {
   assert.match(stderr, /Invalid PORT: abc/);
 });
 
-// Number.parseInt("6O000", 10) is 6 — a capital O for a zero. A 6 ms Valhalla
+// Number.parseInt("6O000", 10) is 6: a capital O for a zero. A 6 ms Valhalla
 // timeout would fail every walk lookup while looking like a configured value.
 // The parser must use Number(), which yields NaN, and reject it by name.
 test("a typo'd duration fails rather than silently becoming a tiny number", () => {
@@ -269,7 +269,7 @@ test("an unknown REALTIME_KEYLESS_SOURCE fails at boot rather than guessing", ()
     /REALTIME_KEYLESS_SOURCE/);
 });
 
-test("a half-set MOT pair disables — it must NOT fall through to Stride", () => {
+test("a half-set MOT pair disables; it must NOT fall through to Stride", () => {
   for (const env of [{ MOT_SIRI_KEY: "k" }, { MOT_SIRI_BASE_URL: "https://mot.test" }]) {
     const warnings: string[] = [];
     const cfg = resolveRealtimeConfig(env, (m) => warnings.push(m));

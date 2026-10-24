@@ -85,7 +85,7 @@ export interface TransitLeg {
    * True when `geometry` is NOT the operator's real shape: a straight line
    * through the leg's stops, because the trip carries no shape, its shape row
    * is missing, or the shape could not be cut to this leg. Also true while
-   * `geometry` is still `null` — the pair is only ever `false` once a real
+   * `geometry` is still `null`; the pair is only ever `false` once a real
    * line has actually been attached, so an unresolved leg never reads as real
    * geometry. Mirrors the same flag on `/routes/:routeId/shape`. A
    * client can style a fallback line differently instead of believing it has

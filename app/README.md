@@ -35,7 +35,7 @@ matching the build mode:
 | `.env.production`  | `expo start --no-dev`, `expo export`, EAS | `https://api.freebus.co.il` |
 
 To point at a different backend (a LAN IP so a physical device can reach your
-laptop, or a staging box), edit the matching file — or create a
+laptop, or a staging box), edit the matching file, or create a
 `.env.development.local` (gitignored) to override without touching the
 committed default. Restart the dev server after any change: the value is
 inlined at bundle time, not read at runtime.
@@ -62,10 +62,10 @@ iOS uses Apple Maps and needs no key.
 Supported languages: Hebrew (`he`, default) and English (`en`), detected from
 the device locale at startup (`src/i18n/index.ts`). Layout direction
 (RTL/LTR) is derived from the resolved language via `I18nManager`. Note that
-React Native only applies a new RTL/LTR value after a full app reload — an
+React Native only applies a new RTL/LTR value after a full app reload; an
 in-app language switcher (not built yet) will need to trigger one.
 
 User-facing strings live in `src/i18n/locales/{en,he}.json`; add every new
 string to both. `src/lib/format.ts` reads the i18n singleton directly (rather
-than a `t` from `useTranslation()`) because it's a plain helper module — safe
+than a `t` from `useTranslation()`) because it's a plain helper module, safe
 only as long as the language can't change without a reload.

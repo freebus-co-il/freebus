@@ -91,7 +91,7 @@ const METERS_PER_DEG_LAT = 111_320;
  * A latitude/longitude box guaranteed to contain every point within `meters`
  * of the centre. Used to pre-filter the R*Tree before an exact haversine pass.
  *
- * The box is a superset of the true circle, never a subset — the longitude
+ * The box is a superset of the true circle, never a subset: the longitude
  * span is widened by the cosine of the latitude, and at the poles (where
  * cos -> 0) it clamps to the whole longitude range rather than dividing by
  * something arbitrarily close to zero.

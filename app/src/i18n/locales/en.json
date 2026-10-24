@@ -121,10 +121,10 @@
     "filterTo": "To {{name}}",
     "filterClear": "Clear destination",
     "arrivesAt": "Arrives {{time}}",
-    "arrivesFirst": "Arrives {{time}} — first to get there",
+    "arrivesFirst": "Arrives {{time}}, first to get there",
     "noneToDestination": "No direct line stopping near {{name}} in the next {{minutes}} min.",
     "destinationPlaceholder": "Search for a station or place",
-    "destinationHint": "Pick where you're heading — a station, or a place like a railway station or a mall. The board keeps only the lines that stop within a short walk of it, without changing.",
+    "destinationHint": "Pick where you're heading: a station, or a place like a railway station or a mall. The board keeps only the lines that stop within a short walk of it, without changing.",
     "thenWalk": "{{meters}} m walk"
   },
   "units": {
@@ -219,7 +219,7 @@
       "riding_one": "{{count}} stop",
       "riding_other": "{{count}} stops",
       "ridingUntil": "Off at {{time}}",
-      "alightSoon": "Next stop — get off",
+      "alightSoon": "Next stop: get off",
       "alightSoonCompact": "NOW",
       "transferring": "{{line}} in {{minutes}} min",
       "arriving": "{{duration}} walk",
@@ -335,7 +335,7 @@
       "offerBody": "{{line}} gets you there at {{time}}",
       "offerAccept": "Switch route",
       "offerKeep": "Keep waiting",
-      "stuck": "No way found right now — still looking"
+      "stuck": "No way found right now, still looking"
     },
     "menu": {
       "more": "More options"

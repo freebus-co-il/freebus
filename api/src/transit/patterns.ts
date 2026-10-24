@@ -19,7 +19,7 @@ export interface PatternSet {
    * in BOTH arrays: trip k's departures AND arrivals are each pointwise <=
    * trip k+1's within a pattern. RAPTOR's binary search over this order (see
    * `raptor.ts`'s `earliestTripOnDay`) picks a trip by departure only, but
-   * then reads that trip's ARRIVAL at every later stop while riding it —
+   * then reads that trip's ARRIVAL at every later stop while riding it;
    * that read is only ever correct if arrivals are ordered the same way
    * departures are, which is why both arrays must be jointly non-decreasing,
    * not just departures.
@@ -79,8 +79,8 @@ export interface PatternSet {
  * ordered by departure at every stop while still crossing in arrival (e.g.
  * different dwell times), and `overtakes` below now treats that crossing as
  * a conflict requiring a split. Once split, the survivors within a pattern
- * are guaranteed to jointly dominate each other in both arrays, so — exactly
- * as with the departures-only version this replaces — the FIRST position at
+ * are guaranteed to jointly dominate each other in both arrays, so (exactly
+ * as with the departures-only version this replaces) the FIRST position at
  * which the interleaved sequences differ necessarily has the same sign as
  * the overall domination direction, making lexicographic order and
  * domination order the same thing on exactly the pairs that matter.
@@ -102,7 +102,7 @@ function compareTimes(a: TripTimes, b: TripTimes): number {
 /**
  * True when `a` and `b` cannot coexist in one RAPTOR pattern: neither trip
  * dominates the other at every position in BOTH arrays. Departure-only
- * domination is not sufficient — two trips can stay perfectly ordered by
+ * domination is not sufficient: two trips can stay perfectly ordered by
  * departure throughout while crossing in arrival (different dwell times),
  * and riding a pattern whose arrivals aren't jointly ordered would read the
  * wrong trip's arrival after such a crossing. `aFirst`/`bFirst` are set from
@@ -146,7 +146,7 @@ export function buildPatterns(trips: readonly TripTimes[]): PatternSet {
     //    and arrival at each (see `compareTimes`). RAPTOR's binary search
     //    over a pattern's trips depends on this ordering being consistent
     //    with pointwise domination in BOTH arrays, not merely on departure at
-    //    the first stop — a first-stop-only sort ties whenever two trips
+    //    the first stop; a first-stop-only sort ties whenever two trips
     //    share a first-stop departure and falls back to unrelated insertion
     //    order, which can silently misorder the pattern.
     members.sort((x, y) => compareTimes(trips[x]!, trips[y]!));

@@ -44,7 +44,7 @@ test("rejects input that is not a zip archive", async () => {
  * Zip64 sentinel structure the real MOT archive uses: both sizes set to
  * 0xFFFFFFFF in the 32-bit header fields, with the true 64-bit sizes carried
  * in a trailing Zip64 extra field (header id 0x0001). `buildFixtureZip`
- * cannot exercise this path — `yazl`'s `forceZip64Format` only
+ * cannot exercise this path: `yazl`'s `forceZip64Format` only
  * forces Zip64 structure into the CENTRAL DIRECTORY, and this streaming
  * reader never looks at the central directory; its local headers always
  * carry true sizes with a zero-length extra field. Compression is "stored"
@@ -111,14 +111,14 @@ test("resolves the true size when a local header carries the Zip64 sentinel", as
 
 /**
  * The seam no per-task review owned: client.ts builds the body, zip.ts pipes
- * it, csv.ts pipes again, importFeed owns the try/catch — and
+ * it, csv.ts pipes again, importFeed owns the try/catch, and
  * `Readable.prototype.pipe` forwards data and `end` but NOT the source's
  * errors. Before the `pipeline` fix a socket dying mid-download emitted
  * `error` on a stream nobody listened to, which Node turns into an uncaught
  * exception: the process died, importFeed's catch never ran, and an orphaned
  * build database (up to 666 MB against the real feed) was left behind.
  *
- * Reverting zip.ts to `src.pipe(unzipper.Parse(...))` makes this test fail —
+ * Reverting zip.ts to `src.pipe(unzipper.Parse(...))` makes this test fail:
  * the rejection never arrives and the error surfaces as an uncaught
  * exception instead.
  */
@@ -147,7 +147,7 @@ test("forwards a source-stream error to the consumer instead of emitting it unha
 });
 
 /**
- * A body that ends mid-entry — the truncated-download case. With `pipeline`
+ * A body that ends mid-entry: the truncated-download case. With `pipeline`
  * (not `src.pipe(...)`, see the note above) the reader reports FILE_ENDED
  * and the iterator rejects rather than stalling.
  */

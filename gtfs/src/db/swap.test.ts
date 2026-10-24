@@ -102,7 +102,7 @@ test("gcVersions protects the live version even when it is not the newest (rollb
 //
 // A build is written under `.building` and only takes its final
 // `gtfs-<version>.sqlite` name once finalized. Without that distinction, a
-// partial build — from a dead socket, an OOM, or a SIGTERM mid-run — would
+// partial build (from a dead socket, an OOM, or a SIGTERM mid-run) would
 // match VERSION_RE exactly like a completed one. It would consume a
 // retention slot and, being newer than everything else, could push a
 // genuinely good rollback candidate off the end of the list, with an
@@ -121,8 +121,8 @@ test("gcVersions never counts an in-progress build as a version", () => {
   writeFileSync(buildingPathFor(dir, "v3"), "partial");
 
   // keep: 2 with two real versions must delete nothing. If the .building
-  // file were counted, versions.length would be 3 and v1 — the only rollback
-  // target — would be evicted in favour of a truncated file.
+  // file were counted, versions.length would be 3 and v1 (the only rollback
+  // target) would be evicted in favour of a truncated file.
   assert.deepEqual(gcVersions(dir, 2), []);
   assert.ok(existsSync(buildPathFor(dir, "v1")), "the rollback candidate must survive");
   assert.ok(existsSync(buildingPathFor(dir, "v3")), "gcVersions must not touch builds");

@@ -10,7 +10,7 @@ import { resolveLegGeometry } from "./legGeometry.js";
 
 /**
  * Property test for transit-leg geometry, over deterministic seeded random
- * networks — the four geometry properties this endpoint's design requires
+ * networks: the four geometry properties this endpoint's design requires
  * and which no test previously covered:
  *
  *   1. the decoded geometry begins near the board stop and ends near the
@@ -22,7 +22,7 @@ import { resolveLegGeometry } from "./legGeometry.js";
  * The hand-written examples in `legGeometry.test.ts` assert none of these
  * across generated input, and their absence is exactly why a feed whose
  * `shape_dist_traveled` scale disagrees with its own shape shipped an
- * 8-metre polyline — ending 3,675 m from the alight stop — flagged as the
+ * 8-metre polyline (ending 3,675 m from the alight stop) flagged as the
  * operator's real geometry. Property 1 is the one that catches it, so the
  * real offending shape (`124297`, trip `584731495_210826`) is generated as a
  * fixed case alongside the random ones rather than left to chance.
@@ -30,7 +30,7 @@ import { resolveLegGeometry } from "./legGeometry.js";
  * **Seed 20260823, 240 generated trips** (`SEED`/`TRIALS` below), mixing five
  * feed shapes randomly per trip: honest metre distances, a broken distance
  * scale, absent distances, a trip with no `shape_id`, and a `shape_id` whose
- * `shapes` row is missing. Roughly 600 legs, in ~40 ms — the same budget as
+ * `shapes` row is missing. Roughly 600 legs, in ~40 ms, the same budget as
  * the existing oracle tests, so `npm test` stays around a second.
  *
  * Everything runs against one in-memory SQLite database rather than a temp
@@ -109,7 +109,7 @@ function polylineLength(points: readonly LatLon[]): number {
   return total;
 }
 
-/** The point `meters` along the line — `sliceByDistance`'s own interpolation. */
+/** The point `meters` along the line, per `sliceByDistance`'s own interpolation. */
 function pointAt(points: readonly LatLon[], meters: number): LatLon {
   return sliceByDistance(points, meters, meters)[0]!;
 }
@@ -241,7 +241,7 @@ test("geometry properties hold over seeded random feeds", () => {
   const db = buildDb(trips);
 
   // Every leg goes through ONE resolveLegGeometry call, which is also how the
-  // route uses it — and exercises the per-request shape memoisation.
+  // route uses it, and exercises the per-request shape memoisation.
   const rnd = mulberry32(SEED ^ 0x5eed);
   const cases: { trip: GenTrip; leg: TransitLeg }[] = [];
   for (const trip of trips) {

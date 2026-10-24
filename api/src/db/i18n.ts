@@ -56,7 +56,7 @@ export class Translator {
    * This is what makes cross-language search work at all: `stops_fts` indexes
    * only the Hebrew feed text, so an English query would otherwise match
    * nothing. Scanning ~33k translated names in memory takes under a
-   * millisecond — cheaper than maintaining a second FTS index per language.
+   * millisecond, cheaper than maintaining a second FTS index per language.
    */
   namesMatching(query: string, lang: Lang, limit: number): string[] {
     const needle = query.trim().toLowerCase();

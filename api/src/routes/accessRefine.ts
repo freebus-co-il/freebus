@@ -15,10 +15,10 @@ export interface RefineOptions {
  * `stops` then carries a REAL Valhalla-measured `secondsToReach`, not the
  * 1.33 m/s estimate `accessStops` produced it with. `refined` is false on
  * every degrade path (thrown call, missing/wrong-length row) and for the
- * zero-candidate short-circuit — in all of those, `stops` is the untouched
+ * zero-candidate short-circuit. In all of those, `stops` is the untouched
  * or empty input and every surviving `secondsToReach` is still the estimate.
  * One boolean per endpoint is exact, never approximate: either every
- * returned candidate came from the matrix row, or none did — refinement
+ * returned candidate came from the matrix row, or none did; refinement
  * cannot partially succeed within a single call.
  */
 export interface RefineResult {
@@ -31,7 +31,7 @@ export interface RefineResult {
  * walking distances, dropping any stop whose actual walk exceeds the cap.
  *
  * `accessStops` selects candidates by haversine, which is a correct LOWER
- * BOUND on street distance and therefore a sound prefilter — it can never
+ * BOUND on street distance and therefore a sound prefilter: it can never
  * discard a stop that would have qualified. What it cannot do is reject a stop
  * whose straight-line distance is inside the cap but whose real walk is far
  * outside it: measured on this feed, 11.2% of walks are underestimated by more
@@ -42,12 +42,12 @@ export interface RefineResult {
  * One matrix call per endpoint covers every candidate: a one-to-many matrix is
  * a single graph search from the source, so cost scales with the search area
  * rather than the target count (measured: 660 targets in 131 ms against 50 in
- * 22 ms). There is deliberately no candidate cap — capping would risk
+ * 22 ms). There is deliberately no candidate cap; capping would risk
  * discarding the genuinely best stop to save time the measurement says we have.
  *
  * Returns a `{ stops, refined }` pair rather than a bare array so the caller
  * can tell whether the returned `secondsToReach` values are real durations or
- * still estimates — see `RefineResult`'s own doc comment.
+ * still estimates; see `RefineResult`'s own doc comment.
  */
 export async function refineAccessByWalking(
   client: Pick<ValhallaClient, "matrix">,
@@ -81,7 +81,7 @@ export async function refineAccessByWalking(
   const out: RaptorAccess[] = [];
   for (const [i, c] of candidates.entries()) {
     const cost = row[i];
-    // null means Valhalla found no pedestrian path at all — genuinely not
+    // null means Valhalla found no pedestrian path at all, genuinely not
     // walkable, not an error.
     if (cost === null || cost === undefined) continue;
     // A cell that omits its keys or carries a string yields NaN here, which

@@ -6,7 +6,7 @@ import type { TimetableIndex } from "./index.js";
  * footpaths are supplied as [from, to, seconds] triples.
  *
  * Shared test scaffolding for both `raptor.test.ts` and
- * `raptorReverse.test.ts` — plain array plumbing, not part of the shipped
+ * `raptorReverse.test.ts`: plain array plumbing, not part of the shipped
  * index-building path (that's `buildIndex` in `index.ts`).
  *
  * `opts.stopParent` defaults to "no stop has a parent station" and

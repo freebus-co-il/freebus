@@ -155,7 +155,7 @@ test("a failed rebuild releases the lock and keeps the old index", async () => {
 });
 
 // The real worker path (no buildFn override) is exercised nowhere else in
-// this suite — every other test injects an in-process buildFn precisely to
+// this suite: every other test injects an in-process buildFn precisely to
 // avoid spawning a worker per test. That means a regression in the actual
 // worker spawn/transfer path (e.g. the tsx-under-worker-threads module
 // resolution `spawnBuildWorker` works around, or the transfer-list dedup in

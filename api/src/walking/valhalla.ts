@@ -117,14 +117,14 @@ function parseSteps(raw: unknown): WalkStep[] {
 }
 
 /**
- * THE detour factor. Straight-line distance understates a real walk — across
+ * THE detour factor. Straight-line distance understates a real walk: across
  * a rail line or a motorway, badly. 1.35 is a conventional multiplier for
  * urban pedestrian networks; it keeps every straight-line estimate in this
  * service from claiming connections that cannot actually be made in the time
  * allowed.
  *
  * Exported and imported rather than restated, because it has to be the SAME
- * number in four places — this module's `straightLineWalk` (footpath
+ * number in four places: this module's `straightLineWalk` (footpath
  * durations), `transit/itinerary.ts` (chain-internal walk-leg distances) and
  * two call sites in `routes/plan.ts` (access/egress walk seconds, and the
  * access/egress leg's own reported distance). Those were four independent
@@ -227,7 +227,7 @@ export class ValhallaClient {
 
   /**
    * Rows are sources, columns are targets. A null cell means Valhalla found no
-   * pedestrian path — genuinely unreachable on foot, which is information, not
+   * pedestrian path, genuinely unreachable on foot, which is information, not
    * an error.
    *
    * `from_index`/`to_index` come from the server response, not from anything

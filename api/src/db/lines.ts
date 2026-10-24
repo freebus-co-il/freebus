@@ -72,8 +72,8 @@ export interface TripDetail {
    * below was rendered against: the NEXT date on or after "now" on which
    * this trip's service actually runs.
    *
-   * A GTFS trip carries no date — it is a set of offsets that repeats on
-   * every date its `service_id` is active — so an ISO timestamp for it only
+   * A GTFS trip carries no date (it is a set of offsets that repeats on
+   * every date its `service_id` is active), so an ISO timestamp for it only
    * exists relative to a chosen date, and this field names the choice rather
    * than hiding it. "The next date it actually runs" is picked over "today"
    * because most services in this feed skip Saturdays: rendering against a

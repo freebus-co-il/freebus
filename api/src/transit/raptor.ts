@@ -170,17 +170,17 @@ export interface RaptorResult {
  *
  * Restricted to one day deliberately: the overtaking-split ordering that
  * makes the binary search valid is a per-service-day-local
- * invariant — trip k's departure at this position is <= trip k+1's *within
+ * invariant: trip k's departure at this position is <= trip k+1's *within
  * that same day's calendar*. Two different DayContexts have unrelated
  * absolute departures (a service running "yesterday at 25:30" has nothing in
  * common, ordering-wise, with one running "today at 01:30"), so comparing
  * across days by raw epoch would silently abandon a strictly better trip
  * (see `runRaptor`'s per-day traversal for how results are merged back
- * across days instead — through arrival comparisons, which are always
+ * across days instead, through arrival comparisons, which are always
  * meaningful across days).
  *
- * After the search, the scan skips trips whose service does not run today —
- * about 60% of them on a typical day — so it walks forward a couple of
+ * After the search, the scan skips trips whose service does not run today
+ * (about 60% of them on a typical day), so it walks forward a couple of
  * entries on average.
  *
  * `fallbackEpoch` is the last-service fallback rule, folded into this one

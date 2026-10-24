@@ -11,12 +11,12 @@ import { buildHeadwayTable, type TransferConfig } from "./headway.js";
  * Differential test: runRaptor vs. an exhaustive brute-force oracle over many
  * random small networks.
  *
- * This harness is what actually found five real defects in `raptor.ts` — two
+ * This harness is what actually found five real defects in `raptor.ts`, two
  * Critical (a departure tie inside a pattern keeping the later-arriving trip;
  * DayContexts compared by raw epoch, which is only valid within one day) and
  * three more (an overtaking split that ignored arrivals; footpaths never
  * relaxed from a round-0 access label; a footpath phase that could chain two
- * walks together) — none of which the hand-written example tests in
+ * walks together), none of which the hand-written example tests in
  * `raptor.test.ts` caught. Eleven hand-written tests found zero of these;
  * this harness found all five in a couple thousand random trials. It is kept
  * here, permanently, at a much lower trial count so `npm test` stays fast,
@@ -46,7 +46,7 @@ import { buildHeadwayTable, type TransferConfig } from "./headway.js";
  * the harness stayed green against a table that stored an 18-hour gap as
  * zero. `headway.test.ts` guards that directly instead.
  *
- * Deterministic seed 20260822, 400 trials (see `TRIALS` below) — chosen to
+ * Deterministic seed 20260822, 400 trials (see `TRIALS` below), chosen to
  * run in well under a second while still exercising dwell times, multi-day
  * calendars, loop routes, footpaths with both pre-expanded and raw origins,
  * and trip filters, mixed randomly per trial from the same seed.

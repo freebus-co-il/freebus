@@ -15,7 +15,7 @@ function asRecord(x: unknown): Record<string, unknown> | null {
 
 /**
  * SIRI's own XML-to-JSON conversion is famously inconsistent about whether a
- * one-element list survives as an array or collapses to the bare object —
+ * one-element list survives as an array or collapses to the bare object:
  * true of `StopMonitoringDelivery`, and the
  * same ambiguity applies to `MonitoredStopVisit` and `OnwardCall`. Rather
  * than special-case each field, every list-shaped field in this parser is
@@ -38,7 +38,7 @@ function asString(x: unknown): string | null {
  * Every numeric field in this feed arrives as a JSON string (`"34.991028"`,
  * not `34.991028`). `Number(x)` on a non-numeric string returns `NaN`, and
  * this codebase was bitten recently by a `NaN` reaching `new Date()` and
- * surfacing as a 500 — so this never returns `NaN`, only a finite number or
+ * surfacing as a 500, so this never returns `NaN`, only a finite number or
  * `null`. `Number("")` is `0`, not `NaN`, so blank strings are rejected
  * before the conversion, not after.
  */
@@ -67,7 +67,7 @@ function toEpochSeconds(x: unknown): number | null {
 /**
  * SIRI's `DirectionRef` is 1,2,3; GTFS `direction_id` is 0,1,2.
  * `null` propagates rather than becoming a fabricated direction, since a
- * journey with no direction can't be matched to a scheduled trip anyway —
+ * journey with no direction can't be matched to a scheduled trip anyway;
  * `parseVisit` treats that `null` as a reason to drop the whole journey.
  */
 function parseDirectionRef(x: unknown): number | null {
@@ -76,8 +76,8 @@ function parseDirectionRef(x: unknown): number | null {
 }
 
 /**
- * One `MonitoredCall` or `OnwardCall` entry. Both required fields —
- * `StopPointRef` and a parseable `ExpectedArrivalTime` — are checked here so
+ * One `MonitoredCall` or `OnwardCall` entry. Both required fields
+ * (`StopPointRef` and a parseable `ExpectedArrivalTime`) are checked here so
  * a call this service can't place at a stop or can't time never enters
  * `calls`; `RealtimeCall.expectedArrival` is typed as a plain `number`
  * specifically so nothing downstream has to re-check it for null.
@@ -108,7 +108,7 @@ function parseCalls(mvj: Record<string, unknown>): RealtimeCall[] {
 
 /**
  * One `MonitoredStopVisit`, or `null` if it can't become a usable journey.
- * A visit is dropped — never thrown on — if it lacks a
+ * A visit is dropped, never thrown on, if it lacks a
  * `LineRef`, a `DirectionRef`, or all of its calls: any one of those means
  * this journey can't be matched to a scheduled trip or has nothing to
  * report, but the malformed entry must not take the whole snapshot down
@@ -144,7 +144,7 @@ function parseVisit(visitRaw: unknown): RealtimeJourney | null {
     confidence: asString(mvj["ConfidenceLevel"]),
     lat: location === null ? null : toFiniteNumber(location["Latitude"]),
     lon: location === null ? null : toFiniteNumber(location["Longitude"]),
-    // RecordedAtTime is on the visit, not the journey — see the ICD example.
+    // RecordedAtTime is on the visit, not the journey; see the ICD example.
     recordedAt: toEpochSeconds(visit["RecordedAtTime"]),
     calls,
     // SIRI-SM has no distance-along-shape concept: it reports predicted
@@ -156,7 +156,7 @@ function parseVisit(visitRaw: unknown): RealtimeJourney | null {
 /**
  * `ErrorCondition.OtherError.ErrorText` is the expected shape, but an
  * `ErrorCondition` with a differently-shaped
- * error underneath it is still an error, not an empty snapshot — so this
+ * error underneath it is still an error, not an empty snapshot, so this
  * never returns `null`, only the best text it can find.
  */
 function extractErrorText(errorCondition: Record<string, unknown>): string {
@@ -195,7 +195,7 @@ export function throwOnServiceLevelError(payload: unknown): void {
  * `ErrorCondition`: an auth failure arrives inside an HTTP 200 (ICD §9), and
  * a parser that swallowed it as "no deliveries" would report an empty
  * country forever with no clue why, so it is detected explicitly and thrown
- * as `SiriError` rather than degraded like everything else here — checked at
+ * as `SiriError` rather than degraded like everything else here, checked at
  * BOTH the level the ICD documents (`StopMonitoringDelivery.ErrorCondition`)
  * AND the `ServiceDelivery` level directly above it (`throwOnServiceLevelError`,
  * above), since SIRI carries a service-wide error there too and a parser
@@ -243,12 +243,12 @@ export type SnapshotFilter = keyof typeof FILTER_PARAMS;
  * Builds a national snapshot request per ICD §7.12/§7.18.3. Deliberately
  * does not accept `PreviewInterval`, `StartTime`, `LineRef`,
  * `MaximumStopVisits`, `MaximumStopVisitsPerLine`, or
- * `MaximumNumberOfCallsOnwards` as parameters at all — ICD 7.18.3 forbids
+ * `MaximumNumberOfCallsOnwards` as parameters at all: ICD 7.18.3 forbids
  * every one of them on a snapshot request, so there is nothing for a caller
  * to accidentally pass through.
  *
  * `baseUrl` arrives by email from the ministry and gets pasted into an env
- * var by a human, so a trailing slash is a when-not-if — stripped here
+ * var by a human, so a trailing slash is a when-not-if, stripped here
  * rather than trusted, so it can't double up into `//2.8/json`.
  */
 export function buildSnapshotUrl(baseUrl: string, key: string, filter: SnapshotFilter): string {

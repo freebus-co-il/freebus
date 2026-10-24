@@ -44,14 +44,14 @@ export interface ServerDeps {
    * Wired to `onRequest`/`onResponse` hooks below when provided, so
    * `IndexManager` can tell when it is safe to close a database handle a
    * feed swap just superseded. Optional because most tests build a server
-   * with no real HTTP traffic to protect — see `requestDrain.ts`'s
+   * with no real HTTP traffic to protect; see `requestDrain.ts`'s
    * `instantDrain`, which `IndexManager` falls back to on its own.
    */
   drain?: RequestDrain;
   /**
    * Shared secret `POST /admin/reload` requires. Defaults to
    * `config.adminToken`, i.e. `TRANSIT_ADMIN_TOKEN`, which is `null` when
-   * that variable is unset — and `null` means the route refuses EVERY
+   * that variable is unset, and `null` means the route refuses EVERY
    * request (see `routes/admin.ts`). Passed as a dependency rather than read
    * from `config` inside the route so a test can exercise both the
    * authorised and the unauthorised path in one process, without the
@@ -106,7 +106,7 @@ export interface ServerDeps {
  * `pino-pretty` runs as a worker thread that neither Fastify's close() nor
  * pino terminates; it is reclaimed only on garbage collection. Under
  * `node --test`'s parallel file runner those threads accumulate and can hang
- * the whole suite — a failure gtfs hit and documented. NODE_TEST_CONTEXT
+ * the whole suite, a failure gtfs hit and documented. NODE_TEST_CONTEXT
  * is set by node's test runner in every child process it spawns, so this opts
  * out precisely there while `npm run dev` keeps pretty output.
  */
@@ -194,7 +194,7 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   // keeps working unchanged, but now reads whatever bundle is CURRENT at
   // the moment of the call rather than whatever was current when the server
   // was built. Before this, these five were captured once here and never
-  // updated — a feed swap correctly rebuilt the RAPTOR index (via
+  // updated: a feed swap correctly rebuilt the RAPTOR index (via
   // IndexManager) but left every browse endpoint and /meta's top-level
   // fields serving the database open at process start, forever. See
   // IndexManager's own comment for how the swap itself stays atomic and

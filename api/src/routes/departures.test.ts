@@ -63,7 +63,7 @@ async function serveWithRealtimeButNoIndex(realtime: RealtimeStore) {
  * a 404 with `includeSiblings=true` (an empty sibling list, which the route
  * would read as "no such stop") but a `200` with an empty `departures` array
  * with the flag off (nothing looked the stop up at all). Same endpoint, same
- * input, two different meanings, selected by an unrelated flag — and the 200
+ * input, two different meanings, selected by an unrelated flag, and the 200
  * would be the actively harmful half, since "this stop id does not exist"
  * and "this stop has nothing departing in the next hour" are answers a
  * client must be able to tell apart.
@@ -82,7 +82,7 @@ test("an unknown stop id is 404 regardless of includeSiblings", async () => {
 });
 
 // The other half of the same contract: a stop that DOES exist but has
-// nothing departing in the window is a 200 with an empty list, not a 404 —
+// nothing departing in the window is a 200 with an empty list, not a 404,
 // again regardless of the flag.
 test("a real stop with no departures in the window is 200 and empty, either way", async () => {
   const { app, index } = await serve();

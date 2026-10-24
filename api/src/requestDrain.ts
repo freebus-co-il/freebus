@@ -1,6 +1,6 @@
 /**
  * Tracks HTTP requests currently in flight so a superseded database handle
- * can be closed only once nothing may still be reading through it — never
+ * can be closed only once nothing may still be reading through it, never
  * synchronously with the swap that superseded it.
  *
  * The failure mode this exists to prevent is asymmetric, and only one
@@ -8,7 +8,7 @@
  * a request already mid-read; closing it too LATE only leaves one extra
  * read-only sqlite connection open a little longer than strictly necessary.
  * `whenDrained()` is a plain counter that resolves only once every `begin()`
- * has been matched by an `end()` — by construction it can resolve late (if
+ * has been matched by an `end()`. By construction it can resolve late (if
  * some request's `end()` never fires, e.g. an abruptly destroyed connection
  * whose `onResponse` hook never runs) but it can never resolve early. Only
  * the safe failure direction is reachable.
@@ -41,7 +41,7 @@ export class RequestDrain implements Drain {
 }
 
 /**
- * Used wherever nothing wires up real request tracking — every test that
+ * Used wherever nothing wires up real request tracking: every test that
  * builds an `IndexManager` without a live Fastify server sitting in front of
  * it. There is no in-flight HTTP request to protect, so draining is
  * instantaneous: a superseded bundle is closed the moment it is superseded.

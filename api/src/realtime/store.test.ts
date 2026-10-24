@@ -229,7 +229,7 @@ test("a store reports its source even with no snapshot at all", () => {
   assert.equal(store.feedSource, "stride-vm");
 });
 
-test("the source survives clear() — it is a property of the process, not the snapshot", () => {
+test("the source survives clear(): it is a property of the process, not the snapshot", () => {
   const store = new RealtimeStore("stride-vm", 180, () => 1000);
   store.replace([], { resolved: 0, unresolved: 0, resolvedWithNoCalls: 0, nearMissCount: 0 }, 1000);
   store.clear();

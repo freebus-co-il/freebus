@@ -1,7 +1,7 @@
 /**
  * Decodes a Google-style encoded polyline into [lat, lon] pairs. api
  * encodes leg geometry at precision 6 (factor 1e6), not the common precision
- * 5 (1e5) — pass a different `precision` only for other encoded strings.
+ * 5 (1e5). Pass a different `precision` only for other encoded strings.
  */
 export function decodePolyline(encoded: string, precision = 6): [number, number][] {
   const factor = Math.pow(10, precision);

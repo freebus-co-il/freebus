@@ -53,7 +53,7 @@ function dateTimeOfYmd(dateYmd: number, tz: string): DateTime {
 
 /**
  * There is no `calendar_dates.txt` in this feed, so `calendar.txt` alone
- * decides service days — there are no exceptions to apply.
+ * decides service days; there are no exceptions to apply.
  */
 export function activeServiceIds(
   rows: readonly CalendarRow[], dateYmd: number, tz = "Asia/Jerusalem",
@@ -77,7 +77,7 @@ export function activeServiceIds(
  * date at all, and the same trip runs on every date its service is active.
  * So rendering `/trips/:tripId`'s times as ISO timestamps requires CHOOSING a
  * service date, and the only choice defensible without asking the caller is
- * the next one the trip genuinely runs — a date on which the rendered times
+ * the next one the trip genuinely runs: a date on which the rendered times
  * are the times a rider would actually experience, DST offset included.
  * Rendering against "today" regardless would produce timestamps for a day
  * the trip does not operate, which is worse than useless on a feed where
@@ -103,7 +103,7 @@ export function nextServiceDate(
     const ymd = day.year * 10000 + day.month * 100 + day.day;
     if (ymd > row.end) return null;
     // Luxon weekday 1 = Monday .. 7 = Sunday; the feed's bitmask is
-    // 0 = Sunday .. 6 = Saturday, so Sunday (7) maps to bit 0 — the same
+    // 0 = Sunday .. 6 = Saturday, so Sunday (7) maps to bit 0, the same
     // mapping `activeServiceIds` uses.
     if ((row.days & (1 << (day.weekday % 7))) !== 0) return ymd;
     day = day.plus({ days: 1 });
@@ -114,7 +114,7 @@ export function nextServiceDate(
 /**
  * A service day's own time origin (noon − 12 h), for a date given as
  * YYYYMMDD rather than as a query instant. Same GTFS-spec definition
- * `serviceInstants` uses, exposed for callers that already know the date —
+ * `serviceInstants` uses, exposed for callers that already know the date, such as
  * `/trips/:tripId` rendering a timetable against a chosen service date.
  */
 export function baseEpochOfYmd(dateYmd: number, tz: string): number {

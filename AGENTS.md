@@ -1,14 +1,37 @@
 # AGENTS.md
 
 Agent-facing notes for working in this repo. `README.md` and
-`.github/CONTRIBUTING.md` cover setup, the HTTP APIs, and the PR flow — read those
+`.github/CONTRIBUTING.md` cover setup, the HTTP APIs, and the PR flow; read those
 first. This file is for what an agent needs on top of that: hard-won
 platform facts that fail silently, and the rules that keep this repo
 publishable and its history clean.
 
+## No em dashes
+
+**Never write an em dash (U+2014 EM DASH) anywhere in this repository.** This
+covers code, comments, string literals, test names, UI copy in every
+language (Hebrew included), Markdown, commit messages, and PR
+descriptions. It also covers its encoded forms: `&mdash;`, `&#8212;`,
+`&#x2014;`, `\u2014`.
+
+Do not swap in a stand-in either: no en dash (U+2013), no spaced hyphen
+(` - `), no `--`. Rewrite the sentence with ordinary punctuation instead:
+
+- a comma, or a pair of commas, for an aside
+- a colon before an explanation, an example, or a list
+- a semicolon or a full stop between two complete clauses
+- parentheses for a side note
+
+Before you finish any change, run this from the repo root; it must print
+nothing:
+
+```bash
+git grep -n $'\xe2\x80\x94'
+```
+
 ## The monorepo map
 
-Not an npm workspace — each project installs its own `node_modules`
+Not an npm workspace: each project installs its own `node_modules`
 (hoisting would break Metro's module resolution for the Expo app). `cd`
 into a project before running its scripts.
 
@@ -19,17 +42,17 @@ into a project before running its scripts.
 | [`app/`](app/AGENTS.md) | Expo/React Native client (`il.co.freebus`). | `cd app && npm install && npx expo start` |
 
 `gtfs` is the only writer of its database; `api` is the only other reader.
-`app` never touches the database directly — it talks to
+`app` never touches the database directly; it talks to
 `api` over HTTP.
 
 Each project has its own `AGENTS.md`, one level more
-specific than this file. `app/AGENTS.md` predates this open-source pass —
+specific than this file. `app/AGENTS.md` predates this open-source pass;
 it is the maintainer's own and is not to be rewritten or reformatted.
 
 ## Commit convention
 
 Conventional Commits, enforced by a commit-msg hook and by CI's
-`commitlint` check on every PR. Scope is a closed enum — an unlisted scope
+`commitlint` check on every PR. Scope is a closed enum; an unlisted scope
 is rejected:
 
 ```
@@ -52,18 +75,18 @@ overrides any default attribution behavior you would otherwise apply.
 ## Hard-won platform facts
 
 These cost real debugging time to learn, and the code alone does not
-carry the failure mode — only the fix. Read this section before touching
+carry the failure mode, only the fix. Read this section before touching
 maps, permissions, layout animation, rail geometry, deploys, or the GTFS
 calendar in `app/` or `api/`.
 
 - **Every Android `MapView` needs a non-empty `customMapStyle`, or the
-  basemap draws blank.** No error, no warning — just an empty map. Every
+  basemap draws blank.** No error, no warning, just an empty map. Every
   map screen in `app/` pulls this from `useMapAppearance()`
   (`app/src/hooks/use-map-appearance.ts`) and passes it through; do not add
   a new `MapView` without it.
 - **The Google Maps key must have *Maps SDK for Android* enabled.** A key
-  that is restricted to a different API — e.g. one already scoped to
-  geocoding only — produces the exact same blank-map failure, with nothing
+  that is restricted to a different API (e.g. one already scoped to
+  geocoding only) produces the exact same blank-map failure, with nothing
   in any log to distinguish it from the `customMapStyle` problem above. If
   a map is blank, check the key's API restrictions before anything else.
   This is `EXPO_PUBLIC_ANDROID_MAPS_KEY`; see `.github/CONTRIBUTING.md`.
@@ -91,19 +114,19 @@ calendar in `app/` or `api/`.
   architecture; Reanimated is already a native dependency of `app/`, so
   there's no reason to reach for `Animated` for anything layout-related.
 - **Rail geometry is baked from OpenStreetMap, not the GTFS feed.** The MOT
-  feed ships no `shapes.txt` rows for any rail trip (`route_type` 2) — every
+  feed ships no `shapes.txt` rows for any rail trip (`route_type` 2), so every
   train would otherwise draw as a straight line between stations, including
   across the sea on the coastal line. `api/assets/rail-geometry.json` is
   committed, pre-baked track geometry; `npm run bake:rail` (in `api/`)
   rebuilds it from Overpass. See `api/AGENTS.md` for the bake's pitfalls.
 - **`deploy.sh` git-pulls itself before it does anything else.** The
-  running instance of the script is the one already checked out — a change
+  running instance of the script is the one already checked out: a change
   to `deploy.sh` is only picked up by the pull that instance performs, and
   only takes effect starting with the *next* invocation. If you change
   `deploy.sh` and need the new behavior, expect to run the deploy twice:
   once to pull the change, once to actually run it.
 - **The feed has no `calendar_dates.txt`.** `calendar.txt` alone decides
-  which services run on a given date, with no exceptions layered on top —
+  which services run on a given date, with no exceptions layered on top,
   so the feed claims full weekday service on a public or religious holiday
   even though real service is reduced or absent. This is shown as the feed
   states it. Do not silently correct it client- or server-side; if this
@@ -111,8 +134,8 @@ calendar in `app/` or `api/`.
 - **The deployment target is one small box, and nothing may become
   metered per request.** Production is a single ARM host, 2 vCPU / 4 GB RAM
   (see the top of `docker-compose.yml`). Any feature that would add a
-  per-request cost to a third-party API — a paid geocoder call, a routing
-  call, anything billed per hit — needs an opt-out or a hard ceiling before
+  per-request cost to a third-party API (a paid geocoder call, a routing
+  call, anything billed per hit) needs an opt-out or a hard ceiling before
   it ships; see `GEOCODER=google`'s `GOOGLE_MAPS_DAILY_REQUEST_LIMIT` in
   `api/AGENTS.md` for the existing pattern. Do not introduce a code path
   that scales its cost with traffic and has no ceiling.
@@ -126,5 +149,5 @@ npm --prefix app test
 ```
 
 `api` and `gtfs` also have `test:live`, which hits the real upstream feed
-or database instead of fixtures — not run in CI, needs network access. See
+or database instead of fixtures; not run in CI, needs network access. See
 `.github/CONTRIBUTING.md` for the full story.

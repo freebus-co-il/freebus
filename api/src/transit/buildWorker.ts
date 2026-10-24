@@ -18,7 +18,7 @@ const index = buildIndex(dbPath);
 // particular views end up on the returned TimetableIndex (patternStops etc.
 // are copied out via `.set()` into fresh arrays first), but that is an
 // invariant of buildIndex's current implementation, not something the
-// TimetableIndex type enforces — a future change that returns a view
+// TimetableIndex type enforces. A future change that returns a view
 // directly instead of copying it would silently reintroduce the hazard.
 // Pushing the same ArrayBuffer into postMessage's transfer list twice throws
 // a DataCloneError and crashes the worker outright, rather than merely

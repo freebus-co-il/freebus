@@ -5,16 +5,16 @@
 # Why this exists rather than just `docker compose up -d --build`:
 # all three built services carry a FIXED tag (freebus/api:latest,
 # freebus/gtfs:latest, freebus/photon:latest). Every rebuild moves
-# that tag onto a new image and leaves the previous one untagged — a
+# that tag onto a new image and leaves the previous one untagged: a
 # `<none>:<none>` image that nothing ever reclaims. On a 40 GB box, roughly
 # 300 MB leaks per api deploy and about 1 GB when all three rebuild,
 # so a few dozen deploys are enough to matter. BuildKit's cache grows on top
 # of that whenever a package-lock changes.
 #
 # What is deliberately NOT done here:
-#   * `docker system prune -a` — would also delete the pulled valhalla and
+#   * `docker system prune -a`: would also delete the pulled valhalla and
 #     caddy images, forcing a slow re-pull on the next restart for no gain.
-#   * anything touching volumes — the Valhalla tiles (524 MB), the Photon
+#   * anything touching volumes: the Valhalla tiles (524 MB), the Photon
 #     index (206 MB) and the GTFS feed live on named volumes. `--volumes`
 #     would destroy hours of rebuild work. Never add it.
 #
@@ -95,7 +95,7 @@ docker compose up -d --build --remove-orphans
 echo "==> reclaiming orphaned images"
 docker image prune -f
 
-# Cap the build cache rather than emptying it — an empty cache makes the
+# Cap the build cache rather than emptying it; an empty cache makes the
 # next `npm ci` layer rebuild from scratch, which is the slowest part of a
 # deploy. Entries untouched for a week are not helping anyone.
 echo "==> trimming build cache older than 7 days"
@@ -104,7 +104,7 @@ docker builder prune -f --filter until=168h
 echo "==> disk after: $(avail) free"
 
 # The API answers /health as soon as it is listening, but /ready stays 503
-# until the RAPTOR index is built — that is the one worth waiting on.
+# until the RAPTOR index is built; that is the one worth waiting on.
 echo "==> waiting for /ready"
 for _ in $(seq 1 60); do
   if curl -fsS -m 5 http://localhost:3100/ready >/dev/null 2>&1; then
@@ -125,5 +125,5 @@ print('    realtime', r['health'], '/', r.get('source'), '--',
   sleep 5
 done
 
-echo "!! /ready did not come up within 5 minutes — check: docker compose logs -f api" >&2
+echo "!! /ready did not come up within 5 minutes; check: docker compose logs -f api" >&2
 exit 1

@@ -12,7 +12,7 @@ export interface LegShapeRefs {
    * no `stop_lat`/`stop_lon`.
    *
    * NULL, deliberately, rather than a defaulted `[0, 0]`. Both columns are
-   * nullable in the schema, and `[0, 0]` is not a neutral placeholder — it is
+   * nullable in the schema, and `[0, 0]` is not a neutral placeholder; it is
    * a real point in the Gulf of Guinea, roughly 4,000 km from anything in
    * this feed. A consumer projecting that onto a shape gets a confident,
    * silently absurd answer; a consumer handed `null` can fall back. Callers
@@ -38,12 +38,12 @@ function coordOf(row: Row): LatLon | null {
  * A leg's shape reference and the distances of its two endpoints along it.
  *
  * `fromPos` and `toPos` are PATTERN POSITIONS (0-based within the trip's stop
- * sequence), which is what a transit leg reports — NOT the feed's
+ * sequence), which is what a transit leg reports, NOT the feed's
  * `stop_sequence` values. Ordering by `stop_sequence` and taking the Nth row
  * is what maps one to the other; querying `stop_sequence = ?` directly would
  * silently mismatch on any feed whose sequences are not 0-based and
  * contiguous. Array indexing into the ordered rows below is what performs
- * that mapping — there is deliberately no SQL-side position column, since a
+ * that mapping; there is deliberately no SQL-side position column, since a
  * `ROW_NUMBER() OVER (...)` here bought nothing but a CO-ROUTINE + SCAN
  * wrapper in the query plan and the false impression that positions came
  * from SQL.

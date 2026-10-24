@@ -17,7 +17,7 @@ const V2 = "2026-08-22T00-00-00-000Z";
  * A second fixture database: same schema as `buildFixtureDb`'s default, but
  * deliberately different in BOTH `feed_meta.version` (via the `version`
  * argument to `buildFixtureDb` itself) AND actual content (an agency name
- * changed here). Content, not just a version label, has to differ — otherwise
+ * changed here). Content, not just a version label, has to differ; otherwise
  * a passing assertion on the served agency name would not prove the SERVED
  * DATA changed, only that a string field happened to still match.
  */

@@ -27,8 +27,8 @@ export class ImportTimeoutError extends Error {
 }
 
 /**
- * Serialises imports. Overlapping triggers — cron firing while a manual
- * refresh is in flight — share the same in-flight promise rather than starting
+ * Serialises imports. Overlapping triggers (cron firing while a manual
+ * refresh is in flight) share the same in-flight promise rather than starting
  * a second multi-gigabyte load.
  */
 export class ImportRunner {
@@ -90,13 +90,13 @@ export class ImportRunner {
    * idle, no error is raised, nothing to abort. Without a ceiling here that
    * run's promise never settles, `#inFlight` is never cleared, `isRunning()`
    * stays true forever, and every later cron tick and `POST /refresh` either
-   * joins the dead promise or gets a 409 — while `/health` keeps answering
+   * joins the dead promise or gets a 409, while `/health` keeps answering
    * 200 and nothing pages anyone. A crash costs one night and a supervisor
    * restarts it; this wedge is silent and self-perpetuating, so the backstop
    * is deliberately cause-agnostic: whatever the reason, the lock is
    * released and the next tick gets a fresh attempt.
    *
-   * What this does NOT do is cancel the underlying import — nothing in the
+   * What this does NOT do is cancel the underlying import: nothing in the
    * pipeline is cancellable, so the wedged run keeps its build database and
    * its memory until the process restarts. That build file is named for its
    * own version stamp and carries the `.building` suffix, so it can never
@@ -146,7 +146,7 @@ export interface ScheduleOptions {
  * Jitter: the feed is a single shared government endpoint and 03:00 local is
  * the obvious hour for every consumer of it to pick, so each tick waits a
  * uniform random slice of `jitterMs` before firing rather than adding to a
- * synchronised burst on the second. This costs nothing here — the import is
+ * synchronised burst on the second. This costs nothing here; the import is
  * nightly and nothing downstream cares whether it lands at 03:00 or 03:04.
  *
  * A pending jitter delay is cancelled by `stop()`. Leaving it armed would

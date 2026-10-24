@@ -30,7 +30,7 @@ const maxBadRowRatio = Number.parseFloat(process.env.GTFS_MAX_BAD_ROW_RATIO ?? "
 
 // Same failure mode as above, and a subtler one: `badRows / totalRows >
 // maxBadRowRatio` is always false when the right-hand side is NaN, so a
-// typo'd env var (e.g. "abc") wouldn't just misconfigure the threshold —
+// typo'd env var (e.g. "abc") wouldn't just misconfigure the threshold;
 // it would silently disable the bad-row gate entirely, with the run
 // still reporting success. A ratio is only meaningful in [0, 1].
 if (!Number.isFinite(maxBadRowRatio) || maxBadRowRatio < 0 || maxBadRowRatio > 1) {
@@ -45,8 +45,8 @@ if (!Number.isFinite(maxBadRowRatio) || maxBadRowRatio < 0 || maxBadRowRatio > 1
  * quietly reconfigure a safety gate.
  *
  * `Number`, not `Number.parseInt`. `parseInt` stops at the first character it
- * cannot use and returns what it has: `Number.parseInt("6O000", 10)` — a
- * capital O for a zero — is **6**, and a six-millisecond stall timeout aborts
+ * cannot use and returns what it has: `Number.parseInt("6O000", 10)` (a
+ * capital O for a zero) is **6**, and a six-millisecond stall timeout aborts
  * every healthy import while looking like a configured value. `Number` gives
  * NaN for the same string, which this check rejects by name.
  *
@@ -102,7 +102,7 @@ const startupMaxAgeMs = durationMs("GTFS_STARTUP_MAX_AGE_MS", 26 * 60 * 60_000);
  * and the compiled `dist/config.js` (production, run with plain `node`) are
  * both exactly one level below `gtfs/`, which is itself one level
  * below the repo root. So the same two-hop `"../.."` reaches the repo root
- * from either file's directory — verified by resolving both at once and
+ * from either file's directory, verified by resolving both at once and
  * checking they agree, not assumed.
  */
 const moduleDir = dirname(fileURLToPath(import.meta.url));

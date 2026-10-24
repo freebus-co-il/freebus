@@ -11,7 +11,7 @@ export interface TimetableIndex extends PatternSet {
   stopIdToIdx: Map<string, number>;
   stopNames: (string | null)[];
   /**
-   * GTFS `stop_code` — the field SIRI sends as `MonitoringRef`/
+   * GTFS `stop_code`, the field SIRI sends as `MonitoringRef`/
    * `StopPointRef`. Not unique: about a thousand stops in this
    * feed share a code with another stop, so `match.ts` resolves a code to
    * one of possibly several indices here, disambiguated against a trip's
@@ -63,7 +63,7 @@ export interface TimetableIndex extends PatternSet {
    * Metres along the trip's shape at each stop, parallel to `arrivalTime`
    * and indexed identically (`tripTimeOffset[t] + pos`).
    *
-   * `-1` marks a `stop_times` row with no `shape_dist_traveled` — measured
+   * `-1` marks a `stop_times` row with no `shape_dist_traveled`, measured
    * feed-wide, 13,169 of 14,813,283 rows (0.1%). That sentinel cannot be 0,
    * because 0 is the legitimate distance of every trip's FIRST stop;
    * conflating them would let
@@ -224,7 +224,7 @@ export function buildIndex(dbPath: string): TimetableIndex {
 
     // --- stop_times -------------------------------------------------------
     // Measured at 2.36 s for 9,817,029 rows. `.raw()` returns plain arrays
-    // rather than objects, which is what makes a scan this size affordable —
+    // rather than objects, which is what makes a scan this size affordable:
     // materialising 9.8M row objects is several times slower and allocates
     // heavily.
     const nTimes = (db.prepare("SELECT COUNT(*) AS n FROM stop_times")

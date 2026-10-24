@@ -30,7 +30,7 @@ test("the connection is read-only", () => {
 });
 
 // The fetcher publishes a new version by repointing the symlink. A consumer
-// must resolve it at connect time, not once at process start — an open handle
+// must resolve it at connect time, not once at process start: an open handle
 // keeps serving the old inode forever.
 test("resolveLiveTarget follows a repointed symlink", () => {
   const dir = newDir();

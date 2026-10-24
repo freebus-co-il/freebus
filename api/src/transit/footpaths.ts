@@ -265,7 +265,7 @@ export type FootpathCacheKeyOptions =
  * with.
  *
  * Keyed on the stop set rather than the feed version because stops barely
- * change between nightly imports, so this cache survives most refreshes —
+ * change between nightly imports, so this cache survives most refreshes,
  * which matters, because regenerating it means pushing hundreds of thousands
  * of pairs back through Valhalla.
  *
@@ -275,7 +275,7 @@ export type FootpathCacheKeyOptions =
  * the entire cost of every station-peer edge; `speedMps` scales every
  * straight-line estimate. Keying on the stop set alone meant an operator
  * could retune any of them, restart, and silently get the OLD values back
- * from cache — with `/meta` still reporting `footpaths: "valhalla"`, so
+ * from cache, with `/meta` still reporting `footpaths: "valhalla"`, so
  * nothing anywhere signalled that the change had not taken effect. Folding
  * them in makes a retune miss the cache and rebuild, which is the whole
  * point of retuning.
@@ -304,7 +304,7 @@ function cachePath(dir: string, hash: string): string {
 
 /**
  * The magic and version go first so that adding a field later cannot silently
- * misread a stale file as the new layout — the schema-drift bug class that
+ * misread a stale file as the new layout: the schema-drift bug class that
  * made the timetable index not worth caching at all.
  */
 export function saveFootpathCache(dir: string, hash: string, a: FootpathArrays): void {
@@ -319,7 +319,7 @@ export function saveFootpathCache(dir: string, hash: string, a: FootpathArrays):
     Buffer.from(a.seconds.buffer, a.seconds.byteOffset, a.seconds.byteLength),
   ]);
   // Written to a temporary name and renamed, so a crash mid-write can never
-  // leave a truncated file that looks valid — the same discipline the fetcher
+  // leave a truncated file that looks valid, the same discipline the fetcher
   // uses when publishing a database.
   const tmp = `${cachePath(dir, hash)}.tmp`;
   writeFileSync(tmp, buf);

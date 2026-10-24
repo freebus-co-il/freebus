@@ -5,7 +5,7 @@ from the code, the commit and PR conventions, and how to run the tests.
 
 ## Prerequisites
 
-- **Node.js 22+** (all three Node projects — `api`, `gtfs`, `app` — declare
+- **Node.js 22+** (all three Node projects, `api`, `gtfs` and `app`, declare
   or require this).
 - **Docker**, if you want `api` to have real walking directions (Valhalla)
   or self-hosted address search (Photon) instead of the straight-line/no-
@@ -18,7 +18,7 @@ from the code, the commit and PR conventions, and how to run the tests.
 
 ## First-time setup
 
-Install once at the repo root — this is **not** an npm workspace (hoisting
+Install once at the repo root. This is **not** an npm workspace (hoisting
 `node_modules` would break Metro's resolution for the Expo app), so this
 install exists only to register the commit-message hook, not to pull in any
 project's own dependencies:
@@ -35,7 +35,7 @@ the full per-project quickstart.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/),
 enforced by a commit-msg hook and, on every pull request, by CI. The scope is
-restricted to what actually exists in this repo — an unlisted scope is
+restricted to what actually exists in this repo; an unlisted scope is
 rejected:
 
 ```
@@ -57,12 +57,12 @@ fix(api): return 404 for an unknown stop id instead of 500
 ```
 
 The local hook only runs after you've done the root `npm install` above, and
-it's bypassable with `--no-verify` — the real enforcement is the
+it's bypassable with `--no-verify`. The real enforcement is the
 `commitlint` GitHub Actions check, which runs against every commit in a PR.
 
 ## Branches and pull requests
 
-- Branch off `main`. A short, descriptive branch name is enough — there's no
+- Branch off `main`. A short, descriptive branch name is enough; there's no
   enforced naming scheme, but something like `fix/plan-422-on-empty-modes` or
   `feat/app-language-switcher` helps reviewers guess the scope before opening
   it.
@@ -87,8 +87,8 @@ npm --prefix app test
 (or `cd` into the project and run `npm test`, equivalently).
 
 `api` and `gtfs` also have `npm run test:live` (`npm --prefix api run
-test:live`, etc.), which runs against the real upstream — the live GTFS feed
-for `gtfs`, the live built database for `api` — instead of fixtures. It
+test:live`, etc.), which runs against the real upstream (the live GTFS feed
+for `gtfs`, the live built database for `api`) instead of fixtures. It
 needs network access and real upstream availability, so it is **not** run in
 CI: a CI run that depends on a third party is a CI run that fails for
 reasons a contributor can't fix. Run it locally if you're touching the code
@@ -103,13 +103,13 @@ silent failures before you find this section.
 
 `app/app.config.js` reads `process.env.EXPO_PUBLIC_ANDROID_MAPS_KEY` into
 the Android build's Google Maps API key. **Without it, the Android map
-renders completely blank, with no error anywhere** — this is the single
+renders completely blank, with no error anywhere**. This is the single
 most confusing failure in this app, by design of the underlying SDK, not a
 bug you introduced.
 
 You'll need a Google Cloud project with a Maps API key that has **Maps SDK
-for Android** enabled. A key that's *restricted* to a different API — say,
-one already scoped to geocoding only — produces the exact same silent blank
+for Android** enabled. A key that's *restricted* to a different API (say,
+one already scoped to geocoding only) produces the exact same silent blank
 map, because the Android SDK's failure mode for "this key can't do what I
 asked" is to draw nothing rather than surface an error. If your map is
 blank, check the API restriction on the key before anything else.
@@ -127,7 +127,7 @@ owner: "sagishalom",
 ```
 
 These identify the maintainer's Expo account and project. **`eas build` (or
-`eas update`) will not work for you as-is** — you don't have access to that
+`eas update`) will not work for you as-is**: you don't have access to that
 project. To build with your own EAS account, either:
 
 - run `eas init` in `app/` to create your own project (it will offer to
@@ -137,7 +137,7 @@ project. To build with your own EAS account, either:
   running any `eas` command.
 
 None of this is needed just to run the app locally via `expo start` or
-`expo run:android`/`expo run:ios` — it only matters once you try to use EAS
+`expo run:android`/`expo run:ios`. It only matters once you try to use EAS
 Build or EAS Update.
 
 ## Code of conduct
@@ -146,5 +146,5 @@ Participation in this project is covered by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDU
 
 ## Reporting a security issue
 
-Please don't open a public issue — see [`SECURITY.md`](SECURITY.md) for how
+Please don't open a public issue; see [`SECURITY.md`](SECURITY.md) for how
 to report it privately.

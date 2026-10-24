@@ -40,7 +40,7 @@ test("tolerates a literal double-quote inside an unquoted field (real feed)", as
   // Found against the real translations.txt: Hebrew gershayim is sometimes
   // rendered as a literal ASCII '"' rather than the '' pair the fixture
   // covers (see the other Hebrew test above). csv-parse's default
-  // (relax_quotes: false) throws INVALID_OPENING_QUOTE on this — it treats
+  // (relax_quotes: false) throws INVALID_OPENING_QUOTE on this; it treats
   // the '"' as a misplaced opening quote rather than a literal character.
   // This aborted the entire first live import at translations.txt line 312.
   const rows = await collect(
@@ -87,7 +87,7 @@ test("tolerates ragged rows with missing fields", async () => {
 /**
  * The source direction of the same seam zip.ts had. csv-parse's own errors
  * (an unterminated quote, say) travel the *destination* side and were always
- * catchable — that is the path importFeed's existing mid-stream test
+ * catchable; that is the path importFeed's existing mid-stream test
  * exercises. An error on the entry stream feeding the parser is the other
  * direction, and `pipe` never forwarded it: it emitted on a listener-less
  * stream and killed the process. Revert csv.ts to `src.pipe(parse(...))` and

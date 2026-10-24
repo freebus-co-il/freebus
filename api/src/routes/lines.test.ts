@@ -168,7 +168,7 @@ test("GET /lines/:code collapses alternatives and keys directions on the desc di
   // direction "1" and must collapse to one entry.
   assert.deepEqual(body.directions.map((d) => d.direction), ["1", "2", "3"]);
 
-  // R3 has three stops, R4 two — the representative is the longer.
+  // R3 has three stops, R4 two; the representative is the longer.
   const dir1 = body.directions[0]!;
   assert.equal(dir1.routeId, "R3");
   assert.equal(dir1.stops.length, 3);

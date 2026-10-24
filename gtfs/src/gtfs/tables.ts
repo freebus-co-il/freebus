@@ -4,7 +4,7 @@ import {
 
 export interface ColumnSpec {
   /**
-   * Destination SQLite column — **except** on the four files FeedWriter
+   * Destination SQLite column, **except** on the four files FeedWriter
    * assembles itself (stop_times, trips, stops, shapes), where these entries
    * describe source headers and their coercions only and `column` is not a
    * real column of the table. See TableSpec below; FeedWriter refuses to use
@@ -29,7 +29,7 @@ export interface ColumnSpec {
  * and arity. Mapping `columns.map(c => c.column)` into an INSERT for one of
  * these produces SQL naming columns that do not exist.
  *
- * Nothing here declares which files those are — FeedWriter owns that list
+ * Nothing here declares which files those are; FeedWriter owns that list
  * (CUSTOM_TABLE_COLUMNS) and checks every column name it will actually
  * insert against `PRAGMA table_info` when it is constructed, so a mismatch
  * fails loudly at writer construction instead of turning into bad rows at

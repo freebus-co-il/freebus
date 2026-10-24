@@ -43,7 +43,7 @@ const realtimeLogger: SiriLogger = {
 const index = new IndexManager(paths.dataDir, {
   drain,
   // Wiring this in makes footpath attachment part of EVERY rebuild, not
-  // just the first — see IndexManager.rebuild()'s and attachFootpathsTo's
+  // just the first; see IndexManager.rebuild()'s and attachFootpathsTo's
   // own comments for why that matters (a feed swap that skipped this would
   // silently serve an index with zero walking transfers) and for the
   // cache-first/degrade-not-die policy applied on every call.

@@ -19,7 +19,7 @@ export const stopRoutes: FastifyPluginAsync = async (app) => {
     const { q, lang, limit, offset } = req.query as
       { q?: string; lang?: string; limit: number; offset: number };
     // parseLang throws on an unsupported code; sensible's error handler turns
-    // that into a 500, so translate it to a 400 here — a bad `lang` is the
+    // that into a 500, so translate it to a 400 here: a bad `lang` is the
     // client's mistake, not the server's.
     let parsed;
     try { parsed = parseLang(lang); }

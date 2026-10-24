@@ -1,10 +1,10 @@
 /**
  * The ONE error envelope every non-2xx response in this service uses.
  *
- * Before this existed the API shipped three different error bodies —
+ * Before this existed the API shipped three different error bodies:
  * `@fastify/sensible`'s `{statusCode, error, message}` on most routes,
  * `{error: "snake_case_code", ...}` on `/plan`'s 422/503, and
- * `{ready, state}` on `/ready`'s 503 — so a client could not write one
+ * `{ready, state}` on `/ready`'s 503, so a client could not write one
  * parser. Everything now serialises as:
  *
  * ```json
@@ -22,7 +22,7 @@
  * optional and its shape is documented per `code`. `requestId` is the
  * Fastify request id, echoed on every error so a report of a 500 can be
  * matched to the server-side log line that has the real cause (which is
- * deliberately NOT in the body — see `server.ts`'s error handler).
+ * deliberately NOT in the body; see `server.ts`'s error handler).
  *
  * `/ready`'s 200 body (`{ready, state}`) is a SUCCESS body and is unaffected;
  * only its 503 uses this shape.
@@ -67,7 +67,7 @@ export class ApiError extends Error {
 
 /**
  * The fallback `code` for an error that carries a status but no code of its
- * own — a `@fastify/sensible` `httpErrors.badRequest`, a schema validation
+ * own: a `@fastify/sensible` `httpErrors.badRequest`, a schema validation
  * failure, a rate-limit rejection. Derived from the status so the code space
  * stays snake_case and closed, rather than leaking Fastify's own
  * `FST_ERR_*` identifiers into the public contract.
@@ -98,9 +98,9 @@ export function codeForStatus(status: number): string {
 /**
  * Public `code` for a PRE-ROUTER framework error.
  *
- * Fastify raises a handful of errors before routing happens at all — a URL
+ * Fastify raises a handful of errors before routing happens at all (a URL
  * component that is not valid percent-encoding, a path parameter past
- * `maxParamLength` — and those never reach `setErrorHandler`, because there
+ * `maxParamLength`), and those never reach `setErrorHandler`, because there
  * is no route yet to handle them for. Left alone, Fastify answers them with
  * its OWN built-in body, which is both the old three-key shape and a leak of
  * the internal `FST_ERR_*` identifier:

@@ -111,25 +111,25 @@ export function reoptimiseItinerary(
  * invariant is a property of one function that a test can pin: whatever the
  * bound, an itinerary NEVER goes back to reporting the query instant. Only
  * the "could the traveller leave even later for this same arrival?"
- * refinement — the second reverse RAPTOR pass, which is what actually costs —
+ * refinement (the second reverse RAPTOR pass, which is what actually costs)
  * is skipped past the bound.
  *
  * `position` is the itinerary's 0-based index in `paretoRounds`'s own
  * fewest-transfers-first push order INSIDE ONE `search()` CALL, at the moment
- * this function runs — NOT its final position in the `/plan` response.
+ * this function runs, NOT its final position in the `/plan` response.
  * `routes/plan.ts` ranks (reorders AND filters) the merged result of every
  * `search()` call only after this has already run for each one, so which
  * itineraries kept their reoptimisation and which member effort ranking
  * eventually puts first are unrelated: a candidate this function left past
  * `limit` can rank first in the response the rider actually sees, and it is
- * exactly that candidate — the one that skipped the "could the traveller
- * leave even later for this same arrival?" refinement — that ends up on top.
+ * exactly that candidate, the one that skipped the "could the traveller
+ * leave even later for this same arrival?" refinement, that ends up on top.
  * Re-anchoring is unaffected either way: it is unconditional regardless of
  * `position`, so no itinerary regresses to reporting the query instant no
  * matter where ranking later puts it. Bounding by search-time position
  * (rather than, say, reoptimising every itinerary effort ranking might keep)
- * remains the right trade for cost reasons — see
- * `planConfig.reoptimiseMaxItineraries` for the measurements — it just no
+ * remains the right trade for cost reasons (see
+ * `planConfig.reoptimiseMaxItineraries` for the measurements); it just no
  * longer doubles as "the ones a client renders at the top".
  *
  * `limit` of 0 disables reoptimisation entirely and still re-anchors.

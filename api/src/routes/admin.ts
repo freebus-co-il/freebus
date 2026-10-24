@@ -35,7 +35,7 @@ export const adminRoutes: FastifyPluginAsync<{ adminToken: string | null }> = as
     // FAIL CLOSED. An unset TRANSIT_ADMIN_TOKEN refuses every request; it
     // does not mean "authentication is off". This is the only mutating
     // endpoint on a permissively-CORS'd public read-only API, and what it
-    // starts is a ~400 MB index rebuild — an anonymous caller who could
+    // starts is a ~400 MB index rebuild; an anonymous caller who could
     // reach it could keep one running continuously. See config.ts's own
     // comment on `adminToken`.
     const presented = bearerToken(req.headers.authorization);

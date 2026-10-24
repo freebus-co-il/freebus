@@ -7,7 +7,7 @@ import type { RealtimeJourney } from "./types.js";
  *
  * The crucial difference, and the reason this file is shaped the way it is:
  * **Stride publishes SIRI-VM, not SIRI-SM.** There is no predicted arrival
- * time anywhere in its schema — verified against every `Siri*` model in its
+ * time anywhere in its schema, verified against every `Siri*` model in its
  * OpenAPI document; the only `actual_arrival_time` lives on
  * `/stop_arrivals`, a historical table whose newest row is from 2023.
  *
@@ -23,7 +23,7 @@ export interface StrideSnapshot {
   /** Every entry the payload carried, whether or not it survived. */
   rowsSeen: number;
   /**
-   * Of `rowsSeen`, how many were dropped — unusable fields, or a ghost past
+   * Of `rowsSeen`, how many were dropped: unusable fields, or a ghost past
    * the age cutoff. Reported for the same reason `SiriSnapshot.visitsDropped`
    * is: `0 journeys` from a genuinely quiet feed and `0 journeys` from a
    * payload where every row was rejected are indistinguishable from
@@ -50,7 +50,7 @@ function asRecord(x: unknown): Record<string, unknown> | null {
 
 /**
  * Stride returns real JSON numbers, unlike the ministry's SIRI, whose every
- * numeric arrives as a string — but a null, or an unexpected string, must
+ * numeric arrives as a string, but a null, or an unexpected string, must
  * still never reach a caller as `NaN`. Same contract as `siri.ts`'s own
  * `toFiniteNumber`: a finite number, or `null`, never anything else.
  */
@@ -61,7 +61,7 @@ function toFiniteNumber(x: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** ISO 8601 with an offset, to epoch SECONDS — the unit every other time in
+/** ISO 8601 with an offset, to epoch SECONDS, the unit every other time in
  *  this codebase uses. `null` for anything unparseable, never `NaN`. */
 function toEpochSeconds(x: unknown): number | null {
   if (typeof x !== "string") return null;
@@ -69,7 +69,7 @@ function toEpochSeconds(x: unknown): number | null {
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
 
-/** `"2026-08-31-585444066"` — a service date, then the ministry's own ride
+/** `"2026-08-31-585444066"`: a service date, then the ministry's own ride
  *  id. Only the date half is usable; see `parseRow`. */
 const JOURNEY_REF = /^(\d{4}-\d{2}-\d{2})-/;
 
@@ -77,7 +77,7 @@ const JOURNEY_REF = /^(\d{4}-\d{2}-\d{2})-/;
  * One `/siri_vehicle_locations/list` row, or `null` if it cannot become a
  * usable journey.
  *
- * Dropped — never thrown on — when it lacks the route, the scheduled start,
+ * Dropped, never thrown on, when it lacks the route, the scheduled start,
  * the journey ref (which carries the service date), or a readable
  * `recorded_at_time`. Without any one of those the journey either cannot be
  * matched to a trip or cannot be aged, and one malformed row must never
@@ -96,7 +96,7 @@ function parseRow(
   const lineRef = toFiniteNumber(row["siri_route__line_ref"]);
   if (lineRef === null) return null;
 
-  // True UTC, not naive local time stamped "+00:00" — confirmed by bucketing
+  // True UTC, not naive local time stamped "+00:00"; confirmed by bucketing
   // scheduled hours against the wall clock on a live snapshot: the
   // distribution peaks at the current UTC hour. Reading these as local would
   // shift every journey three hours and match nothing.
@@ -107,7 +107,7 @@ function parseRow(
   if (recordedAt === null) return null;
 
   // Ghost rides: a vehicle keeps reappearing in snapshots long after it stops
-  // reporting — one observed 34 minutes stale. Dropped HERE, before matching,
+  // reporting (one observed 34 minutes stale). Dropped HERE, before matching,
   // so a dead vehicle can never pin a fresh snapshot's age or occupy a trip
   // a live vehicle should own.
   //
@@ -133,7 +133,7 @@ function parseRow(
   return {
     lineRef: String(lineRef),
     // Stride never reports a direction. `resolveJourney` recovers it from
-    // the route — see `TripLookup.directionByRouteId`.
+    // the route; see `TripLookup.directionByRouteId`.
     directionId: null,
     // `dated[1]!`: JOURNEY_REF has exactly one capture group and matched.
     dataFrameRef: dated[1]!,
@@ -144,7 +144,7 @@ function parseRow(
     publishedLineName: null,
     vehicleRef: typeof vehicleRef === "string" && vehicleRef.length > 0 ? vehicleRef : null,
     // SIRI-VM has no confidence concept, and `confidence` stays documented as
-    // SIRI's own — it is NOT overloaded to carry provenance. The public
+    // SIRI's own; it is NOT overloaded to carry provenance. The public
     // `source` field does that job.
     confidence: null,
     lat: toFiniteNumber(row["lat"]),
@@ -163,7 +163,7 @@ function parseRow(
 export function parseStrideRows(
   payload: unknown, opts: { now: number; maxVehicleAgeSeconds: number },
 ): StrideSnapshot {
-  // Every error shape this API produces is a non-array body — the "due to
+  // Every error shape this API produces is a non-array body: the "due to
   // abuse" cap message, a pydantic validation error, an HTML error page.
   // Reported as an empty snapshot rather than thrown: deciding that a tick
   // FAILED (as opposed to being legitimately quiet) is the poller's job, and
@@ -234,7 +234,7 @@ export function strideUrl(baseUrl: string, q: StrideQuery): string {
     lon__lower_or_equal: String(q.maxLon),
     // Offset paging over an unordered result set can repeat or skip rows
     // between pages. `id` is the only monotonic column, and descending puts
-    // the newest snapshot's rows on the first page — so a truncated tick
+    // the newest snapshot's rows on the first page, so a truncated tick
     // loses the OLDEST vehicles, not a random scattering of them.
     order_by: "id desc",
   });

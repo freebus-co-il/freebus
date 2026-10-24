@@ -6,12 +6,12 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 // config.ts validates and throws at MODULE LOAD time, not lazily on
-// access — so the only faithful way to test "a bad env var makes the
+// access, so the only faithful way to test "a bad env var makes the
 // process fail loudly at boot" is to actually boot a fresh process with
 // that env var set. Importing config.ts directly in this test process
 // would only ever run once (module caching), and by the time any test in
 // this suite runs, some earlier import may already have loaded it with a
-// different env — a fresh child process is the only way to get a clean
+// different env; a fresh child process is the only way to get a clean
 // read on "would this value have made the service fail to start".
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const configPath = join(__dirname, "config.ts");
@@ -32,7 +32,7 @@ function loadConfigWith(env: Record<string, string>): { status: number | null; s
 // resolves because those spawns keep this test file's own cwd, which has
 // gtfs/node_modules on its resolution path. The tests below
 // deliberately spawn from *other* working directories (repo root, the OS
-// tmp dir) to prove dataDir doesn't depend on cwd — which means bare "tsx"
+// tmp dir) to prove dataDir doesn't depend on cwd, which means bare "tsx"
 // would fail to resolve there for a reason that has nothing to do with the
 // thing under test. Point node at tsx's own entry points by absolute path
 // instead, so module resolution is unaffected by the spawned cwd.
@@ -42,7 +42,7 @@ const tsxLoader = `file://${join(tsxDir, "loader.mjs")}`;
 
 /**
  * Same fresh-process rationale as `loadConfigWith`, but for reading back a
- * value out of `feedConfig` rather than just checking pass/fail — and
+ * value out of `feedConfig` rather than just checking pass/fail, and
  * critically, run with an explicit `cwd` so the test can prove a claim
  * about *where the value came from*, not just what it equals when this
  * test file's own directory happens to be the working directory.
@@ -116,7 +116,7 @@ test("accepts valid GTFS_MAX_BAD_ROW_RATIO and GTFS_KEEP_VERSIONS overrides", ()
 //
 // These four are the safety ceilings that keep a wedged run from becoming
 // permanent, so the failure mode of a typo matters more here than for most
-// settings. The value below is deliberately "6O000" — a capital O where a
+// settings. The value below is deliberately "6O000": a capital O where a
 // zero belongs, the realistic typo. `Number.parseInt("6O000", 10)` returns
 // **6**, so a lenient parser would hand the service a six-millisecond stall
 // timeout that aborts every healthy import while looking configured. These
@@ -163,7 +163,7 @@ test("accepts valid timeout overrides", () => {
 // "data" (resolved against process.cwd() by every fs call downstream) is
 // that a second service reading the same database must get the exact same
 // path no matter which directory it was launched from. These tests boot a
-// real child process — twice, from two different working directories — and
+// real child process (twice, from two different working directories) and
 // pin that feedConfig.dataDir is identical both times, and equal to
 // <repo-root>/data computed independently. A future refactor that
 // reintroduces a `process.cwd()`-relative default would flip this from a

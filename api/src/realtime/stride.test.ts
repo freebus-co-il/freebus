@@ -85,14 +85,14 @@ test("a row missing any field needed to match a trip is dropped, never thrown on
   }
 });
 
-test("directionId is null — Stride never reports one", () => {
+test("directionId is null; Stride never reports one", () => {
   // resolveJourney recovers it from the route; see match.ts.
   for (const j of parseStrideRows(FIXTURE, OPTS).journeys) {
     assert.equal(j.directionId, null);
   }
 });
 
-test("calls is always empty — this feed carries no predictions at all", () => {
+test("calls is always empty; this feed carries no predictions at all", () => {
   for (const j of parseStrideRows(FIXTURE, OPTS).journeys) {
     assert.deepEqual(j.calls, []);
   }
@@ -124,7 +124,7 @@ test("an absent vehicle_ref yields null rather than an empty string", () => {
   assert.equal(j.vehicleRef, null);
 });
 
-test("confidence is null — SIRI-VM has no such concept and it is not overloaded", () => {
+test("confidence is null; SIRI-VM has no such concept and it is not overloaded", () => {
   const j = parseStrideRows(FIXTURE, OPTS).journeys[0]!;
   assert.equal(j.confidence, null);
 });
