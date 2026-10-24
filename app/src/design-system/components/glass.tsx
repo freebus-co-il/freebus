@@ -34,6 +34,10 @@ const SHAPES: Record<GlassShape, ViewStyle> = {
  *
  * Never fade this with `opacity`: glass stops rendering at opacity 0. Swap the
  * `variant` instead, or fade a wrapper.
+ *
+ * Interactive glass grows and stretches past its frame under a touch (iOS 26),
+ * so it is never clipped -- not by itself, and not by its press target: clip
+ * a target with `GLASS_TARGET_CLIP`, never with `overflow: 'hidden'`.
  */
 export function Glass({ variant = 'regular', interactive = false, shape = 'capsule', tint, style, children, ...rest }: GlassProps) {
   const enabled = useGlassEnabled();
@@ -48,7 +52,7 @@ export function Glass({ variant = 'regular', interactive = false, shape = 'capsu
         tintColor={variant === 'tinted' ? (tint ?? colors.accent) : undefined}
         isInteractive={interactive}
         colorScheme={scheme}
-        style={[shapeStyle, { overflow: 'hidden' }, style]}
+        style={[shapeStyle, { overflow: interactive ? 'visible' : 'hidden' }, style]}
         {...rest}
       >
         {children}
@@ -66,6 +70,13 @@ export function Glass({ variant = 'regular', interactive = false, shape = 'capsu
     </View>
   );
 }
+
+/**
+ * Clips a press target to its shape only where nothing grows out of it:
+ * Android's ripple and focus highlight need the clip to follow the shape,
+ * while iOS 26's interactive glass needs room to grow under a touch.
+ */
+export const GLASS_TARGET_CLIP: ViewStyle = Platform.OS === 'ios' ? {} : { overflow: 'hidden' };
 
 /**
  * Adjacent glass that should read as one piece (a toolbar capsule, a stack of

@@ -1,9 +1,9 @@
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { type BottomSheetBackgroundProps } from '@gorhom/bottom-sheet';
 import { useMemo, type ReactNode } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Radius, Size, Space, useColors } from '@/design-system';
+import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
 
 /** How much of the screen the drawer covers at rest: enough for a page's
@@ -45,18 +45,52 @@ export function useMapSheetEdgePadding(): EdgePadding {
  * content is the page, not a popup.
  *
  * Dynamic sizing is off so the two snap points are exactly the two resting
- * places. A solid floating surface with a hairline edge -- it holds content, so
- * it is not glass -- and no shadow.
+ * places. Liquid Glass on iOS 26, like the journey's floating sheet; a solid
+ * floating surface with a hairline edge elsewhere, and no shadow.
  */
 export function MapSheet({ children }: { children: ReactNode }) {
   const colors = useColors();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const peek = useMapSheetPeekHeight();
+  const glass = useGlassEnabled();
   const snapPoints = useMemo(
     () => [peek, height - (insets.top + MAP_BACK_CHIP_GAP + MAP_BACK_CHIP_SIZE + MAP_BACK_CHIP_GAP)],
     [peek, height, insets.top],
   );
+
+  // Memoized: a new component identity per render would remount the glass,
+  // and glass that remounts flickers.
+  const Background = useMemo(() => {
+    function SheetBackground({ style }: BottomSheetBackgroundProps) {
+      if (glass) {
+        // Glass rounds all four corners alike, so it runs past the screen's
+        // bottom edge by a radius to leave only the top corners showing.
+        return (
+          <View pointerEvents="none" style={style}>
+            <Glass variant="regular" shape="none" style={styles.glass} />
+          </View>
+        );
+      }
+      return (
+        <View
+          pointerEvents="none"
+          style={[
+            style,
+            {
+              backgroundColor: colors.surfaceFloating,
+              borderTopLeftRadius: Radius.xxl,
+              borderTopRightRadius: Radius.xxl,
+              // iOS only: on Android a border on a view with only its top
+              // corners rounded tints the whole fill.
+              ...(Platform.OS === 'ios' ? { borderWidth: Border.hairline, borderColor: colors.separator } : null),
+            },
+          ]}
+        />
+      );
+    }
+    return SheetBackground;
+  }, [glass, colors]);
 
   return (
     <BottomSheet
@@ -64,17 +98,18 @@ export function MapSheet({ children }: { children: ReactNode }) {
       snapPoints={snapPoints}
       enableDynamicSizing={false}
       enablePanDownToClose={false}
-      backgroundStyle={{
-        backgroundColor: colors.surfaceFloating,
-        borderTopLeftRadius: Radius.xxl,
-        borderTopRightRadius: Radius.xxl,
-        // iOS only: on Android a border on a view with only its top corners
-        // rounded tints the whole fill.
-        ...(Platform.OS === 'ios' ? { borderWidth: Border.hairline, borderColor: colors.separator } : null),
-      }}
+      backgroundComponent={Background}
       handleIndicatorStyle={{ backgroundColor: colors.textTertiary, width: Size.grabber.width, height: Size.grabber.height }}
     >
       {children}
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  glass: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    bottom: -Radius.xxl,
+    borderRadius: Radius.xxl,
+  },
+});

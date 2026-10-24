@@ -3,7 +3,7 @@ import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle }
 
 import { useColors } from '../theme';
 import { Opacity, Radius, Space } from '../tokens';
-import { Glass } from './glass';
+import { Glass, GLASS_TARGET_CLIP } from './glass';
 
 export type CardProps = {
   children: ReactNode;
@@ -31,7 +31,7 @@ export function Card({ children, variant = 'default', padded = true, onPress, on
       <Glass
         interactive={pressable}
         shape="rounded"
-        style={[styles.card, padded && styles.padded, done && { opacity: Opacity.done }, pressable ? styles.fill : style]}
+        style={[styles.card, pressable && styles.unclipped, padded && styles.padded, done && { opacity: Opacity.done }, pressable ? styles.fill : style]}
       >
         {children}
       </Glass>
@@ -46,7 +46,7 @@ export function Card({ children, variant = 'default', padded = true, onPress, on
         onPress={onPress}
         onLongPress={onLongPress}
         android_ripple={{ color: colors.fillPressed }}
-        style={({ pressed }) => [styles.glassTarget, style, pressed && Platform.OS !== 'ios' && { opacity: Opacity.pressed }]}
+        style={({ pressed }) => [styles.glassTarget, GLASS_TARGET_CLIP, style, pressed && Platform.OS !== 'ios' && { opacity: Opacity.pressed }]}
       >
         {body}
       </Pressable>
@@ -81,7 +81,9 @@ export function Card({ children, variant = 'default', padded = true, onPress, on
 
 const styles = StyleSheet.create({
   card: { borderRadius: Radius.xl, overflow: 'hidden' },
-  glassTarget: { borderRadius: Radius.xl, overflow: 'hidden' },
+  glassTarget: { borderRadius: Radius.xl },
+  // Pressable glass grows past its frame under a touch.
+  unclipped: { overflow: 'visible' },
   fill: { flex: 1 },
   padded: { padding: Space.lg, gap: Space.sm },
 });

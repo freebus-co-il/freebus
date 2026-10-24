@@ -4,7 +4,7 @@ import { hapticGestureRecognised } from '@/lib/haptics';
 
 import { useColors } from '../theme';
 import { Opacity, Radius, Size, Space } from '../tokens';
-import { Glass } from './glass';
+import { Glass, GLASS_TARGET_CLIP } from './glass';
 import { Icon, type IconName } from './icon';
 import { Text } from './text';
 
@@ -103,7 +103,7 @@ export function Chip({
         onLongPress();
       })}
       android_ripple={{ color: colors.fillPressed }}
-      style={({ pressed }) => [styles.target, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }, style]}
+      style={({ pressed }) => [styles.target, onGlass ? GLASS_TARGET_CLIP : styles.clip, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }, style]}
     >
       {body}
     </Pressable>
@@ -121,7 +121,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   glassShell: { alignSelf: 'flex-start' },
-  target: { borderRadius: Radius.full, overflow: 'hidden', alignSelf: 'flex-start' },
+  target: { borderRadius: Radius.full, alignSelf: 'flex-start' },
+  clip: { overflow: 'hidden' },
   info: {
     height: Size.control.sm - Space.sm,
     paddingHorizontal: Space.sm,
