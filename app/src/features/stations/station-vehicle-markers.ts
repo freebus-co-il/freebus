@@ -1,5 +1,5 @@
 import type { Departure, LiveVehicle } from '@/api/types';
-import { etaMinutes, lineVehicleMarkers, type VehicleMarker } from '@/features/results/vehicle-markers';
+import { etaAt, etaMinutes, lineVehicleMarkers, type VehicleMarker } from '@/features/results/vehicle-markers';
 
 import { lineKey } from './station-line';
 
@@ -28,11 +28,11 @@ export function stationVehicleMarkers(
   return vehicles.flatMap((vehicle) => {
     const departure = byTrip.get(vehicle.tripId);
     if (departure === undefined) return [];
+    const stops = [{ predicted: departure.realtime?.predictedDeparture ?? null, scheduled: departure.departureTime }];
     return lineVehicleMarkers([vehicle], departure.route, now).map((marker) => ({
       ...marker,
-      etaMinutes: etaMinutes(
-        [{ predicted: departure.realtime?.predictedDeparture ?? null, scheduled: departure.departureTime }], now,
-      ),
+      etaMinutes: etaMinutes(stops, now),
+      etaAt: etaAt(stops, now),
     }));
   });
 }

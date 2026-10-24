@@ -7,6 +7,7 @@ import { STATION_BOARD_LIMIT, useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
 import { useVehicles } from '@/api/vehicles';
 import type { NearbyStop } from '@/api/types';
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { StationIcon, stationKindOf } from '@/components/station-icon';
 import { Glass, Loading, Opacity, Radius, Space, Text } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
@@ -37,12 +38,23 @@ export const CLOSEST_STATION_MAP = Platform.OS !== 'web';
  *
  * A tap anywhere opens the closest station.
  */
-export function ClosestStationMap({ here, stops, lang }: {
+type ClosestStationMapProps = {
   here: { lat: number; lon: number };
   /** Nearest first; the first one is the station this map is about. */
   stops: readonly NearbyStop[];
   lang: string;
-}) {
+};
+
+/** A map card: the panel floating on the map paints in the map's scheme. */
+export function ClosestStationMap(props: ClosestStationMapProps) {
+  return (
+    <MapSchemeScope>
+      <ClosestStationMapCard {...props} />
+    </MapSchemeScope>
+  );
+}
+
+function ClosestStationMapCard({ here, stops, lang }: ClosestStationMapProps) {
   const { t } = useTranslation();
   const now = useNow();
   const showLive = useRealtimeAvailable();

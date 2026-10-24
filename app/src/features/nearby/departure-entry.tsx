@@ -4,8 +4,9 @@ import type { Departure } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
 import { Size, Space, Text, useColors } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { departureTime } from '@/lib/departure-time';
-import { formatDurationMinutes } from '@/lib/format';
+import { formatClockTime, formatDurationMinutes } from '@/lib/format';
 
 function secondsUntil(iso: string, now: Date): number {
   return Math.max(0, (new Date(iso).getTime() - now.getTime()) / 1000);
@@ -23,6 +24,7 @@ export function DepartureEntry(
   { departure, showLive, now }: { departure: Departure; showLive: boolean; now: Date },
 ) {
   const colors = useColors();
+  const { timeFormat } = usePreferences();
   const time = departureTime(departure.departureTime, departure.realtime);
   const live = showLive && time.live;
 
@@ -31,7 +33,7 @@ export function DepartureEntry(
       <LineBadge route={departure.route} size="small" />
       {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
       <Text variant="footnote" numeric color={live ? 'live' : 'textSecondary'}>
-        {formatDurationMinutes(secondsUntil(time.iso, now))}
+        {timeFormat === 'clock' ? formatClockTime(time.iso) : formatDurationMinutes(secondsUntil(time.iso, now))}
       </Text>
     </View>
   );

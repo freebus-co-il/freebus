@@ -3,6 +3,8 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import i18n from '@/i18n';
+import { formatClockTime } from '@/lib/format';
+import { currentTimeFormat } from '@/lib/time-format';
 
 import { parsePendingLeave, planLeaveReminders, reminderPayload, type PendingLeave } from './leave-reminder';
 
@@ -75,7 +77,13 @@ export async function scheduleLeaveReminders(pending: PendingLeave, now: Date = 
           content: {
             title: reminder.kind === 'leave'
               ? i18n.t('journey.reminder.leaveTitle')
-              : i18n.t('journey.reminder.headsUpTitle', { minutes: reminder.minutesBefore }),
+              // Read when the reminder is scheduled: a format changed after
+              // that applies from the next reminder on.
+              : currentTimeFormat() === 'clock'
+                ? i18n.t('journey.reminder.headsUpAt', {
+                    time: formatClockTime(new Date(Date.parse(reminder.fireAt) + reminder.minutesBefore * 60_000).toISOString()),
+                  })
+                : i18n.t('journey.reminder.headsUpTitle', { minutes: reminder.minutesBefore }),
             body: reminderBody(pending),
             sound: 'default',
             // What the tap reads to find this exact journey -- see

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { ApiError } from '@/api/client';
 import { usePlanTrip } from '@/api/plan';
 import {
@@ -41,7 +42,16 @@ const CONNECTOR_HEIGHT = Space.sm + Space.xxs;
 /** Just enough rounding to soften the square without reading as a dot. */
 const DESTINATION_GLYPH_CORNER = 2;
 
+/** The whole screen sits on the map, so it paints in the map's scheme. */
 export default function ResultsScreen() {
+  return (
+    <MapSchemeScope screen>
+      <ResultsScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function ResultsScreenContent() {
   const { t } = useTranslation();
   const colors = useColors();
   const { planQuery, origin, destination, swapOriginDestination } = useSearch();

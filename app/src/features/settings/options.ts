@@ -1,6 +1,7 @@
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
-import type { ThemePreference } from '@/features/preferences/preferences-context';
+import type { MapStylePreference, ThemePreference } from '@/features/preferences/preferences-context';
 import type { LanguagePreference } from '@/features/preferences/resolve-language';
+import type { TimeFormat } from '@/lib/time-format';
 
 /** `device` first in both lists: it is the default, and the option a rider who
  *  opened this screen by accident should find already selected. */
@@ -17,6 +18,19 @@ export const THEME_OPTIONS: { value: ThemePreference; labelKey: string }[] = [
   { value: 'device', labelKey: 'settings.themeSystem' },
   { value: 'light', labelKey: 'settings.themeLight' },
   { value: 'dark', labelKey: 'settings.themeDark' },
+];
+
+/** "Match the app" first: it is the default, and what the map did before
+ *  this setting existed. */
+export const MAP_STYLE_OPTIONS: { value: MapStylePreference; labelKey: string }[] = [
+  { value: 'app', labelKey: 'settings.mapStyleApp' },
+  { value: 'light', labelKey: 'settings.themeLight' },
+  { value: 'dark', labelKey: 'settings.themeDark' },
+];
+
+export const TIME_FORMAT_OPTIONS: { value: TimeFormat; labelKey: string }[] = [
+  { value: 'countdown', labelKey: 'settings.timeFormatCountdown' },
+  { value: 'clock', labelKey: 'settings.timeFormatClock' },
 ];
 
 export type LeadTimeValue = 'oneStop' | 'twoStops' | 'threeMinutes' | 'fiveMinutes';

@@ -81,6 +81,6 @@ export function highlightMarkers(
   return markers.map((marker) => (
     keyByTrip.get(marker.tripId) === key
       ? marker
-      : { ...marker, secondary: true, faded: true, etaMinutes: null }
+      : { ...marker, secondary: true, faded: true, etaMinutes: null, etaAt: null }
   ));
 }
