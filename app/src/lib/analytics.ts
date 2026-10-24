@@ -19,7 +19,8 @@ import { AppState, Platform, type AppStateStatus } from 'react-native';
  *
  * Off unless all of these hold: a release build (`__DEV__` builds send
  * nothing), a native platform (no web), and `EXPO_PUBLIC_APTABASE_APP_KEY` set,
- * which only `.env.production` does -- so a fork of this repo reports nowhere.
+ * which only the EAS `production` environment does, so preview builds and
+ * forks of this repo report nowhere.
  * Crash reports are separate, and scrubbed of anything about the rider: see
  * `crash-reports.ts`.
  *

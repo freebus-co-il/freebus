@@ -23,7 +23,8 @@ import { scrubEvent } from './crash-scrub';
  *
  * Off unless all of these hold: a release build (`__DEV__` builds send
  * nothing), a native platform (no web), and `EXPO_PUBLIC_SENTRY_DSN` set,
- * which only `.env.production` does, so a fork of this repo reports nowhere.
+ * which only the EAS `production` environment does, so preview builds and
+ * forks of this repo report nowhere.
  *
  * `@sentry/react-native` is NATIVE: adding or upgrading it needs a store
  * build, and the runtime version (a fingerprint) keeps an update that
