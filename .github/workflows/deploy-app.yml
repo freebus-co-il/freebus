@@ -24,8 +24,8 @@ name: Deploy app
 #
 # One-time setup: an EXPO_TOKEN repository secret (a robot token for the
 # freebus-co-il Expo account). For Sentry source maps, the SENTRY_AUTH_TOKEN
-# secret and the SENTRY_ORG and SENTRY_PROJECT variables; without them the
-# upload is skipped.
+# secret and the SENTRY_ORG, SENTRY_PROJECT and SENTRY_URL variables; without
+# them the upload is skipped.
 on:
   push:
     branches: [main]
@@ -93,6 +93,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ vars.SENTRY_URL }} # the EU region, de.sentry.io
         run: |
           if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
             echo "Sentry is not configured; skipping the source map upload."

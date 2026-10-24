@@ -132,11 +132,17 @@ module.exports = {
         }
       ],
       "./modules/live-journey/app.plugin.js",
-      // Uploads source maps and debug symbols during the build, as
-      // SENTRY_ORG / SENTRY_PROJECT with SENTRY_AUTH_TOKEN (EAS environment
-      // variables). Until those exist, eas.json sets SENTRY_DISABLE_AUTO_UPLOAD
-      // so a build skips the upload instead of failing on it.
-      "@sentry/react-native/expo"
+      // Uploads source maps during the build, with SENTRY_AUTH_TOKEN from the
+      // EAS environment. The organization is stored in Sentry's EU region, so
+      // the upload must go to de.sentry.io, not the default sentry.io.
+      [
+        "@sentry/react-native/expo",
+        {
+          url: "https://de.sentry.io/",
+          organization: "freebus",
+          project: "freebus"
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true,
