@@ -7,11 +7,12 @@ name: Deploy app
 #   - a production build with this fingerprint already exists: only JS or
 #     assets changed, so the commit goes out as an OTA update on the
 #     `production` branch, and reaches exactly the binaries that can run it;
-#   - no such build: native code changed, so a store build starts and is
-#     submitted (TestFlight, and the Play internal track as a draft: see
-#     eas.json). Promoting it to the public stores stays manual. An update is
-#     published for the new fingerprint as well, which only the new build
-#     will ever load.
+#   - no such build: native code changed, so a store build starts. With the
+#     EAS_AUTO_SUBMIT repository variable set to `true` it is also submitted
+#     (TestFlight, and the Play internal track as a draft: see eas.json);
+#     until then, upload it to the stores from EAS by hand. Promoting it to
+#     the public stores stays manual. An update is published for the new
+#     fingerprint as well, which only the new build will ever load.
 #
 # A new build is tagged `app-v<version>`. That tag is what a hotfix for riders
 # still on that build is published from, once main has moved on to native
@@ -22,8 +23,9 @@ name: Deploy app
 # allowance ran out mid month. EAS still does the builds and hosts the
 # updates.
 #
-# One-time setup: an EXPO_TOKEN repository secret (a robot token for the
-# freebus-co-il Expo account). For Sentry source maps, the SENTRY_AUTH_TOKEN
+# One-time setup: an EXPO_TOKEN repository secret, a token for a robot with
+# the Developer role on the freebus-co-il Expo account (it needs RUN, not just
+# PUBLISH, to bump the remote build number). For Sentry source maps, the SENTRY_AUTH_TOKEN
 # secret and the SENTRY_ORG, SENTRY_PROJECT and SENTRY_URL variables; without
 # them the upload is skipped.
 on:
@@ -85,7 +87,10 @@ jobs:
           profile: production
           branch: production
           environment: production
-          auto-submit-builds: true
+          # Off until EAS holds the store credentials (a Google Play service
+          # account key and an App Store Connect API key): without them the
+          # build starts, then `eas build` fails setting up its submission.
+          auto-submit-builds: ${{ vars.EAS_AUTO_SUBMIT == 'true' }}
 
       - name: Upload the update's source maps to Sentry
         working-directory: app
