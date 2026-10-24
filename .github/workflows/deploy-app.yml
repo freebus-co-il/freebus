@@ -92,20 +92,6 @@ jobs:
           # build starts, then `eas build` fails setting up its submission.
           auto-submit-builds: ${{ vars.EAS_AUTO_SUBMIT == 'true' }}
 
-      - name: Upload the update's source maps to Sentry
-        working-directory: app
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-          SENTRY_URL: ${{ vars.SENTRY_URL }} # the EU region, de.sentry.io
-        run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
-            echo "Sentry is not configured; skipping the source map upload."
-            exit 0
-          fi
-          npx sentry-expo-upload-sourcemaps dist
-
       - name: Tag the new store build
         if: steps.deploy.outputs.ios-did-start-new-build == 'true' || steps.deploy.outputs.android-did-start-new-build == 'true'
         run: |
@@ -120,3 +106,20 @@ jobs:
           fi
           git tag "$tag" "$GITHUB_SHA"
           git push origin "refs/tags/$tag"
+
+      # After the tag, so a failed upload (an expired Sentry token) never
+      # leaves a store build untagged: the tag is what a hotfix for riders on
+      # that build is published from.
+      - name: Upload the update's source maps to Sentry
+        working-directory: app
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ vars.SENTRY_URL }} # the EU region, de.sentry.io
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "Sentry is not configured; skipping the source map upload."
+            exit 0
+          fi
+          npx sentry-expo-upload-sourcemaps dist
