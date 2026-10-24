@@ -40,7 +40,7 @@ laptop, or a staging box), edit the matching file, or create a
 committed default. Restart the dev server after any change: the value is
 inlined at bundle time, not read at runtime.
 
-Note that `http://localhost:3100` only resolves for the iOS simulator and web.
+Note that `http://localhost:3100` only resolves for the iOS simulator.
 An Android emulator needs `http://10.0.2.2:3100`, and a physical device needs
 your machine's LAN IP.
 
@@ -52,12 +52,6 @@ them into `.env.local` (gitignored) when a local release build needs them;
 a fork sets its own.
 
 ## Maps
-
-`src/features/results/trip-map.tsx` and `trip-map.web.tsx` are **intentionally
-two files, not a duplication to clean up.** `react-native-maps` doesn't
-reliably bundle for web, so Metro's platform-extension resolution picks the
-`.web.tsx` placeholder there and the native `MapView` implementation on iOS and
-Android. Deleting or merging either one breaks the web bundle.
 
 On Android the map renders blank until `EXPO_PUBLIC_ANDROID_MAPS_KEY` is set
 in the environment (`app.config.js` reads it into

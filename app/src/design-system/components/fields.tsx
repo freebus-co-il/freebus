@@ -48,7 +48,7 @@ export const SearchField = forwardRef<TextInput, SearchFieldProps>(function Sear
         value={value}
         placeholderTextColor={colors.textSecondary}
         selectionColor={colors.accent}
-        style={[styles.input, { color: colors.textPrimary }, Platform.OS === 'web' && styles.webNoOutline]}
+        style={[styles.input, { color: colors.textPrimary }]}
         returnKeyType="search"
         {...input}
       />
@@ -146,7 +146,6 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
         style={[
           styles.textField,
           { color: colors.textPrimary, backgroundColor: colors.controlFill, borderColor: colors.controlEdge },
-          Platform.OS === 'web' && styles.webNoOutline,
         ]}
         {...input}
       />
@@ -175,7 +174,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  webNoOutline: { outlineWidth: 0 } as object,
   grow: { flex: 1 },
   glassField: { borderWidth: 0, paddingStart: Space.lg },
   fieldPlaceholder: { height: Size.control.md },

@@ -101,7 +101,7 @@ export async function scheduleLeaveReminders(pending: PendingLeave, now: Date = 
     );
     return true;
   } catch {
-    // No scheduler here (web, Expo Go). Nothing is armed, so nothing may be
+    // No scheduler here (Expo Go). Nothing is armed, so nothing may be
     // promised.
     return false;
   }

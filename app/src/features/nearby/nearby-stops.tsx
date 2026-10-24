@@ -15,7 +15,7 @@ import { useNow } from '@/hooks/use-now';
 import { formatDistanceMeters } from '@/lib/format';
 
 import { DepartureEntry } from './departure-entry';
-import { CLOSEST_STATION_MAP, ClosestStationMap, ClosestStationMapPlaceholder } from './nearby-stops-map';
+import { ClosestStationMap, ClosestStationMapPlaceholder } from './nearby-stops-map';
 
 const DEPARTURES_PER_STATION = 4;
 /** How many placeholder rows stand in for the list while the fix and the
@@ -170,7 +170,7 @@ export function NearbyStops({ limit, footer, featureClosest = false }: {
 
   const { data, isLoading } = useNearbyStops(here && { lat: here.lat, lon: here.lon }, i18n.language, limit);
   const stops = data?.stops ?? [];
-  const withMap = featureClosest && CLOSEST_STATION_MAP;
+  const withMap = featureClosest;
 
   if (originState.status === 'error') {
     const denied = originState.message === 'location_permission_denied';

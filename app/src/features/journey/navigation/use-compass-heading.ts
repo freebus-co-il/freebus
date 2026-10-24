@@ -35,7 +35,7 @@ export function useCompassHeading(enabled: boolean): number | null {
         else subscription = next;
       })
       .catch(() => {
-        // No compass here (web, a simulator without one): the map turns along
+        // No compass here (a simulator without one): the map turns along
         // the walk's own line instead.
       });
     return () => {

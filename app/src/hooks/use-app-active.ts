@@ -34,7 +34,5 @@ function isActive(): boolean {
  * comparison settles immediately.
  */
 export function useAppActive(): boolean {
-  // Third argument is the server snapshot, for the web build: `AppState` reads
-  // the same either side of hydration, so the same function serves both.
-  return useSyncExternalStore(subscribe, isActive, isActive);
+  return useSyncExternalStore(subscribe, isActive);
 }

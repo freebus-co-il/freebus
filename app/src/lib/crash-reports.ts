@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react-native';
-import { Platform } from 'react-native';
 
 import { scrubEvent } from './crash-scrub';
 
@@ -21,9 +20,8 @@ import { scrubEvent } from './crash-scrub';
  * - `sendDefaultPii: false`, which also tells Sentry never to infer the IP
  *   address from the request.
  *
- * Off unless all of these hold: a release build (`__DEV__` builds send
- * nothing), a native platform (no web), and `EXPO_PUBLIC_SENTRY_DSN` set,
- * which only the EAS `production` environment does, so preview builds and
+ * Off unless both hold: a release build (`__DEV__` builds send nothing),
+ * and `EXPO_PUBLIC_SENTRY_DSN` set, which only the EAS `production` environment does, so preview builds and
  * forks of this repo report nowhere.
  *
  * `@sentry/react-native` is NATIVE: adding or upgrading it needs a store
@@ -35,7 +33,7 @@ const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 let started = false;
 
 export function initCrashReports(): void {
-  if (started || __DEV__ || Platform.OS === 'web' || !DSN) return;
+  if (started || __DEV__ || !DSN) return;
   started = true;
 
   try {

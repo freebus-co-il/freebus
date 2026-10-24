@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { STATION_BOARD_LIMIT, useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
@@ -23,10 +23,6 @@ const MAP_HEIGHT = 280;
 const PANEL_INSET = Radius.xl - Radius.lg;
 /** Departures in the panel: one line, never clipped. */
 const PANEL_DEPARTURES = 3;
-
-/** Whether this platform draws the map at all. Web has no map, so the closest
- *  station stays an ordinary row there. */
-export const CLOSEST_STATION_MAP = Platform.OS !== 'web';
 
 /**
  * The top of the home screen's Nearby stations group, standing in for its

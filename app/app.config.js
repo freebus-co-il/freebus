@@ -13,6 +13,7 @@ module.exports = {
   expo: {
     name: "FreeBus",
     slug: "freebus",
+    platforms: ["ios", "android"],
     version,
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -73,10 +74,6 @@ module.exports = {
         "android.permission.POST_PROMOTED_NOTIFICATIONS",
         "android.permission.VIBRATE"
       ]
-    },
-    web: {
-      output: "static",
-      favicon: "./assets/images/favicon.png"
     },
     plugins: [
       "expo-router",

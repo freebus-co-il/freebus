@@ -44,7 +44,7 @@ export type LiveSurface = {
 };
 
 /**
- * Null on web, and on any build whose native module is missing -- Expo Go, or
+ * Null on any build whose native module is missing: Expo Go, or
  * a dev client from before the native modules landed.
  *
  * `requireOptionalNativeModule` rather than `requireNativeModule` on purpose:
@@ -77,7 +77,7 @@ export const liveSurface: LiveSurface = {
  * app, or returns null where nothing can emit it.
  *
  * Null rather than a dummy subscription so a caller cannot quietly believe it
- * is listening on web.
+ * is listening where there is no module.
  */
 export function addAcknowledgeAlightListener(listener: () => void): EventSubscription | null {
   return native?.addListener('onAcknowledgeAlight', listener) ?? null;

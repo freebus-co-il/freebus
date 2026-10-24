@@ -1,6 +1,6 @@
 import { init, trackEvent } from '@aptabase/react-native';
 import Constants from 'expo-constants';
-import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 /**
  * Usage counting, and deliberately nothing more.
@@ -17,9 +17,8 @@ import { AppState, Platform, type AppStateStatus } from 'react-native';
  * names -- that includes screen names, since a route like `/station/123` is a
  * stop id. If a number is worth knowing, it has to be worth it without them.
  *
- * Off unless all of these hold: a release build (`__DEV__` builds send
- * nothing), a native platform (no web), and `EXPO_PUBLIC_APTABASE_APP_KEY` set,
- * which only the EAS `production` environment does, so preview builds and
+ * Off unless both hold: a release build (`__DEV__` builds send nothing),
+ * and `EXPO_PUBLIC_APTABASE_APP_KEY` set, which only the EAS `production` environment does, so preview builds and
  * forks of this repo report nowhere.
  * Crash reports are separate, and scrubbed of anything about the rider: see
  * `crash-reports.ts`.
@@ -65,7 +64,7 @@ export function countEvent(name: AnalyticsEvent): void {
 }
 
 export function initAnalytics(): void {
-  if (started || __DEV__ || Platform.OS === 'web' || !APP_KEY) return;
+  if (started || __DEV__ || !APP_KEY) return;
   started = true;
 
   try {
