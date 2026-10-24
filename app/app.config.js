@@ -7,7 +7,7 @@ module.exports = {
   expo: {
     name: "FreeBus",
     slug: "freebus",
-    version: "1.0.3",
+    version: "1.0.4",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "freebus",
@@ -142,7 +142,7 @@ module.exports = {
     // an OTA update reaches only binaries built with this exact value. The
     // deploy workflow still uses the fingerprint to tell a native change from
     // a JS-only one -- see .eas/workflows/deploy-production.yml.
-    runtimeVersion: "1.0.3",
+    runtimeVersion: "1.0.4",
     updates: {
       url: "https://u.expo.dev/48516aee-b137-401c-83a2-122fbdb7578f"
     }
