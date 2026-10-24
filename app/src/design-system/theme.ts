@@ -4,7 +4,7 @@ import { AccessibilityInfo, Appearance, Platform } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-import { Palettes, type Palette } from './tokens';
+import { GlassPalettes, Palettes, type Palette } from './tokens';
 
 export type Scheme = 'light' | 'dark';
 
@@ -28,9 +28,25 @@ export function useScheme(): Scheme {
   return override ?? app;
 }
 
-/** The colour roles for the current scheme. */
+const OnGlass = createContext(false);
+
+/**
+ * Marks everything under it as sitting on Liquid Glass, so `useColors` hands
+ * out the glass inks (brighter secondary and tertiary text). `Glass` applies
+ * it to its children; a glass drawn as a sibling backdrop (a sheet's
+ * background) needs its content wrapped by hand. A no-op when glass is off:
+ * the solid fallback keeps the solid inks.
+ */
+export function GlassInk({ children }: { children: ReactNode }) {
+  const enabled = useGlassEnabled();
+  if (!enabled) return children;
+  return createElement(OnGlass.Provider, { value: true }, children);
+}
+
+/** The colour roles for the current scheme, and for glass if on it. */
 export function useColors(): Palette {
-  return Palettes[useScheme()];
+  const scheme = useScheme();
+  return useContext(OnGlass) ? GlassPalettes[scheme] : Palettes[scheme];
 }
 
 /**

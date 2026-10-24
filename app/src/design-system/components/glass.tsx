@@ -4,7 +4,7 @@ import type { ComponentProps, ComponentType, ReactNode } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { useColors, useGlassEnabled, useScheme } from '../theme';
+import { GlassInk, useColors, useGlassEnabled, useScheme } from '../theme';
 import { Border, Radius } from '../tokens';
 
 export type GlassVariant = 'regular' | 'clear' | 'tinted';
@@ -55,7 +55,7 @@ export function Glass({ variant = 'regular', interactive = false, shape = 'capsu
         style={[shapeStyle, { overflow: interactive ? 'visible' : 'hidden' }, style]}
         {...rest}
       >
-        {children}
+        <GlassInk>{children}</GlassInk>
       </GlassView>
     );
   }
@@ -135,7 +135,7 @@ export function GlassMorphShape({ style, shape = 'capsule', children }: {
   if (enabled && AnimatedNativeGlass) {
     return (
       <AnimatedNativeGlass glassEffectStyle="regular" colorScheme={scheme} style={[SHAPES[shape], morphStyles.shape, style]}>
-        {children}
+        <GlassInk>{children}</GlassInk>
       </AnimatedNativeGlass>
     );
   }

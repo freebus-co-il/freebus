@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled, withAlpha } from '@/design-system';
+import { Border, Glass, GlassInk, Radius, Size, Space, useColors, useGlassEnabled, withAlpha } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
 
 /** How much of the screen the drawer covers at rest: enough for a page's
@@ -105,7 +105,7 @@ export function MapSheet({ children }: { children: ReactNode }) {
       backgroundComponent={Background}
       handleIndicatorStyle={{ backgroundColor: colors.textTertiary, width: Size.grabber.width, height: Size.grabber.height }}
     >
-      {children}
+      <GlassInk>{children}</GlassInk>
     </BottomSheet>
   );
 }

@@ -105,6 +105,25 @@ const dark: Palette = {
 
 export const Palettes: Record<'light' | 'dark', Palette> = { light, dark };
 
+/**
+ * The text inks for content on Liquid Glass. Glass takes on whatever is
+ * behind it (a bright map, a dark sea), so the grey that reads on a solid
+ * surface turns to mud on it: secondary and tertiary text go near-full ink
+ * instead. Applied by `GlassInk` (inside `Glass`, and glass sheets).
+ */
+export const GlassPalettes: Record<'light' | 'dark', Palette> = {
+  light: {
+    ...light,
+    textSecondary: 'rgba(0,0,0,0.72)',
+    textTertiary: 'rgba(0,0,0,0.50)',
+  },
+  dark: {
+    ...dark,
+    textSecondary: 'rgba(255,255,255,0.86)',
+    textTertiary: 'rgba(255,255,255,0.64)',
+  },
+};
+
 /** A colour with an alpha channel, for fades and dimmed map lines. Takes a
  *  6-digit hex; anything else comes back unchanged. */
 export function withAlpha(hex: string, alpha: number): string {
