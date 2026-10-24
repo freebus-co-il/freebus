@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled } from '@/design-system';
+import { Border, Glass, Radius, Space, useColors, useGlassEnabled } from '@/design-system';
 
 /** How much of the screen the sheet may grow to before its content scrolls:
  *  the map above it stays the larger part of the screen at rest, but a long
@@ -15,7 +15,8 @@ const MAX_HEIGHT_RATIO = 0.72;
  * over the map, inset from the screen's edges with concentric corners, sized
  * to its content. Liquid Glass on iOS 26, a solid floating surface elsewhere.
  *
- * Never closes: it is the page, not a popup.
+ * Never closes and never resizes by hand: it is the page, not a popup, so it
+ * has no grabber and ignores drags.
  */
 export function FloatingSheet({
   children,
@@ -56,16 +57,14 @@ export function FloatingSheet({
       enableDynamicSizing
       maxDynamicContentSize={Math.round(height * MAX_HEIGHT_RATIO)}
       enablePanDownToClose={false}
+      enableHandlePanningGesture={false}
+      enableContentPanningGesture={false}
+      handleComponent={null}
       backgroundComponent={Background}
-      handleIndicatorStyle={{
-        backgroundColor: colors.textTertiary,
-        width: Size.grabber.width,
-        height: Size.grabber.height,
-      }}
     >
       <BottomSheetView
         style={styles.content}
-        onLayout={(event) => onHeightChange?.(Math.round(event.nativeEvent.layout.height) + bottomInset + Size.grabber.height + Space.lg)}
+        onLayout={(event) => onHeightChange?.(Math.round(event.nativeEvent.layout.height) + bottomInset)}
       >
         {children}
       </BottomSheetView>
@@ -82,6 +81,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: {
+    paddingTop: Space.lg,
     paddingHorizontal: Space.lg,
     paddingBottom: Space.lg,
     gap: Space.md,

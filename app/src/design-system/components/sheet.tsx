@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '../theme';
-import { Layout, Radius, Size, Space } from '../tokens';
+import { Layout, Motion, Radius, Space } from '../tokens';
 import { IconButton } from './icon-button';
 import { Text } from './text';
 
@@ -23,15 +24,20 @@ export type SheetProps = {
  * choice of line. Floats inset with the device's corner radius on iOS (the iOS
  * 26 sheet shape) and docks full-width with a 32pt top radius on Android (the
  * Material 3 sheet). Tapping the scrim or the close button closes it.
+ *
+ * No grabber: it neither drags nor resizes, so a handle would promise a
+ * gesture that isn't there. The scrim fades over the whole screen, the sheet
+ * included, while the sheet itself slides up from the bottom edge.
  */
 export function Sheet({ visible, onClose, title, footer, children, closeLabel }: SheetProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const ios = Platform.OS === 'ios';
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <Pressable accessibilityLabel={closeLabel} onPress={onClose} style={[styles.scrim, { backgroundColor: colors.scrim }]} />
-      <View
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <Pressable accessibilityLabel={closeLabel} onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} />
+      <Animated.View
+        entering={SlideInDown.springify().duration(Motion.smooth.duration).dampingRatio(Motion.smooth.dampingRatio)}
         style={[
           styles.sheet,
           // The grouped page, so a grouped list inside reads as a group.
@@ -41,7 +47,6 @@ export function Sheet({ visible, onClose, title, footer, children, closeLabel }:
             : { paddingBottom: insets.bottom + Space.lg, borderTopLeftRadius: Radius.xxl, borderTopRightRadius: Radius.xxl },
         ]}
       >
-        <View style={[styles.grabber, { backgroundColor: colors.textTertiary }]} />
         <View style={styles.head}>
           {title ? (
             <Text variant="title3" style={styles.title} accessibilityRole="header">
@@ -54,21 +59,13 @@ export function Sheet({ visible, onClose, title, footer, children, closeLabel }:
         </View>
         <View style={styles.body}>{children}</View>
         {footer && <View style={styles.footer}>{footer}</View>}
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1 },
-  sheet: { paddingTop: Space.sm, paddingBottom: Space.lg, maxHeight: '85%' },
-  grabber: {
-    alignSelf: 'center',
-    width: Size.grabber.width,
-    height: Size.grabber.height,
-    borderRadius: Radius.xs,
-    marginBottom: Space.sm,
-  },
+  sheet: { marginTop: 'auto', paddingTop: Space.lg, paddingBottom: Space.lg, maxHeight: '85%' },
   head: { flexDirection: 'row', alignItems: 'center', gap: Space.md, paddingHorizontal: Layout.pageInset + Space.xs },
   title: { flex: 1 },
   body: { paddingTop: Space.md, flexShrink: 1 },
