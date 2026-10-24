@@ -3,13 +3,15 @@ import { useMemo, type ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled } from '@/design-system';
+import { Border, Glass, Radius, Size, Space, useColors, useGlassEnabled, withAlpha } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
 
 /** How much of the screen the drawer covers at rest: enough for a page's
  *  header and first rows, leaving the map the larger share -- these pages are
  *  about the map first. */
 export const MAP_SHEET_PEEK_RATIO = 0.4;
+/** How far the drawer's glass leans toward its solid surface. */
+const SHEET_TINT = 0.6;
 /** The map screen's back chip, which a map's framing has to clear. */
 export const MAP_BACK_CHIP_SIZE = Size.control.md;
 /** The chip's gap below the status bar, and the drawer's below the chip. */
@@ -45,8 +47,10 @@ export function useMapSheetEdgePadding(): EdgePadding {
  * content is the page, not a popup.
  *
  * Dynamic sizing is off so the two snap points are exactly the two resting
- * places. Liquid Glass on iOS 26, like the journey's floating sheet; a solid
- * floating surface with a hairline edge elsewhere, and no shadow.
+ * places. Liquid Glass on iOS 26, like the journey's floating sheet, but
+ * tinted toward the solid surface: unlike that sheet it holds a whole page of
+ * secondary text, which washed out over a bright map. A solid floating surface
+ * with a hairline edge elsewhere, and no shadow.
  */
 export function MapSheet({ children }: { children: ReactNode }) {
   const colors = useColors();
@@ -68,7 +72,7 @@ export function MapSheet({ children }: { children: ReactNode }) {
         // bottom edge by a radius to leave only the top corners showing.
         return (
           <View pointerEvents="none" style={style}>
-            <Glass variant="regular" shape="none" style={styles.glass} />
+            <Glass variant="tinted" tint={withAlpha(colors.surfaceFloating, SHEET_TINT)} shape="none" style={styles.glass} />
           </View>
         );
       }
