@@ -3,11 +3,17 @@
 // app, so the value is required rather than defaulted.
 const androidMapsApiKey = process.env.EXPO_PUBLIC_ANDROID_MAPS_KEY;
 
+// The store version lives in package.json alone, so the two cannot disagree.
+// Bump it in any PR that changes native code: the "App release" check fails
+// without it, and merging the bump to main ships a store build tagged
+// `app-v<version>`. See "Releasing the app" in .github/CONTRIBUTING.md.
+const { version } = require("./package.json");
+
 module.exports = {
   expo: {
     name: "FreeBus",
     slug: "freebus",
-    version: "1.0.3",
+    version,
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "freebus",
@@ -125,7 +131,18 @@ module.exports = {
           ]
         }
       ],
-      "./modules/live-journey/app.plugin.js"
+      "./modules/live-journey/app.plugin.js",
+      // Uploads source maps during the build, with SENTRY_AUTH_TOKEN from the
+      // EAS environment. The organization is stored in Sentry's EU region, so
+      // the upload must go to de.sentry.io, not the default sentry.io.
+      [
+        "@sentry/react-native/expo",
+        {
+          url: "https://de.sentry.io/",
+          organization: "freebus",
+          project: "freebus"
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true,
@@ -138,11 +155,15 @@ module.exports = {
       }
     },
     owner: "freebus-co-il",
-    // Set by hand, and bumped with every release that changes native code:
-    // an OTA update reaches only binaries built with this exact value. The
-    // deploy workflow still uses the fingerprint to tell a native change from
-    // a JS-only one -- see .eas/workflows/deploy-production.yml.
-    runtimeVersion: "1.0.3",
+    // The fingerprint of everything native (see fingerprint.config.js), so
+    // an OTA update only ever reaches binaries with the native code it was
+    // written against. The deploy workflow uses the same fingerprint to choose
+    // between an update and a store build: see .github/workflows/deploy-app.yml.
+    // Never set this by hand: a hand-set value that a native change forgot to
+    // bump sends that change's JavaScript to binaries without its native half.
+    runtimeVersion: {
+      policy: "fingerprint"
+    },
     updates: {
       url: "https://u.expo.dev/48516aee-b137-401c-83a2-122fbdb7578f"
     }

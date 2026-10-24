@@ -44,6 +44,13 @@ Note that `http://localhost:3100` only resolves for the iOS simulator and web.
 An Android emulator needs `http://10.0.2.2:3100`, and a physical device needs
 your machine's LAN IP.
 
+The keys (Google Maps for Android, Aptabase, Sentry) are not in either file.
+They live in the EAS `production` environment, which EAS builds and the
+deploy workflow's updates load, so a fork's release build reports nothing
+into FreeBus's projects. Run `eas env:pull --environment production` to copy
+them into `.env.local` (gitignored) when a local release build needs them;
+a fork sets its own.
+
 ## Maps
 
 `src/features/results/trip-map.tsx` and `trip-map.web.tsx` are **intentionally

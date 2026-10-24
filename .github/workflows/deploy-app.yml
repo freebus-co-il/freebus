@@ -1,0 +1,117 @@
+name: Deploy app
+
+# Every push to main that touches the app ships it, and the fingerprint
+# (the app's runtime version, see app/app.config.js) decides how, per
+# platform:
+#
+#   - a production build with this fingerprint already exists: only JS or
+#     assets changed, so the commit goes out as an OTA update on the
+#     `production` branch, and reaches exactly the binaries that can run it;
+#   - no such build: native code changed, so a store build starts and is
+#     submitted (TestFlight, and the Play internal track as a draft: see
+#     eas.json). Promoting it to the public stores stays manual. An update is
+#     published for the new fingerprint as well, which only the new build
+#     will ever load.
+#
+# A new build is tagged `app-v<version>`. That tag is what a hotfix for riders
+# still on that build is published from, once main has moved on to native
+# code they do not have.
+#
+# This runs on GitHub, not as an EAS workflow: on EAS every push spent its
+# CI minutes on the fingerprint and the lookup, and the free plan's monthly
+# allowance ran out mid month. EAS still does the builds and hosts the
+# updates.
+#
+# One-time setup: an EXPO_TOKEN repository secret (a robot token for the
+# freebus-co-il Expo account). For Sentry source maps, the SENTRY_AUTH_TOKEN
+# secret and the SENTRY_ORG, SENTRY_PROJECT and SENTRY_URL variables; without
+# them the upload is skipped.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "!app/**/*.md"
+      - .github/workflows/deploy-app.yml
+  workflow_dispatch: {}
+
+# One deploy at a time, queued rather than cancelled: a cancelled run could
+# have started a build but not yet published or tagged it.
+concurrency:
+  group: deploy-app
+  cancel-in-progress: false
+
+permissions:
+  contents: write # the release tag
+
+jobs:
+  deploy:
+    # A manual run from another branch would ship that branch to riders.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require the Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Set the EXPO_TOKEN repository secret (a robot token for the freebus-co-il Expo account)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm --prefix app ci
+
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Computes each platform's fingerprint with the `production` EAS
+      # environment loaded (the Maps key is part of the config, so it is part
+      # of the fingerprint), looks for a production build with it, builds and
+      # submits if there is none, then publishes the update.
+      - name: Build or update, by fingerprint
+        id: deploy
+        uses: expo/expo-github-action/continuous-deploy-fingerprint@v9
+        with:
+          working-directory: app
+          profile: production
+          branch: production
+          environment: production
+          auto-submit-builds: true
+
+      - name: Upload the update's source maps to Sentry
+        working-directory: app
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ vars.SENTRY_URL }} # the EU region, de.sentry.io
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "Sentry is not configured; skipping the source map upload."
+            exit 0
+          fi
+          npx sentry-expo-upload-sourcemaps dist
+
+      - name: Tag the new store build
+        if: steps.deploy.outputs.ios-did-start-new-build == 'true' || steps.deploy.outputs.android-did-start-new-build == 'true'
+        run: |
+          tag="app-v$(node -p "require('./app/package.json').version")"
+          # A second build of the same version (a failed build retried, or one
+          # platform rebuilt) keeps the first tag: both have the same
+          # fingerprint, since a native change without a version bump fails
+          # the "App release" check on its PR.
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "$tag already exists."
+            exit 0
+          fi
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"

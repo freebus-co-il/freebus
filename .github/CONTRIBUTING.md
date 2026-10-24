@@ -140,6 +140,40 @@ None of this is needed just to run the app locally via `expo start` or
 `expo run:android`/`expo run:ios`. It only matters once you try to use EAS
 Build or EAS Update.
 
+## Releasing the app
+
+Every merge to `main` that touches `app/` ships, with no manual step until
+the stores (`.github/workflows/deploy-app.yml`). How it ships depends on the
+app's **fingerprint**, a hash of everything native: dependencies with native
+code, config plugins, `app.config.js`, `eas.json`, `modules/` and `targets/`.
+The fingerprint is also the app's runtime version, so an over-the-air update
+only ever reaches binaries that can run it.
+
+| Your PR changes | Merging it ships | What you do |
+| --- | --- | --- |
+| JavaScript and assets only | An OTA update to the binaries already in riders' hands | Nothing |
+| Native code | A store build, submitted to TestFlight and Play internal (draft), tagged `app-v<version>` | Bump the version in the PR: `npm --prefix app version patch --no-git-tag-version` |
+
+The **App release** check on each PR says which of the two a merge will be,
+and fails a native change that did not bump the version. The version lives
+in `app/package.json` only; build numbers are incremented by EAS.
+
+Promoting a build from TestFlight or Play internal to the public stores is
+done by hand.
+
+**Hotfixing riders on an older build.** Once `main` has native code an older
+build does not, its riders get no more updates from `main`. To fix them
+anyway, branch from that build's tag, fix, and publish from there:
+
+```bash
+git switch -c hotfix/1.0.5 app-v1.0.5
+# fix, commit
+cd app && eas update --branch production --environment production --message "..."
+```
+
+The update gets that build's fingerprint, so it reaches that build and
+nothing else.
+
 ## Code of conduct
 
 Participation in this project is covered by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).

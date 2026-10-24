@@ -1,0 +1,40 @@
+name: App release
+
+# Says, on every app PR, what merging it will ship: an OTA update or a store
+# build. Fails when the PR changes native code (the fingerprint) without
+# bumping app/package.json's version, since that merge starts a store build
+# the stores would reject. See .github/scripts/app-release-check.mjs.
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "!app/**/*.md"
+      - .github/workflows/app-release-check.yml
+      - .github/scripts/app-release-check.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: head
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            head/app/package-lock.json
+            base/app/package-lock.json
+      # Both trees need their own node_modules: the fingerprint covers the
+      # native packages that autolinking finds there.
+      - run: npm --prefix head/app ci
+      - run: npm --prefix base/app ci
+      - run: node head/.github/scripts/app-release-check.mjs base/app head/app
