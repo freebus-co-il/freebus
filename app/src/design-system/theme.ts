@@ -1,5 +1,5 @@
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useEffect, useState } from 'react';
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Appearance, Platform } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -8,9 +8,24 @@ import { Palettes, type Palette } from './tokens';
 
 export type Scheme = 'light' | 'dark';
 
-/** The scheme the app paints in: the rider's override, else the device's. */
+const SchemeOverride = createContext<Scheme | null>(null);
+
+/**
+ * Paints everything under it in `scheme` rather than the app's: colours,
+ * text, icons and glass all read `useScheme`. For a part of the app whose
+ * backdrop is not the app's own, which is a map pinned light or dark in
+ * settings: chrome made for a dark page turns unreadable on a light map.
+ */
+export function SchemeScope({ scheme, children }: { scheme: Scheme; children: ReactNode }) {
+  return createElement(SchemeOverride.Provider, { value: scheme }, children);
+}
+
+/** The scheme to paint in: the nearest `SchemeScope`'s, else the app's (the
+ *  rider's override, else the device's). */
 export function useScheme(): Scheme {
-  return useColorScheme() === 'dark' ? 'dark' : 'light';
+  const override = useContext(SchemeOverride);
+  const app = useColorScheme() === 'dark' ? 'dark' : 'light';
+  return override ?? app;
 }
 
 /** The colour roles for the current scheme. */

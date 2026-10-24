@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { usePlanTrip } from '@/api/plan';
 import type { PlanQuery } from '@/api/types';
 import { DataCredit } from '@/components/data-credit';
 import { LineBadge } from '@/components/line-badge';
 import { Card, Glass, Icon, LeadingIcon, Loading, Radius, Space, Text, type ColorRole } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { firstTransitLeg, leaveState } from '@/features/results/itinerary-facts';
 import { TripMap, type EdgePadding } from '@/features/results/trip-map';
 import { LOCATION_ICON_NAMES } from '@/features/saved-locations/location-icons';
@@ -65,9 +67,20 @@ export type SmartSuggestionProps = {
  * floating over its lower stretch that holds the text. The rider's three
  * questions in order -- where is this taking me, when do I move, what do I
  * catch.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
+  return (
+    <MapSchemeScope>
+      <SmartSuggestionCard onSelect={onSelect} />
+    </MapSchemeScope>
+  );
+}
+
+function SmartSuggestionCard({ onSelect }: SmartSuggestionProps) {
   const { t, i18n } = useTranslation();
+  const { timeFormat } = usePreferences();
   const now = useNow();
   const { originState } = useSearch();
   const savedLocations = useSavedLocations();
@@ -120,7 +133,8 @@ export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
       ? t('results.leaveDeparted')
       : leave.kind === 'now'
         ? t('results.leaveNow')
-        : leave.kind === 'countdown'
+        // A clock-time rider gets "At 15:24" where the countdown would be.
+        : leave.kind === 'countdown' && timeFormat === 'countdown'
           ? t('results.leaveIn', { count: leave.minutes })
           : t('results.leaveAt', { time: formatClockTime(best.departureTime) });
   // Green is the live, act-on-it state -- the moment the answer is "go", not

@@ -86,10 +86,10 @@ test('with a line in focus, its buses stay as they are and every other line\'s s
   const board = [departure('a'), departure('b', { shortName: '4' })];
   const marker = (tripId: string): VehicleMarker => ({
     tripId, latitude: 32, longitude: 34.8, color: '#123456', routeType: 3, shortName: '18',
-    etaMinutes: 4, faded: false, secondary: false,
+    etaMinutes: 4, etaAt: '2026-08-31T10:20:00.000Z', faded: false, secondary: false,
   });
   const [mine, other, stray] = highlightMarkers([marker('a'), marker('b'), marker('x')], board, lineKey(board[0]!.route));
   assert.deepEqual(mine, marker('a'));
-  assert.deepEqual(other, { ...marker('b'), secondary: true, faded: true, etaMinutes: null });
+  assert.deepEqual(other, { ...marker('b'), secondary: true, faded: true, etaMinutes: null, etaAt: null });
   assert.equal(stray?.secondary, true);
 });

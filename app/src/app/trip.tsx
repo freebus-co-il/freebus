@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { usePlanTrip } from '@/api/plan';
 import { EmptyState, IconButton, Layout, MapStyle, Size, Space, useColors } from '@/design-system';
 import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
@@ -40,8 +41,18 @@ const BACK_CHIP_CLEARANCE = Space.sm + Size.control.md + Space.md;
  * already filled. Content-derived rather than positional on purpose: an index
  * would silently point at a different journey if a background refetch
  * reordered anything.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export default function TripScreen() {
+  return (
+    <MapSchemeScope screen>
+      <TripScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function TripScreenContent() {
   const { t } = useTranslation();
   const colors = useColors();
   const now = useNow();

@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { Itinerary, WalkLeg } from '@/api/types';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
+import type { TimeFormat } from '@/lib/time-format';
 import { routeColor, WALK_LEG_COLOR } from '@/lib/route-color';
 
 import { lineLabel, minutesLeft, offPlanLine, stopName, vehicleInPlay } from './journey-labels';
@@ -58,7 +59,15 @@ export function journeyCopy(
   destinationLabel: string,
   t: TFunction,
   palette: { end: string; alert: string },
+  /** Only the in-app `hero` reads it: `heroStatic` carries no time at all. */
+  timeFormat: TimeFormat = 'countdown',
 ): JourneyCopy {
+  // The deadline the phase's timer runs to, as the rider asked to read it.
+  const until = (line: string, key: 'waiting' | 'transferring') =>
+    timeFormat === 'clock' && state.timer
+      ? t(`journey.phase.${key}At`, { line, time: formatClockTime(state.timer.to) })
+      : t(`journey.phase.${key}`, { line, minutes: minutesLeft(state.timer) });
+
   const ride = vehicleInPlay(itinerary, state);
   const destination = destinationLabel.trim() || t('journey.toDestination');
 
@@ -87,7 +96,7 @@ export function journeyCopy(
 
     if (state.phase === 'waiting') {
       return {
-        hero: t('journey.phase.waiting', { line: lineLabel(leg), minutes: minutesLeft(state.timer) }),
+        hero: until(lineLabel(leg), 'waiting'),
         heroStatic: lineLabel(leg),
         supporting: leg.headsign.trim()
           ? t('results.towards', { name: formatHeadsign(leg.headsign) })
@@ -159,7 +168,7 @@ export function journeyCopy(
   // the walk is a detail, the departure is the deadline.
   if (state.phase === 'transferring' && ride) {
     return {
-      hero: t('journey.phase.transferring', { line: lineLabel(ride), minutes: minutesLeft(state.timer) }),
+      hero: until(lineLabel(ride), 'transferring'),
       heroStatic: lineLabel(ride),
       supporting: walkTo,
       action: null,

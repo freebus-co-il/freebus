@@ -5,6 +5,8 @@ import { Marker } from 'react-native-maps';
 
 import { VehicleIcon } from '@/components/vehicle-icon';
 import { Border, MapStyle, Radius, Size, Space, Text, Type, useColors } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
+import { formatClockTime } from '@/lib/format';
 import { readableTextColor } from '@/lib/route-color';
 
 import type { VehicleMarker } from './vehicle-markers';
@@ -99,12 +101,15 @@ function fadeOf(marker: VehicleMarker) {
 function VehicleArrivalLabel({ marker, onPress }: Omit<VehicleMarkerProps, 'fallbackTitle'>) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { timeFormat } = usePreferences();
 
-  const label = marker.etaMinutes === null
+  const label = marker.etaMinutes === null || marker.etaAt === null
     ? null
     : marker.etaMinutes === 0
       ? t('results.vehicleEtaNow')
-      : t('results.vehicleEta', { minutes: marker.etaMinutes });
+      : timeFormat === 'clock'
+        ? formatClockTime(marker.etaAt)
+        : t('results.vehicleEta', { minutes: marker.etaMinutes });
   // The palette is part of the look: a theme change has to re-snapshot the
   // pill, or it keeps the old scheme's fill until its countdown next changes.
   const tracksViewChanges = useSnapshotTracking(

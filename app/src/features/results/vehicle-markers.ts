@@ -18,6 +18,9 @@ export type VehicleMarker = {
    *  own map) or the vehicle is already past it: then nothing is written under
    *  the marker. */
   etaMinutes: number | null;
+  /** The same moment as a clock time (ISO-8601), for a rider who reads
+   *  times rather than countdowns. Null exactly when `etaMinutes` is. */
+  etaAt: string | null;
   /** Drawn dimmed: the report is old enough that the bus has likely moved on
    *  from where the marker sits. */
   faded: boolean;
@@ -71,12 +74,19 @@ export const PASSED_GRACE_SECONDS = 60;
  * the timetable when not. Null once it is past all of them.
  */
 export function etaMinutes(stops: readonly (StopTime | null)[], now: Date): number | null {
+  const at = etaAt(stops, now);
+  return at === null ? null : Math.max(0, Math.round((Date.parse(at) - now.getTime()) / 60_000));
+}
+
+/** When the vehicle reaches the rider's stop, as `etaMinutes` picks it: the
+ *  ISO time itself, or null. */
+export function etaAt(stops: readonly (StopTime | null)[], now: Date): string | null {
   for (const stop of stops) {
     if (stop === null) continue;
-    const at = new Date(stop.predicted ?? stop.scheduled).getTime();
+    const iso = stop.predicted ?? stop.scheduled;
+    const at = new Date(iso).getTime();
     if (Number.isNaN(at)) continue;
-    const seconds = (at - now.getTime()) / 1000;
-    if (seconds >= -PASSED_GRACE_SECONDS) return Math.max(0, Math.round(seconds / 60));
+    if ((at - now.getTime()) / 1000 >= -PASSED_GRACE_SECONDS) return iso;
   }
   return null;
 }
@@ -141,6 +151,10 @@ export function vehicleMarkers(
     if (match === undefined) continue;
     const { leg, index } = match;
     const predicted = predictions.get(index);
+    const stops = [
+      { predicted: predicted?.departure ?? null, scheduled: leg.from.departureTime },
+      towardsAlighting ? { predicted: predicted?.arrival ?? null, scheduled: leg.to.arrivalTime } : null,
+    ];
     markers.push({
       tripId: vehicle.tripId,
       latitude: vehicle.lat,
@@ -148,10 +162,8 @@ export function vehicleMarkers(
       color: routeColor(leg.route),
       routeType: leg.route.type,
       shortName: leg.route.shortName,
-      etaMinutes: etaMinutes([
-        { predicted: predicted?.departure ?? null, scheduled: leg.from.departureTime },
-        towardsAlighting ? { predicted: predicted?.arrival ?? null, scheduled: leg.to.arrivalTime } : null,
-      ], now),
+      etaMinutes: etaMinutes(stops, now),
+      etaAt: etaAt(stops, now),
       faded: isFaded(vehicle.recordedAt, now),
       secondary: false,
     });
@@ -183,6 +195,7 @@ export function lineVehicleMarkers(
     routeType: line.type,
     shortName: line.shortName,
     etaMinutes: null,
+    etaAt: null,
     faded: isFaded(vehicle.recordedAt, now),
     secondary: primaryTripId !== null && vehicle.tripId !== primaryTripId,
   }));
