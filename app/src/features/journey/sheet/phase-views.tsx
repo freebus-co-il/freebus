@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Itinerary, Place, TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
-import { Border, Button, Chip, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { Border, Button, Chip, Icon, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
 import { laterOptions } from '@/features/trip/line-options';
 import { formatClockTime } from '@/lib/format';
 import { haversineMeters } from '@/lib/geo';
@@ -30,6 +30,26 @@ function Kicker({ children, color }: { children: string; color?: string }) {
     <Text variant="footnote" emphasized color={color ?? 'textSecondary'} numberOfLines={1}>
       {children}
     </Text>
+  );
+}
+
+/** "On a different bus?", at the end of the line that names the rider's
+ *  bus. On the card rather than behind the menu: boarding whatever line came
+ *  first is too common a move to hide. Text, not a button shape, so the
+ *  kicker's line keeps its height. */
+function SwitchLineLink({ onPress }: { onPress: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      hitSlop={Space.md}
+      style={({ pressed }) => pressed && { opacity: Opacity.pressed }}
+    >
+      <Text variant="footnote" emphasized color="accent" numberOfLines={1}>
+        {t('journey.switchLine.trigger')}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -85,8 +105,9 @@ export function WalkingView({ state, itinerary, position, transfer }: {
 }
 
 /** At the stop. "Is this my bus?" */
-export function WaitingView({ state, leg, candidates, nowMs, backbone }: {
+export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchLine }: {
   state: JourneyState; leg: TransitLeg; candidates: readonly Itinerary[]; nowMs: number; backbone: Backbone | null;
+  onSwitchLine: (() => void) | null;
 }) {
   const { t } = useTranslation();
   const minutes = minutesLeft(state.timer);
@@ -104,7 +125,12 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone }: {
 
   return (
     <View style={styles.block}>
-      <Kicker>{t('journey.sheet.waitingFor')}</Kicker>
+      <View style={styles.row}>
+        <View style={styles.grow}>
+          <Kicker>{t('journey.sheet.waitingFor')}</Kicker>
+        </View>
+        {onSwitchLine && <SwitchLineLink onPress={onSwitchLine} />}
+      </View>
       <BusSign route={leg.route} headsign={leg.headsign} />
       <Hero live={state.timeSource === 'live'}>
         {minutes > 0 ? t('journey.sheet.arrivingIn', { count: minutes }) : t('journey.sheet.arrivingNow')}
@@ -132,14 +158,19 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone }: {
 }
 
 /** On board. "How many more?" */
-export function RidingView({ state, leg }: { state: JourneyState; leg: TransitLeg }) {
+export function RidingView({ state, leg, onSwitchLine }: {
+  state: JourneyState; leg: TransitLeg; onSwitchLine: (() => void) | null;
+}) {
   const { t } = useTranslation();
   const ladder = stopLadder(leg, state.stopsRemaining);
   return (
     <View style={styles.block}>
       <View style={styles.row}>
         <LineBadge route={leg.route} size="small" />
-        <Kicker>{t('journey.sheet.rideUntil', { time: formatClockTime(leg.to.arrivalTime) })}</Kicker>
+        <View style={styles.grow}>
+          <Kicker>{t('journey.sheet.rideUntil', { time: formatClockTime(leg.to.arrivalTime) })}</Kicker>
+        </View>
+        {onSwitchLine && <SwitchLineLink onPress={onSwitchLine} />}
       </View>
       <Hero>
         {state.stopsRemaining !== null

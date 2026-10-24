@@ -245,6 +245,9 @@ export default function JourneyScreen() {
       : undefined;
   if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
 
+  const switchLine = state.leg !== null && canSwitchLine(state, state.legIndex)
+    ? () => setSwitchingLegIndex(state.legIndex)
+    : null;
   const nowMs = now.getTime();
   const body = (() => {
     switch (state.phase) {
@@ -261,10 +264,11 @@ export default function JourneyScreen() {
             candidates={replan.candidates}
             nowMs={nowMs}
             backbone={backboneAhead(journey.backbone ?? null, journey.itinerary.legs.slice(0, state.legIndex))}
+            onSwitchLine={switchLine}
           />
         );
       case 'riding':
-        return state.leg && <RidingView state={state} leg={state.leg} />;
+        return state.leg && <RidingView state={state} leg={state.leg} onSwitchLine={switchLine} />;
       case 'alight-soon':
         return state.leg && (
           <AlightView
@@ -281,9 +285,6 @@ export default function JourneyScreen() {
         return <ArrivingView state={state} destinationLabel={journey.destinationLabel} />;
     }
   })();
-  const switchLine = state.leg !== null && canSwitchLine(state, state.legIndex)
-    ? () => setSwitchingLegIndex(state.legIndex)
-    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgPlain }]}>
@@ -339,7 +340,7 @@ export default function JourneyScreen() {
               destinationLabel={journey.destinationLabel}
             />
           </View>
-          <JourneyMenu onEnd={confirmEnd} onSwitchLine={switchLine} />
+          <JourneyMenu onEnd={confirmEnd} />
         </View>
         <SwitchToast change={replan.lastSwitch} />
         {camera !== null && cameraPaused && (
