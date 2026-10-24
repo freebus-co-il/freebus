@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useLine, useRouteRuns, useRouteShape } from '@/api/lines';
 import { useTrip } from '@/api/trips';
 import { useRouteVehicles, useVehicles } from '@/api/vehicles';
@@ -97,8 +98,18 @@ function LineHeader({ line, direction }: { line: LineDetail; direction: LineDire
  * and the map shows only the rider's bus with the one ahead and the one
  * behind. Tapping a neighbour selects it here. Switching direction leaves that
  * mode -- the station only belongs to the direction it was opened on.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export default function LineScreen() {
+  return (
+    <MapSchemeScope screen>
+      <LineScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function LineScreenContent() {
   const params = useLocalSearchParams<{
     lineCode?: string; direction?: string; stopId?: string; tripId?: string; routeId?: string;
   }>();

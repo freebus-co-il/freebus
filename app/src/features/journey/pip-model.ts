@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 
 import type { Itinerary, TransitLeg } from '@/api/types';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
+import type { TimeFormat } from '@/lib/time-format';
 
 import type { JourneyCopy } from './journey-copy';
 import { liveLabelFor, lineLabel, minutesLeft, stopName, vehicleInPlay } from './journey-labels';
@@ -36,6 +37,8 @@ export type PipModelInput = {
   realtimeAvailable: boolean;
   /** `formatClockTime`, injected so this stays loadable without i18n. */
   clock: (iso: string) => string;
+  /** Countdown or clock time for the hero's deadline; see `@/lib/time-format`. */
+  timeFormat?: TimeFormat;
 };
 
 export function arrivedPipModel(t: TFunction): PipModel {
@@ -47,7 +50,7 @@ function towards(leg: TransitLeg, t: TFunction): string {
   return leg.headsign.trim() ? t('results.towards', { name: formatHeadsign(leg.headsign) }) : stopName(leg.to.stop, t);
 }
 
-export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock }: PipModelInput): PipModel {
+export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock, timeFormat = 'countdown' }: PipModelInput): PipModel {
   if (state.phase === 'arrived') return arrivedPipModel(t);
 
   if (state.offPlan) {
@@ -56,6 +59,8 @@ export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock }
 
   const liveLabel = liveLabelFor(state, realtimeAvailable, t);
   const minutes = minutesLeft(state.timer);
+  const at = timeFormat === 'clock' && state.timer ? clock(state.timer.to) : null;
+  const leaves = at === null ? t('journey.pip.leavesIn', { minutes }) : t('journey.pip.leavesAt', { time: at });
   const arrive = t('journey.pip.arrive', { time: clock(state.arrivalTime) });
   const ride = vehicleInPlay(itinerary, state);
   const current = itinerary.legs[state.legIndex];
@@ -68,7 +73,7 @@ export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock }
         ...neutral,
         badge: null,
         title: t('journey.pip.walkTo', { name: walkTarget ?? '' }),
-        hero: t('journey.pip.leavesIn', { minutes }),
+        hero: leaves,
         footer: ride ? `${lineLabel(ride)} ${towards(ride, t)} · ${arrive}` : arrive,
         liveLabel,
       };
@@ -82,7 +87,7 @@ export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock }
         title: ride
           ? t('journey.pip.walkTo', { name: `${lineLabel(ride)} ${towards(ride, t)}` })
           : t('journey.pip.walkTo', { name: walkTarget ?? '' }),
-        hero: t('journey.pip.leavesIn', { minutes }),
+        hero: leaves,
         footer: arrive,
         liveLabel,
       };
@@ -106,7 +111,7 @@ export function pipModel({ state, itinerary, copy, t, realtimeAvailable, clock }
       ...neutral,
       badge: leg.route,
       title: towards(leg, t),
-      hero: t('journey.pip.arrivesIn', { minutes }),
+      hero: at === null ? t('journey.pip.arrivesIn', { minutes }) : t('journey.pip.arrivesAt', { time: at }),
       footer: away ? `${away} · ${arrive}` : arrive,
       liveLabel,
     };

@@ -14,30 +14,32 @@ struct JourneyLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: JourneyAttributes.self) { context in
       // The Lock Screen, StandBy and the Watch Smart Stack all render this one
-      // view. They are free -- no extra target, no extra code -- which is most
+      // view. They are free (no extra target, no extra code), which is most
       // of why the expanded layout is the layout.
       JourneyCard(attributes: context.attributes, state: context.state)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .environment(\.layoutDirection, context.state.direction)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          HStack(spacing: 7) {
-            RouteBadge(state: context.state, compact: false)
-            Text(context.state.hero)
-              .font(.caption.weight(.semibold))
-              .lineLimit(1)
-              .minimumScaleFactor(0.8)
-          }
+          RouteBadge(state: context.state, compact: false)
+            .padding(.leading, 4)
+            .environment(\.layoutDirection, context.state.direction)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          HeroNumber(state: context.state)
+          HeroNumber(state: context.state, size: 24)
+            .padding(.trailing, 4)
+            .environment(\.layoutDirection, context.state.direction)
+        }
+        DynamicIslandExpandedRegion(.center) {
+          Headline(attributes: context.attributes, state: context.state, compact: true)
+            .environment(\.layoutDirection, context.state.direction)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          VStack(alignment: .leading, spacing: 7) {
-            RailBar(attributes: context.attributes, state: context.state)
-            Footer(attributes: context.attributes, state: context.state)
-          }
+          Detail(state: context.state)
+            .padding(.top, 4)
+            .environment(\.layoutDirection, context.state.direction)
         }
       } compactLeading: {
         CompactSlot(state: context.state, region: .leading)
@@ -51,6 +53,14 @@ struct JourneyLiveActivity: Widget {
       }
       .keylineTint(Color(journeyHex: context.state.routeColorHex))
     }
+  }
+}
+
+extension JourneyAttributes.ContentState {
+  /// The app's reading direction. An activity from an older build carries
+  /// none and keeps the left-to-right it always had.
+  var direction: LayoutDirection {
+    rtl == true ? .rightToLeft : .leftToRight
   }
 }
 
@@ -70,9 +80,11 @@ private struct RouteBadge: View {
       Image(systemName: "figure.walk")
         .font(.system(size: compact ? 14 : 15, weight: .bold))
         .foregroundStyle(color)
-    } else if state.alerting {
+    } else if state.alerting && compact {
+      // Beside the camera the badge is all there is, so it says "get off".
+      // On the card the line keeps its badge: the hero already says it.
       Image(systemName: "figure.walk.departure")
-        .font(.system(size: compact ? 14 : 15, weight: .bold))
+        .font(.system(size: 14, weight: .bold))
         .foregroundStyle(Color(journeyHex: journeyAlertColorHex))
     } else if state.routeShortName.isEmpty {
       Image(systemName: state.vehicleSymbol)
@@ -186,10 +198,14 @@ private struct CompactTrailing: View {
         .font(.system(size: 15, weight: .bold))
         .foregroundStyle(Color(journeyHex: journeyAlertColorHex))
     case .riding:
-      if let range = state.timerRange {
-        // A ring rather than a countdown while seated: an ETA in the seat is
-        // trivia, and the ring says "some of the way through" without
-        // pretending to a precision the schedule does not have.
+      if let stops = state.stopsRemaining {
+        // Stops left, the number a rider counts down through the window.
+        Text("\(stops)")
+          .font(.system(size: 16, weight: .heavy, design: .rounded))
+          .foregroundStyle(tint)
+      } else if let range = state.rideRange ?? state.timerRange {
+        // No position: a ring rather than a count the app cannot stand
+        // behind. It fills by the timetable, on its own.
         ProgressView(timerInterval: range, countsDown: false) {
           EmptyView()
         } currentValueLabel: {
@@ -197,10 +213,6 @@ private struct CompactTrailing: View {
         }
         .progressViewStyle(.circular)
         .tint(tint)
-      } else if let stops = state.stopsRemaining {
-        Text("\(stops)")
-          .font(.system(size: 16, weight: .heavy, design: .rounded))
-          .foregroundStyle(tint)
       }
     default:
       if let range = state.timerRange {
@@ -215,201 +227,267 @@ private struct CompactTrailing: View {
   }
 }
 
-/// The expanded hero's NUMBER, given room. The words beside it are
-/// `state.hero`; this is only ever a self-ticking timer or a count GPS
-/// established, which is what keeps it right between updates.
+/// The big number at the card's end: a countdown with what it counts to over
+/// it, or the stops left with the word under it.
 ///
-/// Shared by the Lock Screen card and the Dynamic Island's EXPANDED trailing
-/// region -- both tight slots, which is why nothing drawn here is allowed to
-/// wrap onto a second line.
+/// Only ever a self-ticking timer or a count GPS established, which is what
+/// keeps it right between updates. Nothing here formats a duration into a
+/// string: a string would be right for one second and frozen after.
 private struct HeroNumber: View {
   let state: JourneyAttributes.ContentState
+  var size: CGFloat = 30
+
+  private var alert: Color { Color(journeyHex: journeyAlertColorHex) }
 
   var body: some View {
     switch state.journeyPhase {
     case .alightSoon:
-      Image(systemName: "figure.walk.departure")
-        .font(.system(size: 22, weight: .bold))
-        .foregroundStyle(Color(journeyHex: journeyAlertColorHex))
+      if state.alerting {
+        // "Got it", where the number was: the one thing to do at this moment,
+        // without unlocking the phone.
+        Button(intent: AcknowledgeAlightIntent()) {
+          Image(systemName: "checkmark")
+            .font(.system(size: size * 0.6, weight: .black))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.bordered)
+        .tint(alert)
+        .accessibilityLabel(Text(AcknowledgeAlightIntent.title))
+      } else {
+        Image(systemName: "figure.walk.departure")
+          .font(.system(size: size * 0.85, weight: .bold))
+          .foregroundStyle(alert)
+      }
     case .arrived:
       Image(systemName: "checkmark.circle.fill")
-        .font(.system(size: 22, weight: .bold))
+        .font(.system(size: size * 0.85, weight: .bold))
         .foregroundStyle(.green)
     case .offPlan:
       Image(systemName: "exclamationmark.triangle.fill")
-        .font(.system(size: 22, weight: .bold))
-        .foregroundStyle(Color(journeyHex: journeyAlertColorHex))
+        .font(.system(size: size * 0.85, weight: .bold))
+        .foregroundStyle(alert)
     case .riding:
       if let stops = state.stopsRemaining {
         // Stops, not an ETA. A rider can count these off through the window,
         // which is the whole reason the trip screen leads with them too.
-        VStack(alignment: .trailing, spacing: -2) {
+        VStack(alignment: .trailing, spacing: -3) {
           Text("\(stops)")
-            .font(.system(size: 26, weight: .heavy, design: .rounded))
-            .foregroundStyle(state.nudging ? Color(journeyHex: journeyAlertColorHex) : .primary)
-          Image(systemName: "mappin.and.ellipse")
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
-        }
-      } else if let range = state.timerRange {
-        // No position, so no stop count -- the clock instead, never a count
-        // invented from the timetable.
-        countdown(range)
-      }
-    default:
-      if let range = state.timerRange {
-        countdown(range)
-      }
-    }
-  }
-
-  private func countdown(_ range: ClosedRange<Date>) -> some View {
-    // The label sits beside the clock rather than replacing any of its
-    // digits, so "Scheduled" reads as a caveat on the number rather than as
-    // the number itself -- the honesty rule is about what the digits mean,
-    // not about hiding them.
-    HStack(alignment: .firstTextBaseline, spacing: 4) {
-      Text(timerInterval: range, countsDown: true)
-        .font(.system(size: 24, weight: .heavy, design: .rounded))
-        .monospacedDigit()
-        .multilineTextAlignment(.trailing)
-        .frame(width: 84)
-      if let label = state.liveLabel {
-        // Hebrew's "לפי לוח זמנים" is longer than "Scheduled" -- without a
-        // guard it can wrap and break the baseline this HStack promises, or
-        // push past the slot both host views give HeroNumber.
-        Text(label)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
-          .minimumScaleFactor(0.75)
-      }
-    }
-  }
-}
-
-// MARK: - The rail
-
-/// The journey as a bar: origin dot, coloured segments, a diamond wherever the
-/// rider changes vehicle, a tracker riding it, destination flag.
-///
-/// The geometry is `buildJourneyRail`'s output and nothing else, which is what
-/// stops the Lock Screen and the journey screen drawing two different pictures
-/// of one journey.
-private struct RailBar: View {
-  let attributes: JourneyAttributes
-  let state: JourneyAttributes.ContentState
-
-  var body: some View {
-    HStack(spacing: 5) {
-      Circle()
-        .fill(.secondary)
-        .frame(width: 7, height: 7)
-
-      GeometryReader { geometry in
-        let width = geometry.size.width
-        let total = max(attributes.totalSeconds, 1)
-
-        ZStack(alignment: .leading) {
-          HStack(spacing: 0) {
-            ForEach(Array(attributes.segments.enumerated()), id: \.offset) { _, segment in
-              Rectangle()
-                .fill(Color(journeyHex: segment.colorHex))
-                .frame(width: max(2, width * segment.seconds / total))
-            }
-          }
-          .frame(height: 5)
-          .clipShape(Capsule())
-
-          ForEach(Array(attributes.pointSeconds.enumerated()), id: \.offset) { _, atSeconds in
-            Diamond()
-              .fill(.primary)
-              .frame(width: 8, height: 8)
-              .offset(x: clamp(width * atSeconds / total - 4, width - 8))
-          }
-
-          Image(systemName: state.vehicleSymbol)
-            .font(.system(size: 8, weight: .black))
-            .foregroundStyle(.black)
-            .frame(width: 14, height: 14)
-            .background(.white, in: Circle())
-            .offset(x: clamp(width * state.progress - 7, width - 14))
-        }
-        .frame(height: 14)
-      }
-      .frame(height: 14)
-
-      Image(systemName: "flag.checkered")
-        .font(.system(size: 10, weight: .bold))
-        .foregroundStyle(.secondary)
-    }
-  }
-
-  /// Keeps the two endpoints pinned: an ornament half off the rail reads as a
-  /// rendering bug rather than as the start or the end of a journey.
-  private func clamp(_ value: Double, _ maximum: Double) -> Double {
-    min(max(value, 0), max(maximum, 0))
-  }
-}
-
-private struct Diamond: Shape {
-  func path(in rect: CGRect) -> Path {
-    var path = Path()
-    path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-    path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-    path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-    path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
-    path.closeSubpath()
-    return path
-  }
-}
-
-// MARK: - The status line
-
-/// One supporting line, and the acknowledge button when there is something to
-/// acknowledge.
-///
-/// Every word here arrived over the bridge already translated. This target
-/// composes no sentence of its own -- it used to build "<stop> · <time>",
-/// which was `journey.offAt` reimplemented without words, and therefore free
-/// to drift from the key the rest of the app reads.
-private struct Footer: View {
-  let attributes: JourneyAttributes
-  let state: JourneyAttributes.ContentState
-
-  var body: some View {
-    HStack(spacing: 8) {
-      if state.alerting, let title = state.alertTitle {
-        VStack(alignment: .leading, spacing: 1) {
-          Text(title)
-            .font(.system(size: 14, weight: .bold))
-            .foregroundStyle(Color(journeyHex: journeyAlertColorHex))
-            .lineLimit(1)
-          if let body = state.alertBody, !body.isEmpty {
-            Text(body)
-              .font(.caption2)
+            .font(.system(size: size + 4, weight: .heavy, design: .rounded))
+            .foregroundStyle(state.nudging ? alert : .primary)
+            .contentTransition(.numericText(countsDown: true))
+          if let label = state.rideStopsLabel {
+            Text(label)
+              .font(.caption2.weight(.semibold))
               .foregroundStyle(.secondary)
               .lineLimit(1)
           }
         }
-        Spacer(minLength: 4)
-        Button(intent: AcknowledgeAlightIntent()) {
-          Image(systemName: "checkmark")
-            .font(.system(size: 14, weight: .black))
-        }
-        .buttonStyle(.bordered)
-        .accessibilityLabel(Text(AcknowledgeAlightIntent.title))
       } else {
-        // The destination label is the rider's own words for where they are
-        // going, so it stands in on the phases whose copy has no supporting
-        // line rather than leaving the row empty.
-        Text(state.supporting ?? attributes.destinationLabel)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
+        countdown
+      }
+    default:
+      countdown
+    }
+  }
+
+  @ViewBuilder private var countdown: some View {
+    if let range = state.timerRange {
+      VStack(alignment: .trailing, spacing: 0) {
+        if let label = state.countdownLabel {
+          Text(label)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+        // `Text(timerInterval:)` sizes itself for the widest value it could
+        // ever show, so it is given a fixed box and one line: left to wrap, a
+        // Hebrew card broke "58:12" across two lines.
+        Text(timerInterval: range, countsDown: true)
+          .font(.system(size: size, weight: .heavy, design: .rounded))
+          .monospacedDigit()
           .lineLimit(1)
-        Spacer(minLength: 0)
+          .minimumScaleFactor(0.6)
+          .multilineTextAlignment(.trailing)
+          .frame(width: size * 2.9, alignment: .trailing)
+          .environment(\.layoutDirection, .leftToRight)
+        if let live = state.liveLabel {
+          LiveLabel(text: live, isLive: state.isLive == true)
+        }
       }
     }
+  }
+}
+
+/// "Live" with a green dot, or "Scheduled" plain: whether the countdown
+/// above it is a prediction or a promise from the timetable.
+private struct LiveLabel: View {
+  let text: String
+  let isLive: Bool
+
+  var body: some View {
+    HStack(spacing: 3) {
+      if isLive {
+        Circle()
+          .fill(.green)
+          .frame(width: 5, height: 5)
+      }
+      // Hebrew's "לפי לוח זמנים" is longer than "Scheduled": scaled rather
+      // than wrapped, so the column keeps its shape.
+      Text(text)
+        .font(.caption2)
+        .foregroundStyle(isLive ? .green : .secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+    }
+  }
+}
+
+// MARK: - The words
+
+/// The hero and the line under it. Waiting, the hero is the direction (the
+/// badge already says the line); riding, it is the stop to get off at, with
+/// the next stop under it.
+private struct Headline: View {
+  let attributes: JourneyAttributes
+  let state: JourneyAttributes.ContentState
+  var compact = false
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 1) {
+      Text(state.hero)
+        .font(compact ? .subheadline.weight(.semibold) : .headline)
+        .foregroundStyle(state.alerting ? Color(journeyHex: journeyAlertColorHex) : .primary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+      // The destination label is the rider's own words for where they are
+      // going, so it stands in on the phases whose copy has no second line.
+      Text(state.supporting ?? attributes.destinationLabel)
+        .font(compact ? .caption : .subheadline)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+/// Under the headline: the stop strip on a ride, or the later rides at a stop.
+/// The get-off alert needs no row of its own: the hero already says it, and
+/// its "Got it" sits where the number was (see `HeroNumber`).
+private struct Detail: View {
+  let state: JourneyAttributes.ContentState
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if let stops = state.rideStops {
+        StopStrip(state: state, stops: stops)
+      } else if let then = state.then {
+        Text(then)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }
+  }
+}
+
+// MARK: - The stop strip
+
+/// The ride as the rider sees it through the window: one dot per stop, the
+/// ones behind them filled in the line's colour, the vehicle where they are,
+/// and the stop to get off at drawn bigger at the end.
+///
+/// With no fix the dots stay hollow and the line fills by the timetable,
+/// which the OS animates with no process running. It is the same honesty rule
+/// as the big number: a position the app does not have is never drawn as if
+/// it did.
+private struct StopStrip: View {
+  let state: JourneyAttributes.ContentState
+  let stops: Int
+  @Environment(\.layoutDirection) private var direction
+
+  /// Past this many the dots would touch; the strip then draws only the ends,
+  /// and the line between them still says how far along the ride is.
+  private let maxDots = 24
+  private let track: CGFloat = 4
+  private let endDot: CGFloat = 12
+
+  private var color: Color { Color(journeyHex: state.routeColorHex) }
+  private var alert: Color { Color(journeyHex: journeyAlertColorHex) }
+
+  var body: some View {
+    GeometryReader { geometry in
+      let inset = endDot / 2
+      let span = max(geometry.size.width - endDot, 1)
+      let x = { (index: Int) -> CGFloat in inset + span * CGFloat(index) / CGFloat(max(stops, 1)) }
+
+      ZStack(alignment: .leading) {
+        Capsule()
+          .fill(.secondary.opacity(0.35))
+          .frame(width: span, height: track)
+          .offset(x: inset)
+
+        if let passed = state.ridePassed {
+          Capsule()
+            .fill(color)
+            .frame(width: max(x(passed) - inset, track), height: track)
+            .offset(x: inset)
+        } else if let range = state.rideRange {
+          ProgressView(timerInterval: range, countsDown: false) {
+            EmptyView()
+          } currentValueLabel: {
+            EmptyView()
+          }
+          .progressViewStyle(.linear)
+          .tint(color)
+          .frame(width: span)
+          .offset(x: inset)
+        }
+
+        if stops <= maxDots {
+          ForEach(1..<stops, id: \.self) { index in
+            Circle()
+              .fill(isPassed(index) ? color : Color.secondary.opacity(0.6))
+              .frame(width: 6, height: 6)
+              .offset(x: x(index) - 3)
+          }
+        }
+
+        // The stop boarded at.
+        Circle()
+          .fill(state.ridePassed == nil ? Color.secondary : color)
+          .frame(width: 8, height: 8)
+          .offset(x: x(0) - 4)
+
+        // The stop to get off at: the one the whole strip is about.
+        Circle()
+          .strokeBorder(state.nudging || state.alerting ? alert : Color.primary, lineWidth: 3)
+          .background(Circle().fill(.black))
+          .frame(width: endDot, height: endDot)
+          .offset(x: x(stops) - endDot / 2)
+
+        if let passed = state.ridePassed {
+          Image(systemName: state.vehicleSymbol)
+            .font(.system(size: 9, weight: .black))
+            .foregroundStyle(.black)
+            .frame(width: 18, height: 18)
+            .background(.white, in: Circle())
+            .offset(x: x(passed) - 9)
+        }
+      }
+      .frame(width: geometry.size.width, height: 18)
+    }
+    .frame(height: 18)
+    // Drawn in left-to-right coordinates and mirrored whole for Hebrew, so a
+    // ride runs from the start of the line to its end in either language.
+    .environment(\.layoutDirection, .leftToRight)
+    .scaleEffect(x: direction == .rightToLeft ? -1 : 1, y: 1)
+  }
+
+  private func isPassed(_ index: Int) -> Bool {
+    guard let passed = state.ridePassed else { return false }
+    return index <= passed
   }
 }
 
@@ -420,20 +498,13 @@ private struct JourneyCard: View {
   let state: JourneyAttributes.ContentState
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 9) {
-      HStack(spacing: 8) {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(alignment: .center, spacing: 10) {
         RouteBadge(state: state, compact: false)
-        // The hero, in the rider's language, at the size the spec asks for:
-        // one line read off a locked phone at arm's length.
-        Text(state.hero)
-          .font(.subheadline.weight(.semibold))
-          .lineLimit(1)
-          .minimumScaleFactor(0.75)
-        Spacer(minLength: 8)
+        Headline(attributes: attributes, state: state)
         HeroNumber(state: state)
       }
-      RailBar(attributes: attributes, state: state)
-      Footer(attributes: attributes, state: state)
+      Detail(state: state)
     }
   }
 }

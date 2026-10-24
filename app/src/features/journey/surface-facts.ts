@@ -1,4 +1,4 @@
-import type { JourneySurfaceCopy } from './live-surface';
+import type { JourneySurfaceCopy } from './surface-copy';
 import type { JourneyState } from './types';
 
 /** A prediction moving by less than this is not worth an update: the OS is
@@ -22,6 +22,10 @@ export const DEADLINE_MOVE_MS = 60_000;
  * discovered fact, compared against what was last PUSHED so slow creep still
  * reaches the surface.
  *
+ * The riding strip needs nothing extra: it moves exactly when
+ * `stopsRemaining` does, and the next stop's name arrives inside `supporting`,
+ * so each stop passed costs one update and nothing else does.
+ *
  * Deliberately NOT here: `busStopsAway` and `stopsSource`. No OS surface
  * prints either -- only the in-app views and the PiP window do, and those
  * re-render off React state for free -- so comparing them would spend an
@@ -29,7 +33,7 @@ export const DEADLINE_MOVE_MS = 60_000;
  * flip of the weak-fix thresholds, for nothing anyone on the lock screen sees.
  */
 export type SurfaceFacts = Pick<JourneyState, 'phase' | 'legIndex' | 'stopsRemaining' | 'offPlan' | 'timeSource'> &
-  Pick<JourneySurfaceCopy, 'hero' | 'supporting' | 'liveLabel'> & {
+  Pick<JourneySurfaceCopy, 'hero' | 'supporting' | 'liveLabel' | 'countdownLabel' | 'then'> & {
     /** The countdown's target in milliseconds since epoch. */
     deadlineMs: number | null;
   };
@@ -44,6 +48,8 @@ export function surfaceFacts(state: JourneyState, copy: JourneySurfaceCopy): Sur
     hero: copy.hero,
     supporting: copy.supporting,
     liveLabel: copy.liveLabel,
+    countdownLabel: copy.countdownLabel,
+    then: copy.then,
     deadlineMs: state.timer ? Date.parse(state.timer.to) : null,
   };
 }
@@ -65,6 +71,8 @@ export function sameFacts(a: SurfaceFacts | null, b: SurfaceFacts): boolean {
     a.timeSource === b.timeSource &&
     a.hero === b.hero &&
     a.supporting === b.supporting &&
-    a.liveLabel === b.liveLabel
+    a.liveLabel === b.liveLabel &&
+    a.countdownLabel === b.countdownLabel &&
+    a.then === b.then
   );
 }

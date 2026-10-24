@@ -89,6 +89,7 @@ test('a vehicle on one of the itinerary legs is drawn in that leg\'s operator co
     shortName: '480',
     // 10:15:45, and this leg boards at 10:10: a preview has nothing to count to.
     etaMinutes: null,
+    etaAt: null,
     faded: false,
     secondary: false,
   }]);
@@ -207,6 +208,14 @@ test('past the boarding stop a preview says nothing, and a running journey count
   assert.equal(etaAt('2026-08-31T10:15:00.000Z', { towardsAlighting: true, predictions }), 19);
 });
 
+test('the arrival is also kept as the clock time it counts down to', () => {
+  const predictions = new Map([[0, { departure: '2026-08-31T10:13:00.000Z', arrival: null }]]);
+  const [marker] = vehicleMarkers(
+    itineraryOf(transitLeg({ tripId: 't1' })), [vehicle({ tripId: 't1' })], new Date('2026-08-31T10:05:10.000Z'), { predictions },
+  );
+  assert.equal(marker?.etaAt, '2026-08-31T10:13:00.000Z');
+});
+
 test('a bus past every stop of the rider\'s says nothing', () => {
   assert.equal(etaAt('2026-08-31T10:40:00.000Z', { towardsAlighting: true }), null);
 });
@@ -237,11 +246,11 @@ test('every vehicle on a line is drawn in the line\'s colour, glyph and name', (
   assert.deepEqual(markers, [
     {
       tripId: 'a', latitude: 32.07, longitude: 34.78, color: operatorColor('5'),
-      routeType: 3, shortName: '18', etaMinutes: null, faded: false, secondary: false,
+      routeType: 3, shortName: '18', etaMinutes: null, etaAt: null, faded: false, secondary: false,
     },
     {
       tripId: 'b', latitude: 32.1, longitude: 34.8, color: operatorColor('5'),
-      routeType: 3, shortName: '18', etaMinutes: null, faded: true, secondary: false,
+      routeType: 3, shortName: '18', etaMinutes: null, etaAt: null, faded: true, secondary: false,
     },
   ]);
 });

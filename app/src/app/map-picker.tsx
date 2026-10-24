@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { reverseGeocodeQuery, useReverseGeocode } from '@/api/geocode';
 import { useStop, useStopsInTiles } from '@/api/stops';
 import type { MapStop } from '@/api/types';
@@ -61,8 +62,18 @@ const NO_TILES: [] = [];
  * own field. Opened over the location picker (`from=picker`), it hands the
  * pick back to the picker, which knows why it was opened -- see
  * `map-pick-handoff`.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export default function MapPickerScreen() {
+  return (
+    <MapSchemeScope screen>
+      <MapPickerScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function MapPickerScreenContent() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const insets = useSafeAreaInsets();

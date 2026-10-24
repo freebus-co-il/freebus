@@ -17,7 +17,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * The Android half of the live surface: one ongoing notification that draws
@@ -120,19 +119,22 @@ object JourneyNotification {
   ): Notification {
     val segment = rail.segments.firstOrNull { it.legIndex == state.legIndex }
     val glyph = vehicleDrawable(state, segment)
+    val color = parseColor(
+      copy.routeColor.takeIf { it.isNotBlank() } ?: copy.accent.takeIf { it.isNotBlank() } ?: segment?.color,
+    )
+
+    // The rider's own words for where they are going, on the phases whose
+    // copy has no supporting line -- better than an empty second row.
+    val text = listOfNotNull(
+      copy.supporting?.takeIf { it.isNotBlank() } ?: journey.destinationLabel,
+      copy.liveLabel.takeIf { it.isNotBlank() },
+    ).joinToString(" · ")
 
     val builder = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
       .setSmallIcon(glyph)
-      .setContentTitle(copy.hero)
-      // The rider's own words for where they are going, on the phases whose
-      // copy has no supporting line -- better than an empty second row.
-      .setContentText(
-        listOfNotNull(
-          copy.supporting?.takeIf { it.isNotBlank() } ?: journey.destinationLabel,
-          copy.liveLabel.takeIf { it.isNotBlank() },
-        ).joinToString(" · "),
-      )
-      .setColor(parseColor(copy.accent.takeIf { it.isNotBlank() } ?: segment?.color))
+      .setContentTitle(title(state, copy))
+      .setContentText(text)
+      .setColor(color)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
@@ -166,17 +168,32 @@ object JourneyNotification {
       builder.setShowWhen(false)
     }
 
-    // Only the builder call is conditional; everything either side of it is
-    // the same notification. Below Android 16 the rider loses the chip and the
-    // per-leg colours and keeps an ongoing notification with a progress bar.
+    // On a ride with a fix: the stop strip, as a progress bar with one step
+    // per stop. Everywhere else the words, with the later rides under them
+    // while waiting. Without a fix there is no bar at all: Android cannot tick
+    // a progress bar on its own, so one filled by the timetable would freeze
+    // at whatever the last update said, and the chronometer to the arrival
+    // already says how far along the ride is.
+    val ride = copy.ride?.takeIf { it.passed != null && (state.phase == PHASE_RIDING || state.phase == PHASE_ALIGHT_SOON) }
+    val body = listOfNotNull(text, copy.then?.takeIf { it.isNotBlank() }).joinToString("\n")
+
+    // Only the builder calls are conditional; everything either side of them
+    // is the same notification. Below Android 16 the rider loses the chip and
+    // keeps an ongoing notification with a plain progress bar.
     if (Build.VERSION.SDK_INT >= LIVE_UPDATE_SDK) {
       builder
         .setRequestPromotedOngoing(true)
         .setShortCriticalText(chipText(state, copy))
-        .setStyle(progressStyle(context, state, rail, glyph))
+      if (ride != null) {
+        builder.setStyle(rideStyle(context, ride, color, glyph))
+      } else {
+        builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
+      }
+    } else if (ride != null) {
+      val stops = max(1, ride.stops)
+      builder.setProgress(stops, (ride.passed ?: 0).coerceIn(0, stops), false)
     } else {
-      val lengths = segmentLengths(rail)
-      builder.setProgress(lengths.sum(), elapsedSeconds(state, lengths), false)
+      builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
     }
 
     if (state.phase == PHASE_ALIGHT_SOON) {
@@ -233,48 +250,47 @@ object JourneyNotification {
       context.getSystemService(Vibrator::class.java)
     }
 
-  private fun progressStyle(
+  /** Past this many steps Android merges every segment into one bar (see
+   *  `MAX_PROGRESS_SEGMENT_LIMIT` in `Notification.ProgressStyle`). */
+  private const val MAX_STOP_SEGMENTS = 10
+
+  /**
+   * The ride as a stop strip: one segment per stop, so the gaps between them
+   * read as the stops themselves, filled up to the rider in the line's colour.
+   * A ride longer than Android will draw as steps becomes one bar, which
+   * still says how far along it is.
+   */
+  private fun rideStyle(
     context: Context,
-    state: JourneyStateRecord,
-    rail: RailRecord,
+    ride: SurfaceRideRecord,
+    color: Int,
     glyph: Int,
   ): NotificationCompat.ProgressStyle {
-    val lengths = segmentLengths(rail)
-    val total = lengths.sum()
+    val stops = max(1, ride.stops)
+    val segments =
+      if (stops <= MAX_STOP_SEGMENTS) {
+        List(stops) { NotificationCompat.ProgressStyle.Segment(1).setColor(color) }
+      } else {
+        listOf(NotificationCompat.ProgressStyle.Segment(stops).setColor(color))
+      }
 
-    val style = NotificationCompat.ProgressStyle()
-      .setProgressSegments(
-        rail.segments.mapIndexed { index, segment ->
-          NotificationCompat.ProgressStyle.Segment(lengths[index])
-            .setColor(parseColor(segment.color))
-        },
-      )
-      .setProgressPoints(
-        rail.points.map { point ->
-          NotificationCompat.ProgressStyle.Point(
-            point.atSeconds.roundToInt().coerceIn(0, total),
-          )
-        },
-      )
-      .setProgress(elapsedSeconds(state, lengths))
+    return NotificationCompat.ProgressStyle()
+      .setProgressSegments(segments)
+      .setProgress((ride.passed ?: 0).coerceIn(0, stops))
       .setProgressTrackerIcon(IconCompat.createWithResource(context, glyph))
-
-    // Styling BY progress recolours the whole bar according to how far along
-    // it is, which would throw away the per-leg route colours -- and those are
-    // the point: they are the same colours as the map polylines and the
-    // StepRail, so one journey is recognisably one journey across all three.
-    style.setStyledByProgress(false)
-    return style
+      // One colour, so styling by progress is what separates the stops behind
+      // the rider from the ones still ahead.
+      .setStyledByProgress(true)
   }
 
-  /** Lengths in whole seconds, never zero: a zero-length segment would be a
-   *  leg the rail silently forgot to draw. */
-  private fun segmentLengths(rail: RailRecord): List<Int> =
-    rail.segments.map { max(1, it.seconds.roundToInt()) }
-
-  private fun elapsedSeconds(state: JourneyStateRecord, lengths: List<Int>): Int {
-    val total = lengths.sum()
-    return (state.progress.coerceIn(0.0, 1.0) * total).roundToInt().coerceIn(0, total)
+  /**
+   * The title. Android has no badge, so while waiting the line number leads
+   * the direction the copy names; everywhere else the hero already says
+   * everything the title needs to.
+   */
+  private fun title(state: JourneyStateRecord, copy: JourneySurfaceCopyRecord): String {
+    val line = state.leg?.route?.shortName?.takeIf { it.isNotBlank() }
+    return if (state.phase == PHASE_WAITING && line != null) "$line · ${copy.hero}" else copy.hero
   }
 
   /**
@@ -307,10 +323,13 @@ object JourneyNotification {
    */
   private fun chipText(state: JourneyStateRecord, copy: JourneySurfaceCopyRecord): String? =
     when (state.phase) {
-      PHASE_ALIGHT_SOON, PHASE_ARRIVED, PHASE_OFF_PLAN -> copy.hero
+      PHASE_ALIGHT_SOON -> copy.alightNow.takeIf { it.isNotBlank() } ?: copy.hero
+      PHASE_ARRIVED, PHASE_OFF_PLAN -> copy.hero
       // A stop count is a chip; the clock the copy falls back to when no
       // position places the rider is already ticking beside it.
-      PHASE_RIDING -> copy.hero.takeIf { state.stopsRemaining != null }
+      PHASE_RIDING -> state.stopsRemaining?.let { stops ->
+        listOfNotNull("$stops", copy.ride?.stopsLabel?.takeIf { it.isNotBlank() }).joinToString(" ")
+      }
       else -> null
     }
 

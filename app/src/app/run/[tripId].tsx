@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useRouteRuns, useRouteShape } from '@/api/lines';
 import { useTrip } from '@/api/trips';
 import type { TripDetail } from '@/api/types';
@@ -75,8 +76,18 @@ function LineHeader({ trip }: { trip: TripDetail }) {
  * The stop list opens at `firstRelevantStopIndex` -- the later of the
  * boarding stop and wherever the bus has reached -- with everything before it
  * folded behind a "N previous stops" row the rider can unfold in place.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export default function RunScreen() {
+  return (
+    <MapSchemeScope screen>
+      <RunScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function RunScreenContent() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const { tripId, fromStopId } = useLocalSearchParams<{ tripId?: string; fromStopId?: string }>();

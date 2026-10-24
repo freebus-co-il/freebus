@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import type { Itinerary } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { Card, Chip, Space, Text } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useNow } from '@/hooks/use-now';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
 
@@ -58,6 +59,7 @@ export type ItineraryCardProps = {
  */
 export function ItineraryCard({ instances, activeIndex, onSelectTime }: ItineraryCardProps) {
   const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
   // Held here rather than threaded down from the screen: a handful of cards
   // means a handful of 30s timers, which is nothing, and prop-drilling a clock
   // through the carousel would be noise.
@@ -90,7 +92,7 @@ export function ItineraryCard({ instances, activeIndex, onSelectTime }: Itinerar
     ? t('results.leaveDeparted')
     : minutesToLeave < 1
       ? t('results.leaveNow')
-      : minutesToLeave <= LEAVE_COUNTDOWN_MAX_MINUTES
+      : minutesToLeave <= LEAVE_COUNTDOWN_MAX_MINUTES && timeFormat === 'countdown'
         ? t('results.leaveIn', { count: minutesToLeave })
         : t('results.leaveAt', { time: formatClockTime(itinerary.departureTime) });
 

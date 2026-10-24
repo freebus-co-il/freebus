@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useRealtimeAvailable } from '@/api/meta';
 import { LineBadge } from '@/components/line-badge';
 import { Space, StatusDot, Text, useColors, type ColorRole } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { formatClockTime } from '@/lib/format';
 
 import { useJourney } from './journey-context';
@@ -28,6 +29,7 @@ export function JourneyPip() {
   const { t } = useTranslation();
   const colors = useColors();
   const realtimeAvailable = useRealtimeAvailable();
+  const { timeFormat } = usePreferences();
 
   // After arrival the journey is already gone; the window lingers on "You're
   // here" until the provider puts it away.
@@ -36,10 +38,11 @@ export function JourneyPip() {
       ? pipModel({
           state,
           itinerary: journey.itinerary,
-          copy: journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: colors.textPrimary, alert: colors.danger }),
+          copy: journeyCopy(state, journey.itinerary, journey.destinationLabel, t, { end: colors.textPrimary, alert: colors.danger }, timeFormat),
           t,
           realtimeAvailable,
           clock: formatClockTime,
+          timeFormat,
         })
       : arrivedPipModel(t);
 

@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Switch, View } from 'react-native';
+import { Platform, StyleSheet, Switch, View } from 'react-native';
 
 import { Icon, Layout, LeadingIcon, ListRow, ListSection, SegmentedControl, type IconName } from '@/design-system';
+import { liveSurfaceAvailable } from '@/features/journey/live-surface';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { LEAD_TIME_OPTIONS, leadTimeOption } from '@/features/settings/options';
 import { SettingsPage } from '@/features/settings/settings-page';
@@ -50,7 +51,7 @@ function SwitchRow({
  */
 export default function AlertSettingsScreen() {
   const { t } = useTranslation();
-  const { alertSettings, setAlertSettings } = usePreferences();
+  const { alertSettings, setAlertSettings, liveSurface, setLiveSurface } = usePreferences();
 
   return (
     <SettingsPage title={t('settings.alerts')}>
@@ -92,6 +93,19 @@ export default function AlertSettingsScreen() {
           onChange={(repeatUntilAcknowledged) => setAlertSettings({ ...alertSettings, repeatUntilAcknowledged })}
         />
       </ListSection>
+
+      {/* Offered only where something draws it: a switch that silently does
+          nothing teaches the rider the settings lie. */}
+      {liveSurfaceAvailable && (
+        <ListSection footer={t('settings.liveSurfaceFooter')}>
+          <SwitchRow
+            icon="lockScreen"
+            label={t(Platform.OS === 'android' ? 'settings.liveSurfaceAndroid' : 'settings.liveSurface')}
+            value={liveSurface}
+            onChange={setLiveSurface}
+          />
+        </ListSection>
+      )}
     </SettingsPage>
   );
 }

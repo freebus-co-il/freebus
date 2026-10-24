@@ -6,6 +6,7 @@ import { Appearance } from 'react-native';
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
 import i18n from '@/i18n';
 import { applyLayoutDirection, layoutMatchesLanguage, restartApp } from '@/i18n/direction';
+import { setCurrentTimeFormat, type TimeFormat } from '@/lib/time-format';
 
 import { isRTLLanguage, resolveLanguage, type LanguagePreference } from './resolve-language';
 
@@ -22,16 +23,30 @@ const DIRECTION_RESTART_KEY = 'freebus.direction-restart.v1';
 /** `device` defers to the OS setting and keeps following it if it changes. */
 export type ThemePreference = 'device' | 'light' | 'dark';
 
+/** `app` paints the map in whatever scheme the app is in; the other two pin
+ *  it, for a rider who wants dark lists but a map they can read in the sun. */
+export type MapStylePreference = 'app' | 'light' | 'dark';
+
 type StoredState = {
   language: LanguagePreference;
   theme: ThemePreference;
+  mapStyle: MapStylePreference;
+  timeFormat: TimeFormat;
   alertSettings: AlertSettings;
+  /** The journey on the Lock Screen (Live Activity) or in the shade (the
+   *  ongoing notification), and the ride-time location that keeps it current.
+   *  Off for a rider who finds it noisy or wants the battery; the get-off
+   *  alarm does not depend on it. */
+  liveSurface: boolean;
 };
 
 const DEFAULT_STATE: StoredState = {
   language: 'device',
   theme: 'device',
+  mapStyle: 'app',
+  timeFormat: 'countdown',
   alertSettings: DEFAULT_ALERT_SETTINGS,
+  liveSurface: true,
 };
 
 /**
@@ -68,7 +83,10 @@ function parseStoredState(raw: string | null): StoredState {
     return {
       language: ['device', 'he', 'en'].includes(parsed?.language) ? parsed.language : 'device',
       theme: ['device', 'light', 'dark'].includes(parsed?.theme) ? parsed.theme : 'device',
+      mapStyle: ['app', 'light', 'dark'].includes(parsed?.mapStyle) ? parsed.mapStyle : 'app',
+      timeFormat: ['countdown', 'clock'].includes(parsed?.timeFormat) ? parsed.timeFormat : 'countdown',
       alertSettings: parseAlertSettings(parsed?.alertSettings),
+      liveSurface: typeof parsed?.liveSurface === 'boolean' ? parsed.liveSurface : true,
     };
   } catch {
     return DEFAULT_STATE;
@@ -185,8 +203,24 @@ function usePreferencesState() {
     setState((current) => ({ ...current, theme: preference }));
   }
 
+  function setMapStyle(preference: MapStylePreference) {
+    setState((current) => ({ ...current, mapStyle: preference }));
+  }
+
+  /** Mirrored into `@/lib/time-format` for the code that runs outside React
+   *  (scheduled notifications), during render so it is never a frame behind. */
+  setCurrentTimeFormat(state.timeFormat);
+
+  function setTimeFormat(preference: TimeFormat) {
+    setState((current) => ({ ...current, timeFormat: preference }));
+  }
+
   function setAlertSettings(next: AlertSettings) {
     setState((current) => ({ ...current, alertSettings: next }));
+  }
+
+  function setLiveSurface(next: boolean) {
+    setState((current) => ({ ...current, liveSurface: next }));
   }
 
   return {
@@ -194,10 +228,16 @@ function usePreferencesState() {
     language,
     languagePreference: state.language,
     themePreference: state.theme,
+    mapStylePreference: state.mapStyle,
+    timeFormat: state.timeFormat,
     alertSettings: state.alertSettings,
+    liveSurface: state.liveSurface,
     setLanguage,
     setTheme,
+    setMapStyle,
+    setTimeFormat,
     setAlertSettings,
+    setLiveSurface,
   };
 }
 
