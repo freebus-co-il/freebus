@@ -152,14 +152,17 @@ only ever reaches binaries that can run it.
 | Your PR changes | Merging it ships | What you do |
 | --- | --- | --- |
 | JavaScript and assets only | An OTA update to the binaries already in riders' hands | Nothing |
-| Native code | A store build, submitted to TestFlight and Play internal (draft), tagged `app-v<version>` | Bump the version in the PR: `npm --prefix app version patch --no-git-tag-version` |
+| Native code | A store build, tagged `app-v<version>` (and submitted to TestFlight and Play internal, once `EAS_AUTO_SUBMIT` is on) | Bump the version in the PR: `npm --prefix app version patch --no-git-tag-version` |
 
 The **App release** check on each PR says which of the two a merge will be,
 and fails a native change that did not bump the version. The version lives
 in `app/package.json` only; build numbers are incremented by EAS.
 
-Promoting a build from TestFlight or Play internal to the public stores is
-done by hand.
+Submission is automatic only when the `EAS_AUTO_SUBMIT` repository variable
+is `true`, which needs EAS to hold a Google Play service account key and an
+App Store Connect API key. Until then, upload each new build from EAS to the
+stores yourself. Promoting a build to the public stores is always done by
+hand.
 
 **Hotfixing riders on an older build.** Once `main` has native code an older
 build does not, its riders get no more updates from `main`. To fix them
