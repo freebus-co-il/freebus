@@ -394,8 +394,8 @@ export default function LocationPickerScreen() {
             }}
             clearLabel={t('common.clear')}
             // The way into choosing on the map, inside the field it is an
-            // alternative to. Absent on web, where there is no map to choose on.
-            trailing={Platform.OS === 'web' ? null : (
+            // alternative to.
+            trailing={(
               <IconButton
                 icon="map"
                 variant="plain"

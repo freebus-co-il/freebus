@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { Layout, ListRow, ListSection, Text } from '@/design-system';
 import { SettingsPage } from '@/features/settings/settings-page';
@@ -65,11 +65,7 @@ export default function AboutScreen() {
       <ListSection footer={t('about.openSource')}>
         <LinkRow label={t('about.sourceCode')} onPress={() => void Linking.openURL(REPO_URL)} />
         <LinkRow label={t('about.privacy')} onPress={() => void Linking.openURL(PRIVACY_URL)} />
-        {/* Native only: the licence list is generated into the iOS and
-            Android builds, and there is no web equivalent. */}
-        {Platform.OS !== 'web' && (
-          <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
-        )}
+        <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
       </ListSection>
 
       <ListSection title={t('about.dataSources')}>

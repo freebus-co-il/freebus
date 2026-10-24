@@ -72,7 +72,7 @@ export default function SearchScreen() {
     };
     node.measureInWindow((x, y, width, height) => {
       const search = { x, y, width, height };
-      // The map button rides along when there is one (not on web).
+      // The map button rides along when there is one.
       measure(mapRef, (map) =>
         measure(chipsRef, (chips) => {
           setSearchMorphOrigin({ search, map, chips });

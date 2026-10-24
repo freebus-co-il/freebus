@@ -36,7 +36,7 @@ export type LegTimelineProps = {
  * even when that width overflows (`onContentSizeChange`), which is how the
  * fade knew whether to show -- but a scroll view also has a scroll POSITION,
  * and which end of the content sits at offset zero under RTL differs between
- * iOS, Android and web. On the platforms that answer "the far end", the strip
+ * iOS and Android. On the platform that answers "the far end", the strip
  * showed the rider the last leg of the journey and hid the first. A row has no
  * offset to get wrong: Yoga lays it out from the start edge in both
  * directions, and `overflow: hidden` clips whatever runs past the end.
@@ -75,9 +75,7 @@ export function LegTimeline({ legs, onGlass = false }: LegTimelineProps) {
             {index > 0 && (
               // Wrapped, and every wrapper pinned at `flexShrink: 0`: an
               // overflowing row must push its tail past the end edge, never
-              // squeeze the legs to fit. That is already React Native's
-              // default, but not the web renderer's for a bare glyph -- an
-              // unwrapped chevron collapses to nothing there.
+              // squeeze the legs to fit.
               <View style={styles.item}>
                 <Icon name="chevronForward" size="xs" color="textSecondary" weight="semibold" />
               </View>

@@ -1,5 +1,5 @@
 import * as Updates from 'expo-updates';
-import { DevSettings, I18nManager, Platform } from 'react-native';
+import { DevSettings, I18nManager } from 'react-native';
 
 import {
   isRTLLanguage,
@@ -33,16 +33,6 @@ import {
 export function applyLayoutDirection(language: SupportedLanguage): boolean {
   const rtl = isRTLLanguage(language);
 
-  if (Platform.OS === 'web') {
-    // react-native-web's I18nManager is a stub; CSS `dir` flips flex rows and
-    // text alignment there, and takes effect immediately, so no restart.
-    if (typeof document !== 'undefined') {
-      document.documentElement.dir = rtl ? 'rtl' : 'ltr';
-      document.documentElement.lang = language;
-    }
-    return false;
-  }
-
   /* eslint-disable no-restricted-syntax -- this is the one place allowed to */
   I18nManager.allowRTL(rtl);
   I18nManager.forceRTL(rtl);
@@ -51,9 +41,9 @@ export function applyLayoutDirection(language: SupportedLanguage): boolean {
 }
 
 /** Whether this launch is already laid out the way `language` reads. Pure
- *  read, safe during render; web is always right (CSS `dir` applies live). */
+ *  read, safe during render. */
 export function layoutMatchesLanguage(language: SupportedLanguage): boolean {
-  return Platform.OS === 'web' || !needsDirectionRestart(language, I18nManager.isRTL);
+  return !needsDirectionRestart(language, I18nManager.isRTL);
 }
 
 /**

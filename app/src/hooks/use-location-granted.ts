@@ -24,7 +24,7 @@ export function useLocationGranted(): boolean {
           if (!cancelled) setGranted(permission.status === 'granted');
         })
         .catch(() => {
-          // No location module here (web) -- no dot, which is the right answer.
+          // No location module here: no dot, which is the right answer.
         });
     };
 

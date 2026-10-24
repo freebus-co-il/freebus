@@ -9,7 +9,7 @@ type Glyph = { ios: SFSymbol; android: AndroidSymbol };
 
 /**
  * Every icon in the app, by what it MEANS. Each maps to an SF Symbol on iOS
- * and a Material Symbol on Android and web. See design-system.md 4.
+ * and a Material Symbol on Android. See design-system.md 4.
  */
 const GLYPHS = {
   search: { ios: 'magnifyingglass', android: 'search' },
@@ -128,7 +128,7 @@ export function Icon({ name, size = 'md', color = 'textPrimary', weight = 'regul
   const tint = color in colors ? colors[color as ColorRole] : color;
   return (
     <SymbolView
-      name={{ ios: glyph.ios, android: glyph.android, web: glyph.android }}
+      name={{ ios: glyph.ios, android: glyph.android }}
       size={px}
       tintColor={tint}
       weight={weight}

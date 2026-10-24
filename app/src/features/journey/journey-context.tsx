@@ -208,7 +208,7 @@ async function cancelAlertsMatching(prefix: string): Promise<void> {
         .map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier)),
     );
   } catch {
-    // Nothing to do: the platform has no scheduler here (web), or the app has
+    // Nothing to do: the platform has no scheduler here (Expo Go), or the app has
     // no notification permission, in which case there is nothing pending.
   }
 }
@@ -342,7 +342,7 @@ async function armGeofences(journey: ActiveJourney, { prompt = true }: { prompt?
       })),
     );
   } catch {
-    // Web, Expo Go, and a device with location switched off at the OS level
+    // Expo Go and a device with location switched off at the OS level
     // all land here. A journey with no geofences still runs on the clock and
     // on the scheduled alerts -- which is exactly why there are two triggers.
   }
@@ -1244,7 +1244,7 @@ function useJourneyState() {
    * closes over `state`, which is a fresh object on every five-second tick,
    * so keying the effect on it would tear down and re-register a native
    * listener twelve times a minute for the whole journey. Null-safe because
-   * on web and in Expo Go there is no module to emit anything.
+   * in Expo Go there is no module to emit anything.
    */
   const acknowledgeRef = useRef(acknowledgeAlight);
   useEffect(() => {
