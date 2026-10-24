@@ -6,6 +6,7 @@ import type { Itinerary, Place, TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
 import { Border, Button, Chip, Icon, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { laterOptions } from '@/features/trip/line-options';
 import { formatClockTime } from '@/lib/format';
 import { haversineMeters } from '@/lib/geo';
@@ -71,6 +72,7 @@ export function WalkingView({ state, itinerary, position, transfer }: {
   state: JourneyState; itinerary: Itinerary; position: RiderPosition | null; transfer: boolean;
 }) {
   const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
   const ride = vehicleInPlay(itinerary, state);
   const walk = itinerary.legs[state.legIndex];
   const target: Place | undefined = ride?.from.stop ?? (walk?.type === 'walk' ? walk.to : undefined);
@@ -88,7 +90,11 @@ export function WalkingView({ state, itinerary, position, transfer }: {
         <View style={styles.row}>
           <LineBadge route={ride.route} />
           <Hero live={state.timeSource === 'live'}>
-            {minutes > 0 ? t('journey.sheet.leavesIn', { count: minutes }) : t('journey.sheet.leavesNow')}
+            {minutes <= 0
+              ? t('journey.sheet.leavesNow')
+              : timeFormat === 'clock' && state.timer
+                ? t('journey.sheet.leavesAt', { time: formatClockTime(state.timer.to) })
+                : t('journey.sheet.leavesIn', { count: minutes })}
           </Hero>
         </View>
       )}
@@ -110,6 +116,7 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchL
   onSwitchLine: (() => void) | null;
 }) {
   const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
   const minutes = minutesLeft(state.timer);
   // The next run of this same line AFTER the one coming -- by live times, so a
   // late bus is not followed by a "next" that already left before it.
@@ -133,7 +140,11 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchL
       </View>
       <BusSign route={leg.route} headsign={leg.headsign} />
       <Hero live={state.timeSource === 'live'}>
-        {minutes > 0 ? t('journey.sheet.arrivingIn', { count: minutes }) : t('journey.sheet.arrivingNow')}
+        {minutes <= 0
+          ? t('journey.sheet.arrivingNow')
+          : timeFormat === 'clock' && state.timer
+            ? t('journey.sheet.arrivingAt', { time: formatClockTime(state.timer.to) })
+            : t('journey.sheet.arrivingIn', { count: minutes })}
       </Hero>
       {where !== '' && <Text variant="subheadline" color="textSecondary" numeric>{where}</Text>}
       {others.length > 0 && (
@@ -143,7 +154,9 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchL
             <View key={line.tripId} style={styles.row}>
               <LineBadge route={line.route} size="small" />
               <Text variant="subheadline" color="textSecondary" numeric>
-                {t('journey.sheet.alsoIn', { count: minutesUntil(line.departureTime, nowMs) })}
+                {timeFormat === 'clock'
+                  ? t('journey.sheet.alsoAt', { time: formatClockTime(line.departureTime) })
+                  : t('journey.sheet.alsoIn', { count: minutesUntil(line.departureTime, nowMs) })}
               </Text>
             </View>
           ))}
@@ -226,6 +239,7 @@ export function AlightView({ state, itinerary, leg, nowMs, canSilence, onSilence
   state: JourneyState; itinerary: Itinerary; leg: TransitLeg; nowMs: number; canSilence: boolean; onSilence: () => void;
 }) {
   const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
   const next = nextTransitAfter(itinerary, state.legIndex);
   return (
     <View style={styles.block}>
@@ -242,7 +256,9 @@ export function AlightView({ state, itinerary, leg, nowMs, canSilence, onSilence
           <Text variant="subheadline" color="textSecondary">{t('journey.sheet.then')}</Text>
           <LineBadge route={next.route} size="small" />
           <Text variant="subheadline" color="textSecondary" numeric numberOfLines={1} style={styles.grow}>
-            {t('journey.sheet.thenFrom', { stop: stopName(next.from.stop, t), minutes: minutesUntil(next.from.departureTime, nowMs) })}
+            {timeFormat === 'clock'
+              ? t('journey.sheet.thenFromAt', { stop: stopName(next.from.stop, t), time: formatClockTime(next.from.departureTime) })
+              : t('journey.sheet.thenFrom', { stop: stopName(next.from.stop, t), minutes: minutesUntil(next.from.departureTime, nowMs) })}
           </Text>
         </View>
       )}

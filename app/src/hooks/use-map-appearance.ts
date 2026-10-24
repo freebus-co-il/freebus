@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { androidMapStyle, type MapStyleRule } from '@/lib/map-style';
 
@@ -17,7 +18,20 @@ export type MapAppearance = {
 };
 
 /**
- * How a native basemap should be painted: the app's own colour scheme, so a
+ * The scheme every map paints in: the rider's map setting when it pins one,
+ * the app's own scheme otherwise. Everything drawn ON a map (pins, vehicle
+ * capsules, the glass chrome) takes its colours from this scheme too, through
+ * `MapSchemeScope`: a white pin made for a dark map vanishes on a light one.
+ */
+export function useMapScheme(): 'light' | 'dark' {
+  const appScheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const { mapStylePreference } = usePreferences();
+  return mapStylePreference === 'app' ? appScheme : mapStylePreference;
+}
+
+/**
+ * How a native basemap should be painted: the map setting (see
+ * `useMapScheme`), which by default is the app's own colour scheme, so a
  * rider who forces light mode on a dark-mode phone gets a light map too.
  *
  * Left alone, neither platform's map asks the app anything -- Apple Maps reads
@@ -39,8 +53,7 @@ export type MapAppearance = {
  * override in place, so it gets no key and keeps its camera.
  */
 export function useMapAppearance({ monochrome = false }: { monochrome?: boolean } = {}): MapAppearance {
-  const scheme = useColorScheme();
-  const userInterfaceStyle = scheme === 'dark' ? 'dark' : 'light';
+  const userInterfaceStyle = useMapScheme();
 
   return {
     userInterfaceStyle,

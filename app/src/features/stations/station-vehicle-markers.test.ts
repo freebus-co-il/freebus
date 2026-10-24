@@ -38,7 +38,7 @@ test('a bus running one of the board\'s departures is drawn in that departure\'s
   assert.deepEqual(markers, [{
     tripId: 'b', latitude: 32.07, longitude: 34.78, color: operatorColor('3'),
     // Due here at 10:20; it is 10:15:45.
-    routeType: 3, shortName: '480', etaMinutes: 4, faded: false, secondary: false,
+    routeType: 3, shortName: '480', etaMinutes: 4, etaAt: '2026-08-31T10:20:00.000Z', faded: false, secondary: false,
   }]);
 });
 

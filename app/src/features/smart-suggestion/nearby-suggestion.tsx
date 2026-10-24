@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { STATION_BOARD_LIMIT, useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
 import { useNearbyStops } from '@/api/stops';
@@ -35,8 +36,18 @@ const PANEL_DEPARTURES = 3;
  *
  * Renders nothing until there is a fix and at least one station: the section
  * below already says why when the location fails.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export function NearbySuggestion() {
+  return (
+    <MapSchemeScope>
+      <NearbySuggestionCard />
+    </MapSchemeScope>
+  );
+}
+
+function NearbySuggestionCard() {
   const { i18n } = useTranslation();
   const { originState } = useSearch();
   const here = originState.status === 'success' && originState.place.kind === 'coordinate'

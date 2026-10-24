@@ -11,6 +11,7 @@ export {
   useReduceMotion,
   useReduceTransparency,
   useScheme,
+  SchemeScope,
   type Scheme,
 } from './theme';
 export { Text, type TextProps } from './components/text';

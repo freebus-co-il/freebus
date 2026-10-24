@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
+import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useRouteShape } from '@/api/lines';
 import { DEPARTURES_WINDOW_MINUTES, STATION_BOARD_LIMIT, useStopDepartures } from '@/api/departures';
 import { useRealtimeAvailable } from '@/api/meta';
@@ -22,6 +23,7 @@ import {
   Border, Chip, EmptyState, IconButton, Layout, Loading, Opacity, Radius, Separator, Size, Space, Text, useColors,
 } from '@/design-system';
 import { firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
 import { StopSpineRow } from '@/features/lines/stop-spine';
 import { formatHeadsign, tripNumberOf } from '@/features/results/itinerary-facts';
@@ -147,8 +149,11 @@ function DepartureRow(
 ) {
   const { t } = useTranslation();
   const colors = useColors();
+  const { timeFormat } = usePreferences();
   const time = departureTime(departure.departureTime, departure.realtime);
   const live = showLive && time.live;
+  const countdown = formatDurationMinutes(secondsUntil(time.iso, now));
+  const clock = formatClockTime(time.iso);
   const trainNumber = tripNumberOf(departure);
   // The quiet line under the destination. A train's number goes here, not in
   // the destination's place: the rider picks the train by where it ends, and
@@ -225,11 +230,13 @@ function DepartureRow(
           <View style={styles.timeRow}>
             {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
             <Text variant="headline" numeric color={live ? 'live' : 'textPrimary'}>
-              {formatDurationMinutes(secondsUntil(time.iso, now))}
+              {timeFormat === 'clock' ? clock : countdown}
             </Text>
           </View>
+          {/* Both, with the rider's choice on top: a board is where the
+              other form is still worth a glance. */}
           <Text variant="footnote" color="textSecondary" numeric>
-            {formatClockTime(time.iso)}
+            {timeFormat === 'clock' ? countdown : clock}
           </Text>
         </View>
       </Pressable>
@@ -354,8 +361,18 @@ function DestinationFilter(
  * departure opens in place with its stops below it, and the line's other
  * departures are still in the list, in time order. Tapping the departure or
  * the badge again closes it.
+ *
+ * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
 export default function StationScreen() {
+  return (
+    <MapSchemeScope screen>
+      <StationScreenContent />
+    </MapSchemeScope>
+  );
+}
+
+function StationScreenContent() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const { stopId, name } = useLocalSearchParams<{ stopId?: string; name?: string }>();

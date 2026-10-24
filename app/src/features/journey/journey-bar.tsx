@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LineBadge } from '@/components/line-badge';
 import { GLASS_SUPPORTED, Icon, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { readableTextColor, routeColor } from '@/lib/route-color';
 
 import { useJourney } from './journey-context';
@@ -25,12 +26,13 @@ function useJourneyBarModel() {
   const { journey, state } = useJourney();
   const { t } = useTranslation();
   const colors = useColors();
+  const { timeFormat } = usePreferences();
   if (!journey || !state) return null;
   const ride = vehicleInPlay(journey.itinerary, state);
   const copy = journeyCopy(state, journey.itinerary, journey.destinationLabel, t, {
     end: colors.textPrimary,
     alert: colors.danger,
-  });
+  }, timeFormat);
   // Where the screen renders the way out as a control, the bar only names it:
   // a second tap target in a docked bar is how a stressed rider mis-taps.
   const supporting = copy.action ?? copy.supporting;

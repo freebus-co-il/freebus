@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { Itinerary } from '@/api/types';
 import { Button, Space, Text } from '@/design-system';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { minutesUntil } from '@/features/results/itinerary-facts';
 import { formatClockTime, formatDurationMinutes } from '@/lib/format';
 
@@ -19,13 +20,14 @@ export function TripSheetHeader({ itinerary, now, onStart, note }: {
   itinerary: Itinerary; now: Date; onStart: () => void; note?: string | null;
 }) {
   const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
   const minutes = minutesUntil(itinerary.departureTime, now);
   const leave =
     minutes < 0
       ? t('results.leaveDeparted')
       : minutes < 1
         ? t('trip.leaveNow')
-        : minutes <= LEAVE_COUNTDOWN_MAX_MINUTES
+        : minutes <= LEAVE_COUNTDOWN_MAX_MINUTES && timeFormat === 'countdown'
           ? t('trip.leaveIn', { count: minutes })
           : t('trip.leaveAt', { time: formatClockTime(itinerary.departureTime) });
   const facts = [

@@ -57,6 +57,15 @@ test('waiting leads with the line, counts down, and says it is live', () => {
   assert.match(m.footer ?? '', /journey\.bus\.toBoarding .*"count":3/);
 });
 
+test('a clock-time rider gets the departure time, not a countdown', () => {
+  const walking = resolveJourneyState(journey, null, at('2026-08-31T10:02:00.000Z'));
+  const m = pipModel({ state: walking, itinerary: journey.itinerary, copy, t, realtimeAvailable: true, clock, timeFormat: 'clock' });
+  assert.match(m.hero, /journey\.pip\.leavesAt .*"time":"10:10"/);
+  const waiting = resolveJourneyState(journey, null, at('2026-08-31T10:07:00.000Z'), DEFAULT_ALERT_SETTINGS, waitingLive);
+  const w = pipModel({ state: waiting, itinerary: journey.itinerary, copy, t, realtimeAvailable: true, clock, timeFormat: 'clock' });
+  assert.match(w.hero, /journey\.pip\.arrivesAt .*"time":"10:12"/);
+});
+
 test('no realtime deployment, no live label', () => {
   const m = model(resolveJourneyState(journey, null, at('2026-08-31T10:07:00.000Z')), false);
   assert.equal(m.liveLabel, '');
