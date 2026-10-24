@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
-import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking, Platform, StyleSheet, View } from 'react-native';
 
-import { Layout, ListRow, ListSection, NativeHeader, Space, Surface, Text } from '@/design-system';
+import { Layout, ListRow, ListSection, Text } from '@/design-system';
+import { SettingsPage } from '@/features/settings/settings-page';
 import { GOOGLE_MAPS_TEXT, OSM_COPYRIGHT_URL } from '@/lib/attribution';
 
 const REPO_URL = 'https://github.com/freebus-co-il/freebus';
@@ -61,54 +61,39 @@ export default function AboutScreen() {
   const version = Constants.expoConfig?.version ?? '';
 
   return (
-    <Surface level="bgGrouped" style={styles.container}>
-      <NativeHeader title={t('about.title')} />
-      {/* Bottom edge only: the native header already clears the top. */}
-      <SafeAreaView edges={['bottom']} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <ListSection footer={t('about.openSource')}>
-            <LinkRow label={t('about.sourceCode')} onPress={() => void Linking.openURL(REPO_URL)} />
-            <LinkRow label={t('about.privacy')} onPress={() => void Linking.openURL(PRIVACY_URL)} />
-            {/* Native only: the licence list is generated into the iOS and
-                Android builds, and there is no web equivalent. */}
-            {Platform.OS !== 'web' && (
-              <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
-            )}
-          </ListSection>
+    <SettingsPage title={t('about.title')}>
+      <ListSection footer={t('about.openSource')}>
+        <LinkRow label={t('about.sourceCode')} onPress={() => void Linking.openURL(REPO_URL)} />
+        <LinkRow label={t('about.privacy')} onPress={() => void Linking.openURL(PRIVACY_URL)} />
+        {/* Native only: the licence list is generated into the iOS and
+            Android builds, and there is no web equivalent. */}
+        {Platform.OS !== 'web' && (
+          <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
+        )}
+      </ListSection>
 
-          <ListSection title={t('about.dataSources')}>
-            <Source title={t('about.motTitle')} body={t('about.motBody')} url={MOT_URL} />
-            <Source title={t('about.osmTitle')} body={t('about.osmBody')} url={OSM_COPYRIGHT_URL} />
-            {/* Listed whatever the server's GEOCODER is: it is switched back and
-                forth, and this page cannot know which one answered. */}
-            <Source title={t('about.googleTitle')} body={GOOGLE_MAPS_TEXT} />
-          </ListSection>
+      <ListSection title={t('about.dataSources')}>
+        <Source title={t('about.motTitle')} body={t('about.motBody')} url={MOT_URL} />
+        <Source title={t('about.osmTitle')} body={t('about.osmBody')} url={OSM_COPYRIGHT_URL} />
+        {/* Listed whatever the server's GEOCODER is: it is switched back and
+            forth, and this page cannot know which one answered. */}
+        <Source title={t('about.googleTitle')} body={GOOGLE_MAPS_TEXT} />
+      </ListSection>
 
-          <ListSection title={t('about.disclaimerTitle')}>
-            <View style={styles.textRow}>
-              <Text variant="subheadline">{t('about.disclaimer')}</Text>
-            </View>
-          </ListSection>
+      <ListSection title={t('about.disclaimerTitle')}>
+        <View style={styles.textRow}>
+          <Text variant="subheadline">{t('about.disclaimer')}</Text>
+        </View>
+      </ListSection>
 
-          <Text variant="footnote" color="textSecondary" align="center" numeric>
-            {t('about.version', { version })}
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
-    </Surface>
+      <Text variant="footnote" color="textSecondary" align="center" numeric>
+        {t('about.version', { version })}
+      </Text>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: Layout.pageInset,
-    paddingTop: Space.lg,
-    paddingBottom: Layout.sectionGap,
-    gap: Layout.sectionGap,
-  },
   // Prose inside a group: a row's padding, no row behaviour.
   textRow: {
     paddingVertical: Layout.rowPaddingV,
