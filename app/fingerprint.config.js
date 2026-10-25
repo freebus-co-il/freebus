@@ -2,6 +2,28 @@
 // and the deploy workflow (.github/workflows/deploy-app.yml) uses it to choose
 // between an OTA update and a store build. A native change the fingerprint
 // misses ships as an OTA update to binaries that cannot run it.
+let easJson = "";
+
+// eas.json is hashed whole, but the App Store app id its submit profile names
+// never reaches the binary. Hashing the file without it keeps the id from
+// starting a store build, and keeps the runtime of builds made before it was
+// added (1.0.6), so they still get updates.
+function hashEasJsonWithoutStoreIds(source, chunk, isEndOfFile) {
+  if (source.type !== "file" || source.filePath !== "eas.json") return chunk;
+  if (!isEndOfFile) {
+    easJson += chunk.toString();
+    return null;
+  }
+  const config = JSON.parse(easJson);
+  easJson = "";
+  for (const profile of Object.values(config.submit ?? {})) {
+    if (!profile.ios) continue;
+    delete profile.ios.ascAppId;
+    if (Object.keys(profile.ios).length === 0) delete profile.ios;
+  }
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
 /** @type {import('expo/fingerprint').Config} */
 module.exports = {
   // The widget's Swift sources are compiled by @bacons/apple-targets, but
@@ -17,8 +39,6 @@ module.exports = {
     "ios/**/*",
     "android/**/*",
     "modules/live-journey/android/build/**/*",
-    // EAS's build and submit settings (store app ids, tracks) never reach
-    // the binary; the build itself is decided by app.config.js.
-    "eas.json",
   ],
+  fileHookTransform: hashEasJsonWithoutStoreIds,
 };
