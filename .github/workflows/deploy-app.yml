@@ -7,10 +7,11 @@ name: Deploy app
 #   - a production build with this fingerprint already exists: only JS or
 #     assets changed, so the commit goes out as an OTA update on the
 #     `production` branch, and reaches exactly the binaries that can run it;
-#   - no such build: native code changed, so a store build starts and is
-#     submitted once it finishes (TestFlight, and the Play internal track as
-#     a draft: see eas.json). Promoting it to the public stores stays
-#     manual. An update is published for the new
+#   - no such build: native code changed, so a store build starts. With the
+#     EAS_AUTO_SUBMIT repository variable set to `true` it is also submitted
+#     (TestFlight, and the Play internal track as a draft: see eas.json);
+#     with it off, upload it to the stores from EAS by hand. Promoting it to
+#     the public stores stays manual. An update is published for the new
 #     fingerprint as well, which only the new build will ever load.
 #
 # A new build is tagged `app-v<version>`. That tag is what a hotfix for riders
@@ -86,11 +87,11 @@ jobs:
           profile: production
           branch: production
           environment: production
-          # Uses the store credentials EAS holds (a Google Play service account
-          # key and an App Store Connect API key) and the submit profile in
-          # eas.json, which has to name the App Store app (`ascAppId`) for a
-          # non-interactive submission.
-          auto-submit-builds: true
+          # Set the EAS_AUTO_SUBMIT repository variable to `true` to submit.
+          # It needs the store credentials EAS holds (a Google Play service
+          # account key and an App Store Connect API key) and eas.json's
+          # submit profile, which names the App Store app (`ascAppId`).
+          auto-submit-builds: ${{ vars.EAS_AUTO_SUBMIT == 'true' }}
 
       - name: Tag the new store build
         if: steps.deploy.outputs.ios-did-start-new-build == 'true' || steps.deploy.outputs.android-did-start-new-build == 'true'
