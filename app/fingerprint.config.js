@@ -17,5 +17,8 @@ module.exports = {
     "ios/**/*",
     "android/**/*",
     "modules/live-journey/android/build/**/*",
+    // EAS's build and submit settings (store app ids, tracks) never reach
+    // the binary; the build itself is decided by app.config.js.
+    "eas.json",
   ],
 };
