@@ -562,6 +562,9 @@ export function TripMap({
       showsUserLocation={showsUserLocation}
       // Google Maps' own recentre button would sit under the floating chips.
       showsMyLocationButton={false}
+      // The native compass appears once navigation turns the map, right under
+      // the back button. The "back to my location" chip already re-aims it.
+      showsCompass={false}
       // Apple Maps only: keeps its logo and Legal link above whatever covers
       // the bottom of the map, as its terms require. Not `mapPadding` -- see
       // pick-map.tsx.
