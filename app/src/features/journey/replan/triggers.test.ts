@@ -9,7 +9,7 @@ function state(phase: JourneyPhase, overrides: Partial<JourneyState> = {}): Jour
   return {
     phase, legIndex: 1, leg: null, stopsRemaining: null, timer: null, offPlan: null, progress: 0.3,
     timeSource: 'live', busStopsAway: null, stopsSource: null, nextStopName: null,
-    arrivalTime: t(60), trackedLegIndex: null, ridingEarly: false, ...overrides,
+    arrivalTime: t(60), trackedLegIndex: null, boardedLegIndex: null, ridingEarly: false, ...overrides,
   };
 }
 

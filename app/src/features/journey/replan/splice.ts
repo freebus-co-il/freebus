@@ -48,9 +48,14 @@ export function replanOriginFor(
 ): { from: string; departAfter?: string; keepThroughLegIndex: number } | null {
   if (state.phase === 'arriving' || state.phase === 'arrived') return null;
 
-  if (state.phase === 'riding' || state.phase === 'alight-soon') {
+  if (state.phase === 'riding' || state.phase === 'alight-soon' || state.phase === 'waiting') {
     // The ride under the rider stays to its own alighting stop; only what comes
     // after it is re-planned, from that stop, at when the bus gets there.
+    //
+    // Waiting too: at the station the ride is the station board's to follow
+    // (whichever run comes next), never the planner's to swap. Reported from
+    // the field: the planned train's time passed, the planner switched to the
+    // next train, and the planned one was only late.
     const leg = itinerary.legs[state.legIndex];
     if (!leg || !isTransit(leg) || !leg.to.stop.stopId) return null;
     return {

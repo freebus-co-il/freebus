@@ -4,9 +4,9 @@ import * as TaskManager from 'expo-task-manager';
 import type { JourneyPhase, RiderPosition } from './types';
 
 /**
- * The location tier between the foreground watch and the geofences: while the
- * rider is at the stop or on the bus, keep counting stops with the phone in a
- * pocket, so the Lock Screen's "3 stops, next: Allenby" stays true.
+ * The location tier between the foreground watch and the geofences: for the
+ * whole journey, keep following the rider with the phone in a pocket, so the
+ * Lock Screen moves on with them and its "3 stops, next: Allenby" stays true.
  *
  * Stable across releases, like the geofence task's name: the OS keeps the
  * registration under it.
@@ -14,13 +14,19 @@ import type { JourneyPhase, RiderPosition } from './types';
 export const RIDE_LOCATION_TASK = 'freebus.journey.ride-location';
 
 /**
- * The phases this tier runs in. Waiting is included on purpose, not for the
- * stop count: iOS will only start background updates for a rider who granted
- * "While Using" when the app is on screen, and the stop is where they last
- * looked at it. Starting there carries the updates onto the bus with them.
- * The walks are left to the geofences, which cost nothing.
+ * The phases this tier runs in: the whole journey, walks included. GPS is
+ * what moves the journey on (see `trackLegIndex`, `hasLeftBoarding`), so a
+ * walk finished with the phone in a pocket has to reach the station too.
+ * Reported from the field: standing in HaShalom, the Lock Screen still said
+ * "leave now, 8 min walk". The geofences alone wake too coarsely for that.
+ *
+ * Starting at the first walk also suits iOS, which only starts background
+ * updates for a rider who granted "While Using" while the app is on screen:
+ * Start is pressed on screen, and the updates carry on from there.
  */
-export const RIDE_PHASES: ReadonlySet<JourneyPhase> = new Set(['waiting', 'riding', 'alight-soon']);
+export const RIDE_PHASES: ReadonlySet<JourneyPhase> = new Set([
+  'walking-to-stop', 'waiting', 'riding', 'alight-soon', 'transferring', 'arriving', 'off-plan',
+]);
 
 /**
  * Balanced, not best: a stop is a few hundred metres from the next, so a fix

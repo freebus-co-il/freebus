@@ -2,7 +2,7 @@ import type { Place, TransitLeg } from '@/api/types';
 import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
 import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
-import { distanceToPathMeters, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
+import { distanceToPathMeters, hasLeftBoarding, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
 import { buildLegSchedule } from './journey-rail';
 import type { ActiveJourney, AlertSettings, JourneyState, LiveBus, LiveJourneyInput, LiveLeg, OffPlanReason, RiderPosition } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
@@ -27,6 +27,10 @@ export const OVERSHOT_RADIUS_METERS = 800;
  *  screen went off, the app was hidden). Past this the countdown returns to
  *  the timetable rather than trust a bus nobody is watching any more. */
 export const LIVE_HOLD_SECONDS = 120;
+
+/** How far ahead of its scheduled departure a run has to be for a rider on it
+ *  to be on the run before it, rather than on this one leaving a touch early. */
+export const EARLY_SLACK_SECONDS = 60;
 
 /** About half the gap between two bus stops: past this, nearest-stop counting
  *  from the rider's own fix cannot be trusted to name the right stop. */
@@ -323,7 +327,16 @@ export function resolveJourneyState(
   const fix = position && !isWeakFix(position, nowMs) ? position : null;
   const tracked = trackLegIndex(itinerary, journey.gpsLegIndex ?? null, fix, heldRide?.legIndex ?? scheduledIndex);
 
-  const quiet = { ...quietFields(arrivalTime), trackedLegIndex: tracked, ridingEarly: false };
+  // The ride GPS has already seen the rider leave the station on. Only for the
+  // leg GPS has them on: a record from a leg behind them says nothing now.
+  const recordedBoarded = tracked !== null && (journey.boardedLegIndex ?? -1) >= tracked ? tracked : null;
+
+  const quiet = {
+    ...quietFields(arrivalTime),
+    trackedLegIndex: tracked,
+    boardedLegIndex: recordedBoarded,
+    ridingEarly: false,
+  };
 
   // A journey GPS is following ends when the rider reaches the destination --
   // or, if they never do, well past the arrival (`ARRIVAL_BACKSTOP_SECONDS`).
@@ -353,21 +366,52 @@ export function resolveJourneyState(
     const departure = liveLeg?.predictedDeparture ?? leg.from.departureTime;
     const bus = freshBus(live, legIndex, nowMs);
 
+    // Under GPS the rider's own position is the only thing that boards them:
+    // away from the station along the ride's route, recorded, and never undone.
+    // The clock and the vehicle feed both lie here -- late runs, predictions
+    // that slide, a train jittering either side of the platform in the feed --
+    // and a phase decided by them flapped between waiting and riding.
+    const gpsBoarded = tracked === legIndex
+      && (recordedBoarded === legIndex || hasLeftBoarding(leg, position, nowMs));
+
+    if (tracked !== null) {
+      // Riding a run that, by the timetable, has not left yet: they caught the
+      // one before it (see `earlier-run.ts`). By the SCHEDULED time, so a late
+      // run boarded late is the run the plan already names.
+      const ridingEarly = gpsBoarded && nowMs < ms(leg.from.departureTime) - EARLY_SLACK_SECONDS * 1000;
+      if (!gpsBoarded) {
+        // At the station, and nothing is missed: whichever run comes next is
+        // the one to take (the station board follows it). So no off-plan here,
+        // however late the run or however long the wait.
+        return {
+          ...quiet,
+          phase: 'waiting',
+          legIndex,
+          leg,
+          stopsRemaining: null,
+          timer: { from: now.toISOString(), to: departure, countsDown: true },
+          timeSource: liveLeg?.predictedDeparture ? 'live' : 'scheduled',
+          busStopsAway: bus?.progress?.kind === 'toBoarding' ? bus.progress.stops : null,
+          offPlan: null,
+          progress,
+        };
+      }
+      return ridingState(legIndex, leg, bus, { ridingEarly, boardedLegIndex: legIndex });
+    }
+
+    // --- No fix has ever placed the rider: the timetable and the feed decide.
+
     // The rider is being carried along this ride's route, away from its
     // boarding stop, while the bus the plan picked has not even left: they set
-    // out early and caught the run before it (see `earlier-run.ts`). Every
-    // verdict about the planned bus is then a verdict about a bus they are not
-    // on -- including the server's "you'll miss the connection", which is true
-    // of that bus and false of the one under them.
-    const ridingEarly = tracked === legIndex
-      && position !== null
+    // out early and caught the run before it (see `earlier-run.ts`).
+    const ridingEarly = position !== null
       && !isWeakFix(position, nowMs)
       && nowMs < ms(departure)
       && haversineMeters(position, leg.from.stop) > BOARDING_RADIUS_METERS
       && distanceToPathMeters(position, legPath(leg)) <= ON_PATH_METERS;
 
     const offPlan: OffPlanReason | null =
-      detectOffPlan(leg, position, nowMs, departure, bus, tracked === null) ??
+      detectOffPlan(leg, position, nowMs, departure, bus, true) ??
       (!ridingEarly && connectionBroken(live, legIndex, nowMs) ? 'missed-transfer' : null);
     if (offPlan) {
       return { ...quiet, phase: 'off-plan', legIndex, leg, stopsRemaining: null, timer: null, offPlan, progress };
@@ -392,7 +436,16 @@ export function resolveJourneyState(
         progress,
       };
     }
+    return ridingState(legIndex, leg, bus, { ridingEarly, boardedLegIndex: null });
+  }
 
+  /** On board: how many stops are left, and whether it is time to get off. */
+  function ridingState(
+    legIndex: number,
+    leg: TransitLeg,
+    bus: LiveBus | null,
+    extra: Pick<JourneyState, 'ridingEarly' | 'boardedLegIndex'>,
+  ): JourneyState {
     // The bus stands in for the rider only when the rider's own fix is weak
     // and the bus's report is fresh. Otherwise nothing changes from before:
     // any fix at all still counts, and no fix still falls back to the clock.
@@ -438,7 +491,7 @@ export function resolveJourneyState(
       phase: dueToAlight && !alreadyAcknowledged ? 'alight-soon' : 'riding',
       legIndex,
       leg,
-      ridingEarly,
+      ...extra,
       stopsRemaining,
       timer: { from: now.toISOString(), to: leg.to.arrivalTime, countsDown: true },
       stopsSource,
@@ -476,8 +529,10 @@ export function resolveJourneyState(
     }
 
     // A connection the server says is already lost is a missed transfer while
-    // walking to it, just as while riding towards it.
-    if (ridden && connectionBroken(live, ridden.legIndex, nowMs)) {
+    // walking to it, just as while riding towards it -- on the timetable only.
+    // Under GPS there is no such thing: the rider walks to the station and
+    // takes whichever run comes next.
+    if (tracked === null && ridden && connectionBroken(live, ridden.legIndex, nowMs)) {
       return {
         ...quiet,
         phase: 'off-plan',

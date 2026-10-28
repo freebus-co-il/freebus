@@ -1,6 +1,8 @@
-import type { Itinerary, Leg } from '@/api/types';
+import type { Itinerary, Leg, TransitLeg } from '@/api/types';
 import { haversineMeters } from '@/lib/geo';
 import { decodePolyline } from '@/lib/polyline';
+
+import { modeFamily, SAME_STATION_METERS } from './replan/backbone';
 
 type Point = { lat: number; lon: number };
 
@@ -50,14 +52,32 @@ export function distanceToPathMeters(point: Point, path: Point[]): number {
   return best;
 }
 
+/** Whether a ride runs on rails: a rail station is a building with
+ *  platforms, entrances and a concourse, not a pole on a pavement. */
+function isRail(leg: Leg | undefined): leg is TransitLeg {
+  return leg?.type === 'transit' && modeFamily(leg.route.type) === 'rail';
+}
+
+/**
+ * How close to the end of a walk counts as there. A walk to a rail station
+ * ends at the station's single point, often the far end of a platform the
+ * rider reaches through an entrance a couple of hundred metres away; standing
+ * in the concourse is being at the station. Reported from the field: inside
+ * HaShalom the journey still said "walk 8 min to HaShalom".
+ */
+export function arrivalRadiusMeters(legs: readonly Leg[], index: number): number {
+  return isRail(legs[index + 1]) ? SAME_STATION_METERS : AT_PLACE_RADIUS_METERS;
+}
+
 /**
  * Whether the rider has finished a leg: standing where it ends. For a ride,
  * that place also has to be the nearest of the ride's stops -- the stop
  * before it can sit inside the radius on a short hop, and being there is
  * still riding.
  */
-function hasFinished(leg: Leg, point: Point): boolean {
-  if (leg.type === 'walk') return haversineMeters(point, leg.to) <= AT_PLACE_RADIUS_METERS;
+function hasFinished(legs: readonly Leg[], index: number, point: Point): boolean {
+  const leg = legs[index]!;
+  if (leg.type === 'walk') return haversineMeters(point, leg.to) <= arrivalRadiusMeters(legs, index);
   const toAlight = haversineMeters(point, leg.to.stop);
   if (toAlight > AT_PLACE_RADIUS_METERS) return false;
   return [leg.from.stop, ...leg.intermediateStops].every((stop) => haversineMeters(point, stop) >= toAlight);
@@ -124,8 +144,41 @@ export function trackLegIndex(
   let index = previous === null
     ? place(legs, Math.min(Math.max(expected, 0), legs.length - 1), fix)
     : skipAhead(legs, previous, fix);
-  while (index < legs.length && hasFinished(legs[index]!, fix)) index += 1;
+  while (index < legs.length && hasFinished(legs, index, fix)) index += 1;
   return previous === null ? index : Math.max(previous, index);
+}
+
+/** Away from the boarding stop, in metres, before a fix on the route means
+ *  the rider is aboard rather than pacing the pavement. A rail station is
+ *  bigger, so it takes more. */
+export const LEFT_STOP_METERS = 150;
+export const LEFT_STATION_METERS = 300;
+/** A fix older than this is not evidence of anything happening now. */
+export const BOARDING_FIX_AGE_SECONDS = 120;
+/** Vaguer than this a fix cannot tell a platform from the next station. */
+export const BOARDING_FIX_MAX_ACCURACY_METERS = 500;
+
+/**
+ * Whether a fix proves the rider is aboard this ride: away from the boarding
+ * stop, and on the ride's route.
+ *
+ * GPS rather than the clock or the vehicle feed, because both of those lie
+ * here: Israeli trains and buses run late, a prediction can slide for a
+ * quarter of an hour, and a train standing at the platform jitters on both
+ * sides of the stop in the feed. Reported from the field: deep into the ride
+ * the journey still said the rider was waiting at HaShalom.
+ *
+ * A vague fix still counts when it is vague by less than it is far: a phone in
+ * a train carriage reporting 300 m accuracy two kilometres down the line is
+ * unambiguous, and that is exactly the phone this has to work for. Both
+ * thresholds therefore grow with the fix's own accuracy.
+ */
+export function hasLeftBoarding(leg: TransitLeg, fix: (Point & { accuracyMeters: number; at: string }) | null, nowMs: number): boolean {
+  if (!fix || fix.accuracyMeters > BOARDING_FIX_MAX_ACCURACY_METERS) return false;
+  if (nowMs - Date.parse(fix.at) > BOARDING_FIX_AGE_SECONDS * 1000) return false;
+  const away = Math.max(isRail(leg) ? LEFT_STATION_METERS : LEFT_STOP_METERS, fix.accuracyMeters);
+  if (haversineMeters(fix, leg.from.stop) <= away) return false;
+  return distanceToPathMeters(fix, legPath(leg)) <= Math.max(ON_PATH_METERS, fix.accuracyMeters);
 }
 
 /**

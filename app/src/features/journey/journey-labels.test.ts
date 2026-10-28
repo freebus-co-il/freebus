@@ -19,7 +19,8 @@ test('a missed transfer names the line being caught, not the one being ridden', 
 
 test('other divergences name the vehicle in play', () => {
   const journey = sampleJourney();
-  const state = resolveJourneyState(journey, { lat: 32.061, lon: 34.771, accuracyMeters: 10, at: '2026-08-31T10:13:00.000Z' }, at('2026-08-31T10:13:00.000Z'));
+  // A fix too old to track by, so the timetable still judges the journey.
+  const state = resolveJourneyState(journey, { lat: 32.061, lon: 34.771, accuracyMeters: 10, at: '2026-08-31T10:00:00.000Z' }, at('2026-08-31T10:13:00.000Z'));
   assert.equal(state.offPlan, 'missed-departure');
   assert.equal(offPlanLine(journey.itinerary, state)?.route.shortName, '480');
 });

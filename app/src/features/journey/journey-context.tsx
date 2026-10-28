@@ -645,8 +645,17 @@ function useJourneyState() {
     setPosition(fix);
     setJourney((current) => {
       if (!current) return current;
-      const reached = resolveJourneyState(current, fix, new Date(), settingsRef.current, liveRef.current).trackedLegIndex;
-      return reached !== null && (current.gpsLegIndex ?? -1) < reached ? { ...current, gpsLegIndex: reached } : current;
+      const resolved = resolveJourneyState(current, fix, new Date(), settingsRef.current, liveRef.current);
+      const reached = resolved.trackedLegIndex;
+      const boarded = resolved.boardedLegIndex;
+      const moved = reached !== null && (current.gpsLegIndex ?? -1) < reached;
+      const aboard = boarded !== null && (current.boardedLegIndex ?? -1) < boarded;
+      if (!moved && !aboard) return current;
+      return {
+        ...current,
+        ...(moved ? { gpsLegIndex: reached } : {}),
+        ...(aboard ? { boardedLegIndex: boarded } : {}),
+      };
     });
   }, []);
 
@@ -848,10 +857,10 @@ function useJourneyState() {
   useEffect(() => setRideFixListener(recordFix), [recordFix]);
 
   /**
-   * The ride tier: background location while at the stop and on the bus, so
-   * the Lock Screen keeps counting stops with the phone in a pocket. Off with
-   * the Lock Screen switch, since a stop count nobody can see is battery spent
-   * for nothing; the get-off alarm keeps its geofences either way.
+   * The ride tier: background location for the whole journey, so the Lock
+   * Screen follows the rider with the phone in a pocket. Off with the Lock
+   * Screen switch, since a surface nobody can see is battery spent for
+   * nothing; the get-off alarm keeps its geofences either way.
    */
   const ridePhase = state !== null && RIDE_PHASES.has(state.phase);
   const rideTracked = journeyId !== null && ridePhase && surfaceEnabled;
@@ -1130,6 +1139,11 @@ function useJourneyState() {
         ...(backbone !== undefined ? { backbone } : {}),
         gpsLegIndex: gps === null || gps === undefined ? gps : Math.min(gps, keepThroughLegIndex + 1),
         acknowledgedAlightLegIndex: acknowledged !== null && acknowledged > keepThroughLegIndex ? null : acknowledged,
+        // A boarding on a ride the re-plan replaced was a boarding of a ride
+        // that no longer exists.
+        boardedLegIndex: (journey.boardedLegIndex ?? null) !== null && journey.boardedLegIndex! > keepThroughLegIndex
+          ? null
+          : journey.boardedLegIndex ?? null,
       };
 
       setJourney(next);

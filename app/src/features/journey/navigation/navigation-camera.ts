@@ -36,6 +36,11 @@ export type NavigationCamera = FollowCamera | FrameCamera;
 export const FIX_FRESH_SECONDS = 5 * 60;
 /** A fix vaguer than this cannot be followed: the map would lurch between guesses. */
 export const FIX_MAX_ACCURACY_METERS = 80;
+/** On a vehicle the map is further out and the route keeps it steady, so a
+ *  carriage's vague fix is still worth following: a train's phone rarely does
+ *  better than a couple of hundred metres, and refusing it framed the whole
+ *  ride instead, which reads as the map not knowing where the rider is. */
+export const RIDE_FIX_MAX_ACCURACY_METERS = 300;
 
 /** On foot: close, and tilted to see the next corner coming. */
 const WALK_CAMERA = { pitch: 55, zoom: 18, altitude: 350 };
@@ -60,10 +65,14 @@ function toLatLng(point: Point): LatLng {
 }
 
 /** A fix fit to steer the map by: recent, and precise enough. */
-export function usableFix(fix: RiderPosition | null, now: Date): RiderPosition | null {
+export function usableFix(
+  fix: RiderPosition | null,
+  now: Date,
+  maxAccuracyMeters: number = FIX_MAX_ACCURACY_METERS,
+): RiderPosition | null {
   if (!fix) return null;
   const ageSeconds = (now.getTime() - new Date(fix.at).getTime()) / 1000;
-  return ageSeconds <= FIX_FRESH_SECONDS && fix.accuracyMeters <= FIX_MAX_ACCURACY_METERS ? fix : null;
+  return ageSeconds <= FIX_FRESH_SECONDS && fix.accuracyMeters <= maxAccuracyMeters ? fix : null;
 }
 
 function frameLeg(itinerary: Itinerary, legIndex: number, extra: Point[] = []): FrameCamera | null {
@@ -108,7 +117,7 @@ export function navigationCamera(input: NavigationCameraInput): NavigationCamera
     return frameLeg(itinerary, state.legIndex, [leg.from.stop, ...(fix ? [fix] : []), ...(bus ? [bus] : [])]);
   }
 
-  const anchor: Point | null = fix ?? bus;
+  const anchor: Point | null = usableFix(input.fix, now, RIDE_FIX_MAX_ACCURACY_METERS) ?? bus;
   if (!anchor) return frameLeg(itinerary, state.legIndex);
   const path = legPath(leg);
   const cumulative = cumulativeMeters(path);
