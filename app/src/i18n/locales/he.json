@@ -381,7 +381,15 @@
       "offerBody": "קו {{line}} יביא אתכם ליעד ב-{{time}}",
       "offerAccept": "החלפת מסלול",
       "offerKeep": "המשך המתנה",
-      "stuck": "לא נמצא מסלול כרגע. ממשיך לחפש…"
+      "stuck": "לא נמצא מסלול כרגע. ממשיך לחפש…",
+      "boardFrom": "היציאות הבאות מ{{name}}",
+      "afterIt": "אחריו",
+      "offAt": "ירידה ב{{name}}",
+      "rideMinutes_one": "דקת נסיעה",
+      "rideMinutes_two": "{{count}} דק׳ נסיעה",
+      "rideMinutes_many": "{{count}} דק׳ נסיעה",
+      "rideMinutes_other": "{{count}} דק׳ נסיעה",
+      "now": "עכשיו"
     },
     "menu": {
       "more": "עוד אפשרויות"
