@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What is left after the journey's copy moved to where i18n lives.
+
+  Every word the notification SAYS about a journey now arrives already
+  resolved through react-i18next, in `JourneySurfaceCopyRecord`. What remains
+  here is the chrome around it: two channel names the rider meets in Android's
+  own settings screens before any journey exists, and the label on a button.
+  None of them mirror a `journey.*` key, so there is nothing left to drift.
+-->
+<resources>
+  <string name="live_journey_channel_ongoing">Active journey</string>
+  <string name="live_journey_channel_ongoing_description">The rail, the countdown, and the status-bar chip while a journey is running.</string>
+  <string name="live_journey_channel_alert">Get off alerts</string>
+  <string name="live_journey_channel_alert_description">Wakes you in time to get off at your stop.</string>
+
+  <!-- The notification action, which Android renders and reads out itself.
+       It cannot come over the bridge with the rest: the action is attached to
+       a notification the foreground service may rebuild with no JS runtime
+       alive to ask. -->
+  <string name="live_journey_got_it">Got it</string>
+</resources>

@@ -1,0 +1,73 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/gtfs"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    # The Expo SDK pins these to versions it has tested together, so bumping
+    # one on its own breaks peer deps or the lockfile. Move them as a set with
+    # `npx expo install --fix` during an SDK upgrade instead.
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "@types/react"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-web"
+      - dependency-name: "react-native-reanimated"
+      - dependency-name: "react-native-worklets"
+      - dependency-name: "react-native-screens"
+      - dependency-name: "react-native-safe-area-context"
+      - dependency-name: "react-native-svg"
+      - dependency-name: "react-native-gesture-handler"
+      - dependency-name: "react-native-maps"
+      - dependency-name: "@react-native-async-storage/async-storage"
+      - dependency-name: "@react-native-community/datetimepicker"
+      - dependency-name: "@sentry/react-native"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

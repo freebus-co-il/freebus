@@ -1,0 +1,45 @@
+# TLS termination and edge-cache headers for the API.
+#
+# Caddy gets a certificate from Let's Encrypt on its own, and renews it on its
+# own. Nothing here needs a cron job or a certbot.
+#
+# If Cloudflare's orange cloud is ON for this record, Cloudflare terminates TLS
+# at its edge and talks to this origin over its own connection -- so Caddy's
+# certificate is what makes that hop encrypted rather than what the browser
+# sees. Set Cloudflare's SSL mode to "Full (strict)"; "Flexible" would make the
+# Cloudflare-to-origin hop plaintext over the public internet.
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# The browse endpoints answer from the feed, which changes once a day when
+	# gtfs runs. Without this every request crosses all the way to the origin
+	# box -- with it, Cloudflare serves repeats from an edge near the rider,
+	# which on a $5 box is the difference between "flat cost" and "flat cost
+	# until it gets popular".
+	#
+	# Deliberately NOT applied to /plan: a journey search is a function of the
+	# time it was asked at, so a cached one is a wrong one.
+	@browse path /stops* /routes* /trips* /lines* /agencies* /modes* /meta
+	header @browse Cache-Control "public, max-age=300, s-maxage=3600"
+
+	# Never cached: /plan and /stops/*/departures are time-dependent, and
+	# departures in particular is the endpoint a rider refreshes precisely
+	# because they want a NEW answer.
+	#
+	# /geocode is here for a different reason: with GEOCODER=google every
+	# search carries the rider's billing session token, and a cached answer
+	# served to someone else would bill their pick against the wrong session.
+	@live path /plan* /stops/*/departures* /journey-check* /segments* /geocode*
+	header @live Cache-Control "no-store"
+
+	# The admin reload endpoint is authenticated (TRANSIT_ADMIN_TOKEN) but has
+	# no business being reachable from the internet at all.
+	@admin path /admin*
+	respond @admin 404
+
+	reverse_proxy api:3100 {
+		health_uri /health
+		health_interval 30s
+	}
+}

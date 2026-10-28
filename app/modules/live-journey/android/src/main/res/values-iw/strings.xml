@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android resolves a Hebrew locale to the legacy `iw` qualifier, so
+     `values-he` would never be selected. Only the chrome lives here now; the
+     journey's own copy comes from src/i18n/locales/he.json over the bridge. -->
+<resources>
+  <string name="live_journey_channel_ongoing">מסלול פעיל</string>
+  <string name="live_journey_channel_ongoing_description">המסלול, הספירה לאחור והשבב בשורת הסטטוס בזמן נסיעה.</string>
+  <string name="live_journey_channel_alert">התראות ירידה</string>
+  <string name="live_journey_channel_alert_description">מעירות אתכם בזמן כדי לרדת בתחנה שלכם.</string>
+
+  <string name="live_journey_got_it">הבנתי</string>
+</resources>

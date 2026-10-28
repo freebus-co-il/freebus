@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The app resolves under Expo's `react-native` export condition, which has
+    // no answer for `node:test`/`node:assert` -- those exist only in the Node
+    // process that runs the tests. Resolving these files as plain Node is what
+    // lets a test import both the Node builtins and the `@/`-aliased module it
+    // is testing.
+    "moduleResolution": "node16",
+    "module": "node16",
+    "customConditions": null,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.test.ts"],
+  "exclude": ["node_modules"]
+}

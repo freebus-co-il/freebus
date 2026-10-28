@@ -1,0 +1,26 @@
+{
+  "Siri": {
+    "ServiceDelivery": {
+      "ResponseTimestamp": "2026-09-10T08:30:00+03:00",
+      "ProducerRef": "Moran",
+      "ResponseMessageIdentifier": "ec4c0e6b-61ca-4cd5-8a7b-5fa912ac5dc5",
+      "RequestMessageRef": "1789018200033",
+      "Status": "true",
+      "StopMonitoringDelivery": [
+        {
+          "-version": "2.8",
+          "ResponseTimestamp": "2026-09-10T08:30:00+03:00",
+          "Status": "true",
+          "MonitoredStopVisit": [
+            {"RecordedAtTime": "2026-09-10T08:29:27+03:00", "MonitoredVehicleJourney": {"LineRef": "17633", "FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "47898682"}, "OperatorRef": "24", "OriginAimedDepartureTime": "2026-09-10T07:45:00+03:00", "VehicleLocation": {"Longitude": "35.665073", "Latitude": "33.24385"}, "Bearing": "215", "Velocity": "90", "VehicleRef": "23463902", "MonitoredCall": {"StopPointRef": "52888", "Order": "16", "DistanceFromStop": "36336"}}},
+            {"RecordedAtTime": "2026-09-10T08:29:34+03:00", "MonitoredVehicleJourney": {"LineRef": "17379", "FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "0"}, "OperatorRef": "18", "OriginAimedDepartureTime": "2026-09-10T08:27:00+03:00", "VehicleLocation": {"Longitude": "34.978878", "Latitude": "32.476627"}, "Bearing": "68", "Velocity": "29", "VehicleRef": "30688103", "MonitoredCall": {"StopPointRef": "40826", "Order": "1", "DistanceFromStop": "0"}}},
+            {"RecordedAtTime": "2026-09-10T08:29:32+03:00", "MonitoredVehicleJourney": {"LineRef": "43484", "FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "626"}, "OperatorRef": "2", "OriginAimedDepartureTime": "2026-09-10T07:12:00+03:00", "Bearing": "0", "Velocity": "0", "VehicleRef": "626", "MonitoredCall": {"StopPointRef": "17096", "Order": "8", "DistanceFromStop": "0"}}},
+            {"RecordedAtTime": "2026-09-10T07:42:34+03:00", "MonitoredVehicleJourney": {"LineRef": "17379", "FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "0"}, "OperatorRef": "18", "OriginAimedDepartureTime": "2026-09-10T07:40:00+03:00", "VehicleLocation": {"Longitude": "34.919559", "Latitude": "32.506637"}, "Bearing": "102", "Velocity": "11", "VehicleRef": "72870102", "MonitoredCall": {"StopPointRef": "40826", "Order": "1", "DistanceFromStop": "0"}}},
+            {"RecordedAtTime": "2026-09-10T08:29:27+03:00", "MonitoredVehicleJourney": {"FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "47898682"}, "OperatorRef": "24", "OriginAimedDepartureTime": "2026-09-10T07:45:00+03:00", "VehicleLocation": {"Longitude": "35.665073", "Latitude": "33.24385"}, "Bearing": "215", "Velocity": "90", "VehicleRef": "23463902", "MonitoredCall": {"StopPointRef": "52888", "Order": "16", "DistanceFromStop": "36336"}}},
+            {"RecordedAtTime": "2026-09-10T08:29:27+03:00", "MonitoredVehicleJourney": {"LineRef": "17633", "FramedVehicleJourneyRef": {"DataFrameRef": "2026-09-10", "DatedVehicleJourneyRef": "47898682"}, "OperatorRef": "24", "OriginAimedDepartureTime": "2026-09-10T07:45:00+03:00", "VehicleLocation": {"Longitude": "35.665073", "Latitude": "33.24385"}, "Bearing": "215", "Velocity": "90", "MonitoredCall": {"StopPointRef": "52888", "Order": "16", "DistanceFromStop": "36336"}}}
+          ]
+        }
+      ]
+    }
+  }
+}

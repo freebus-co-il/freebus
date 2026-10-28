@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 20.1.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "environment": "development",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview",
+      "environment": "preview",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "environment": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6818839188"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}

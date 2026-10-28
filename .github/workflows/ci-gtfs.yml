@@ -1,0 +1,35 @@
+name: CI (gtfs)
+
+# One workflow per package so a change only runs the checks it can affect.
+# The packages are independent (separate lockfiles, no cross-imports -- see
+# the root package.json), so an app-only change has nothing to prove in api
+# or gtfs. Markdown never reaches typecheck, lint or tests.
+on:
+  pull_request:
+    paths:
+      - "gtfs/**"
+      - "!gtfs/**/*.md"
+      - .github/workflows/ci-gtfs.yml
+  push:
+    branches: [main]
+    paths:
+      - "gtfs/**"
+      - "!gtfs/**/*.md"
+      - .github/workflows/ci-gtfs.yml
+
+permissions:
+  contents: read
+
+jobs:
+  gtfs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gtfs/package-lock.json
+      - run: npm --prefix gtfs ci
+      - run: npm --prefix gtfs run typecheck
+      - run: npm --prefix gtfs test

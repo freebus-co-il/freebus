@@ -1,0 +1,49 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "api"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "gtfs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "gtfs"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "web",
+        "--prefix",
+        "app"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "app-native",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--prefix",
+        "app"
+      ],
+      "port": 8081
+    }
+  ]
+}
