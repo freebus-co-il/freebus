@@ -31,6 +31,9 @@ export interface DestinationStop {
    *  walk is long, and a street-level route for every candidate stop would
    *  cost a Valhalla call per row of the board. */
   walkMeters: number;
+  /** The stop's raw `stop_name`, for the caller to translate. Optional so a
+   *  caller building one by hand need not invent a name. */
+  name?: string | null;
 }
 
 /**
@@ -49,18 +52,19 @@ export function destinationStops(
   // The R*Tree gives a rectangle; the exact circle is applied below. The
   // rectangle is always a superset, so nothing inside the radius is lost.
   const rows = db.prepare(`
-    SELECT stop_id, stop_lat, stop_lon FROM stops
+    SELECT stop_id, stop_name, stop_lat, stop_lon FROM stops
     WHERE stop_ref IN (
       SELECT stop_ref FROM stops_rtree
       WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?
     )
   `).all(box.minLat, box.maxLat, box.minLon, box.maxLon) as
-    { stop_id: string; stop_lat: number; stop_lon: number }[];
+    { stop_id: string; stop_name: string | null; stop_lat: number; stop_lon: number }[];
 
   return rows
     .map((row) => ({
       stopId: row.stop_id,
       walkMeters: Math.round(haversineMeters([opts.lat, opts.lon], [row.stop_lat, row.stop_lon])),
+      name: row.stop_name,
     }))
     .filter((stop) => stop.walkMeters <= radius)
     .sort((a, b) => a.walkMeters - b.walkMeters);

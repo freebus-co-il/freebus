@@ -88,6 +88,11 @@ interface PublicDestination {
   arrivalTime: string;
   /** Scheduled seconds on board -- see `Reach.rideSeconds`. */
   rideSeconds: number;
+  /** The stop's name in the asked language, so a board of several lines that
+   *  each set the rider down somewhere different around the destination can
+   *  say where, without a lookup per row. Null while the timetable index is
+   *  still building, or for a stop with no name. */
+  name: string | null;
 }
 
 function toPublicDeparture(d: Departure, realtime: DepartureRealtime): PublicDeparture {
@@ -296,6 +301,7 @@ function unscheduledDepartures(
  */
 function reachingDestination(
   board: readonly PublicDeparture[], reach: Map<string, Reach>, tz: string,
+  nameOf: (stopId: string) => string | null,
 ): PublicDeparture[] {
   const out: PublicDeparture[] = [];
   for (const d of board) {
@@ -312,6 +318,7 @@ function reachingDestination(
         walkMeters: hit.walkMeters,
         rideSeconds: hit.rideSeconds,
         arrivalTime: toIso(Math.round(boardableEpoch(d)) + hit.rideSeconds, tz),
+        name: nameOf(hit.stopId),
       },
     });
   }
@@ -439,6 +446,7 @@ export const departureRoutes: FastifyPluginAsync = async (app) => {
         destStops,
       }),
       config.timezone,
+      (id) => app.translator.resolve(destStops.find((stop) => stop.stopId === id)?.name ?? null, lang),
     );
 
     // Applied AFTER the merge -- and after the destination filter -- so a
