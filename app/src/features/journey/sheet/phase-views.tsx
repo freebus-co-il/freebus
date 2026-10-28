@@ -1,26 +1,30 @@
 import type { ReactNode } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Itinerary, Place, TransitLeg } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
-import { Border, Button, Chip, Icon, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
+import { Border, Button, Icon, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
-import { laterOptions } from '@/features/trip/line-options';
+import { formatHeadsign } from '@/features/results/itinerary-facts';
 import { formatClockTime } from '@/lib/format';
 import { haversineMeters } from '@/lib/geo';
 import { routeColor } from '@/lib/route-color';
 
 import { minutesLeft, nextTransitAfter, stopName, vehicleInPlay } from '../journey-labels';
-import type { Backbone } from '../replan/backbone';
+import type { StationRun } from '../station-board';
 import type { JourneyState, RiderPosition } from '../types';
 import { BusSign } from './bus-sign';
-import { alsoLines, stopLadder, walkVerdict } from './sheet-copy';
+import { stopLadder, walkVerdict } from './sheet-copy';
 
 /** A city walk at a rider's pace, with the corners a straight line ignores. */
 const WALK_METERS_PER_SECOND = 1.2;
 const WALK_DETOUR = 1.3;
+/** Runs listed under the one coming first: enough to weigh "first" against
+ *  "faster" and "closer", few enough to read at a glance. */
+const MORE_RUNS = 3;
 
 function minutesUntil(iso: string, nowMs: number): number {
   return Math.max(0, Math.round((Date.parse(iso) - nowMs) / 60_000));
@@ -110,35 +114,61 @@ export function WalkingView({ state, itinerary, position, transfer }: {
   );
 }
 
-/** At the stop. "Is this my bus?" */
-export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchLine }: {
-  state: JourneyState; leg: TransitLeg; candidates: readonly Itinerary[]; nowMs: number; backbone: Backbone | null;
+/** What a run on the board is, in a few words: where it sets the rider down
+ *  and the walk from there on the last ride, the arrival before it. */
+function runDetail(run: StationRun, final: boolean, t: TFunction): string {
+  const parts: string[] = [];
+  if (final) {
+    if (run.alight.name) parts.push(t('journey.sheet.offAt', { name: run.alight.name }));
+    if (run.alight.walkMeters !== null) {
+      const walkMinutes = Math.max(1, Math.round((run.alight.walkMeters * WALK_DETOUR) / WALK_METERS_PER_SECOND / 60));
+      parts.push(t('journey.sheet.walkMinutes', { count: walkMinutes }));
+    }
+    parts.push(t('journey.sheet.rideMinutes', { count: Math.max(1, Math.round(run.rideSeconds / 60)) }));
+  }
+  parts.push(t('journey.sheet.arriveAt', { time: formatClockTime(run.arrives) }));
+  return parts.join(' · ');
+}
+
+/** "in 4 min", or the clock time, by the rider's own preference. */
+function departsLabel(iso: string, nowMs: number, timeFormat: string, t: TFunction): string {
+  if (timeFormat === 'clock') return t('journey.sheet.alsoAt', { time: formatClockTime(iso) });
+  const minutes = minutesUntil(iso, nowMs);
+  return minutes <= 0 ? t('journey.sheet.now') : t('journey.sheet.alsoIn', { count: minutes });
+}
+
+/**
+ * At the station: "which one do I take?"
+ *
+ * The station's board cut to the runs that make this step (see
+ * `station-board.ts`): the one coming first as the hero, the ones after it
+ * beneath. On the last ride every line that stops near the destination is
+ * there, each with where it sets the rider down, the walk from there, the ride
+ * and the arrival, so "comes first but slow" can be weighed against "a few
+ * minutes later but faster and closer". Nothing is chosen for the rider: the
+ * journey follows whichever they get on.
+ */
+export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
+  state: JourneyState; leg: TransitLeg; runs: readonly StationRun[]; final: boolean; nowMs: number;
   onSwitchLine: (() => void) | null;
 }) {
   const { t } = useTranslation();
   const { timeFormat } = usePreferences();
+  const colors = useColors();
   const minutes = minutesLeft(state.timer);
-  // The next run of this same line AFTER the one coming -- by live times, so a
-  // late bus is not followed by a "next" that already left before it.
-  const heroDeparts = Date.parse(leg.realtime?.predictedDeparture ?? leg.from.departureTime);
-  const nextRun = laterOptions(leg).find((option) =>
-    option.route.shortName === leg.route.shortName &&
-    Date.parse(option.realtime?.predictedDeparture ?? option.from.departureTime) > heroDeparts);
-  const others = alsoLines(leg, candidates, nowMs, backbone);
-  const where = [
-    state.busStopsAway !== null ? t('journey.sheet.busStopsAway', { count: state.busStopsAway }) : null,
-    nextRun ? t('journey.sheet.nextRun', { time: formatClockTime(nextRun.realtime?.predictedDeparture ?? nextRun.from.departureTime) }) : null,
-  ].filter((part): part is string => part !== null).join(' · ');
+  const hero = runs.find((run) => run.tripId === leg.tripId) ?? null;
+  const others = runs.filter((run) => run.tripId !== leg.tripId).slice(0, MORE_RUNS);
+  const where = state.busStopsAway !== null ? t('journey.sheet.busStopsAway', { count: state.busStopsAway }) : null;
 
   return (
     <View style={styles.block}>
       <View style={styles.row}>
         <View style={styles.grow}>
-          <Kicker>{t('journey.sheet.waitingFor')}</Kicker>
+          <Kicker>{t('journey.sheet.boardFrom', { name: stopName(leg.from.stop, t) })}</Kicker>
         </View>
         {onSwitchLine && <SwitchLineLink onPress={onSwitchLine} />}
       </View>
-      <BusSign route={leg.route} headsign={leg.headsign} />
+      <BusSign route={leg.route} headsign={leg.headsign} tripNumber={leg.tripNumber ?? null} />
       <Hero live={state.timeSource === 'live'}>
         {minutes <= 0
           ? t('journey.sheet.arrivingNow')
@@ -146,26 +176,35 @@ export function WaitingView({ state, leg, candidates, nowMs, backbone, onSwitchL
             ? t('journey.sheet.arrivingAt', { time: formatClockTime(state.timer.to) })
             : t('journey.sheet.arrivingIn', { count: minutes })}
       </Hero>
-      {where !== '' && <Text variant="subheadline" color="textSecondary" numeric>{where}</Text>}
+      <Text variant="subheadline" color="textSecondary" numeric numberOfLines={2}>
+        {[where, hero ? runDetail(hero, final, t) : null].filter(Boolean).join(' · ')}
+      </Text>
       {others.length > 0 && (
-        <View style={styles.wrapRow}>
-          <Text variant="subheadline" color="textSecondary">{t('journey.sheet.or')}</Text>
-          {others.map((line) => (
-            <View key={line.tripId} style={styles.row}>
-              <LineBadge route={line.route} size="small" />
-              <Text variant="subheadline" color="textSecondary" numeric>
-                {timeFormat === 'clock'
-                  ? t('journey.sheet.alsoAt', { time: formatClockTime(line.departureTime) })
-                  : t('journey.sheet.alsoIn', { count: minutesUntil(line.departureTime, nowMs) })}
-              </Text>
+        <View style={styles.runs}>
+          <Kicker>{t('journey.sheet.afterIt')}</Kicker>
+          {others.map((run) => (
+            <View key={run.key} style={styles.runRow}>
+              <LineBadge route={{ ...run.route, shortName: run.route.shortName ?? '' }} size="small" />
+              <View style={styles.grow}>
+                <Text variant="callout" emphasized numberOfLines={1}>
+                  {run.route.shortName?.trim()
+                    ? formatHeadsign(run.headsign)
+                    : run.tripNumber
+                      ? `${t('results.trainNumber', { number: run.tripNumber })} · ${formatHeadsign(run.headsign)}`
+                      : formatHeadsign(run.headsign)}
+                </Text>
+                <Text variant="footnote" color="textSecondary" numeric numberOfLines={1}>
+                  {runDetail(run, final, t)}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                {run.live && <LiveIndicator color={colors.live} size={Size.icon.sm} />}
+                <Text variant="callout" emphasized numeric>{departsLabel(run.departs, nowMs, timeFormat, t)}</Text>
+              </View>
             </View>
           ))}
         </View>
       )}
-      <View style={styles.chips}>
-        <Chip variant="info" icon="pin" label={stopName(leg.from.stop, t)} />
-        <Chip variant="info" label={t('journey.sheet.rideStops', { count: leg.numStops })} />
-      </View>
     </View>
   );
 }
@@ -325,6 +364,8 @@ const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm, flexWrap: 'wrap' },
   grow: { flex: 1 },
   chips: { flexDirection: 'row', gap: Space.sm, flexWrap: 'wrap', marginTop: Space.xs },
+  runs: { gap: Space.sm, marginTop: Space.xs },
+  runRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   ladder: { marginTop: Space.xs, gap: Space.sm, paddingStart: Space.xs },
   rail: { position: 'absolute', start: Space.xs + DOT / 2 - 2, top: Space.sm, bottom: Space.sm, width: 4, borderRadius: Radius.xs },
   ladderRow: { flexDirection: 'row', alignItems: 'center', gap: Space.md },

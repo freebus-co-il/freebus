@@ -51,7 +51,7 @@ function state(phase: JourneyPhase, legIndex: number): JourneyState {
   return {
     phase, legIndex, leg: leg?.type === 'transit' ? leg : null, stopsRemaining: null, timer: null, offPlan: null,
     progress: 0.3, timeSource: 'scheduled', busStopsAway: null, stopsSource: null, nextStopName: null,
-    arrivalTime: t(60), trackedLegIndex: null, ridingEarly: false,
+    arrivalTime: t(60), trackedLegIndex: null, boardedLegIndex: null, ridingEarly: false,
   };
 }
 const fix = (iso: string, accuracyMeters = 10): RiderPosition => ({ lat: 32.001, lon: 34.8, accuracyMeters, at: iso });
@@ -63,12 +63,13 @@ test('riding origin is the alighting stop at the live arrival', () => {
   assert.deepEqual(replanOriginFor(state('riding', 1), live, fix(t(20)), ms(20)), { from: 'stop:b', departAfter: t(33), keepThroughLegIndex: 1 });
 });
 
-test('waiting origin uses a fresh fix, else the boarding stop', () => {
-  assert.deepEqual(replanOriginFor(state('waiting', 1), current, fix(t(8)), ms(8)), { from: '32.001,34.8', keepThroughLegIndex: 0 });
-  assert.deepEqual(replanOriginFor(state('waiting', 1), current, fix(t(6)), ms(8)), { from: 'stop:a', keepThroughLegIndex: 0 });
-  assert.deepEqual(replanOriginFor(state('waiting', 1), current, fix(t(8), 300), ms(8)), { from: 'stop:a', keepThroughLegIndex: 0 });
+test('waiting keeps the ride waited for and plans on from its alighting stop', () => {
+  // At the station the run is the station board's to follow, never the
+  // planner's to swap.
+  assert.deepEqual(replanOriginFor(state('waiting', 1), current, fix(t(8)), ms(8)), {
+    from: 'stop:b', departAfter: t(30), keepThroughLegIndex: 1,
+  });
 });
-
 
 test('no origin once arriving', () => {
   assert.equal(replanOriginFor(state('arriving', 3), current, fix(t(56)), ms(56)), null);

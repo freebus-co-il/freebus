@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -7,8 +8,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useTranslation } from 'react-i18next';
 import { Alert, AppState, Platform } from 'react-native';
 
+import { apiGet } from '@/api/client';
 import { useRealtimeAvailable } from '@/api/meta';
-import type { Itinerary, Place } from '@/api/types';
+import type { Itinerary, Place, TripDetail } from '@/api/types';
 import { useColors } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { useSearch } from '@/features/search/search-context';
@@ -33,7 +35,7 @@ import { journeyEndsAt, resolveJourneyState } from './journey-machine';
 import { reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
 import { legToAcknowledge } from './replan/apply';
-import type { Backbone } from './replan/backbone';
+import { sameStation, stationOf, type Backbone } from './replan/backbone';
 import { withBackbone } from './replan/restore';
 import { useLiveReplan } from './replan/use-live-replan';
 import {
@@ -46,6 +48,8 @@ import { RIDE_PHASES, setRideFixListener, startRideUpdates, stopRideUpdates } fr
 import { pip, useJourneyPipPosition, useJourneyVisible } from './pip';
 import { surfaceCopy } from './surface-copy';
 import { sameFacts, surfaceFacts, type SurfaceFacts } from './surface-facts';
+import { boardedRun, legFromRun, runToFollow, withRun, type StationRun } from './station-board';
+import { useStationBoard } from './use-station-board';
 import { countEvent } from '@/lib/analytics';
 import { formatClockTime } from '@/lib/format';
 import { hapticSucceeded, hapticWarned } from '@/lib/haptics';
@@ -645,8 +649,17 @@ function useJourneyState() {
     setPosition(fix);
     setJourney((current) => {
       if (!current) return current;
-      const reached = resolveJourneyState(current, fix, new Date(), settingsRef.current, liveRef.current).trackedLegIndex;
-      return reached !== null && (current.gpsLegIndex ?? -1) < reached ? { ...current, gpsLegIndex: reached } : current;
+      const resolved = resolveJourneyState(current, fix, new Date(), settingsRef.current, liveRef.current);
+      const reached = resolved.trackedLegIndex;
+      const boarded = resolved.boardedLegIndex;
+      const moved = reached !== null && (current.gpsLegIndex ?? -1) < reached;
+      const aboard = boarded !== null && (current.boardedLegIndex ?? -1) < boarded;
+      if (!moved && !aboard) return current;
+      return {
+        ...current,
+        ...(moved ? { gpsLegIndex: reached } : {}),
+        ...(aboard ? { boardedLegIndex: boarded } : {}),
+      };
     });
   }, []);
 
@@ -848,10 +861,10 @@ function useJourneyState() {
   useEffect(() => setRideFixListener(recordFix), [recordFix]);
 
   /**
-   * The ride tier: background location while at the stop and on the bus, so
-   * the Lock Screen keeps counting stops with the phone in a pocket. Off with
-   * the Lock Screen switch, since a stop count nobody can see is battery spent
-   * for nothing; the get-off alarm keeps its geofences either way.
+   * The ride tier: background location for the whole journey, so the Lock
+   * Screen follows the rider with the phone in a pocket. Off with the Lock
+   * Screen switch, since a surface nobody can see is battery spent for
+   * nothing; the get-off alarm keeps its geofences either way.
    */
   const ridePhase = state !== null && RIDE_PHASES.has(state.phase);
   const rideTracked = journeyId !== null && ridePhase && surfaceEnabled;
@@ -1130,6 +1143,11 @@ function useJourneyState() {
         ...(backbone !== undefined ? { backbone } : {}),
         gpsLegIndex: gps === null || gps === undefined ? gps : Math.min(gps, keepThroughLegIndex + 1),
         acknowledgedAlightLegIndex: acknowledged !== null && acknowledged > keepThroughLegIndex ? null : acknowledged,
+        // A boarding on a ride the re-plan replaced was a boarding of a ride
+        // that no longer exists.
+        boardedLegIndex: (journey.boardedLegIndex ?? null) !== null && journey.boardedLegIndex! > keepThroughLegIndex
+          ? null
+          : journey.boardedLegIndex ?? null,
       };
 
       setJourney(next);
@@ -1166,6 +1184,98 @@ function useJourneyState() {
   const replan = useLiveReplan({
     journey, state, live, position, destination: replanTo, lang: i18n.language, replaceItinerary,
   });
+
+  // --- The station board ----------------------------------------------------
+  // A journey is its stations: at each one the rider takes whichever run makes
+  // the step, and the ride follows it (see `station-board.ts`).
+  const board = useStationBoard(journey, state, now);
+  const queryClient = useQueryClient();
+  const latestJourney = useRef(journey);
+  const latestReplace = useRef(replaceItinerary);
+  useEffect(() => {
+    latestJourney.current = journey;
+    latestReplace.current = replaceItinerary;
+  }, [journey, replaceItinerary]);
+
+  /**
+   * Puts a run from the station board on a ride: its own stops and times, and
+   * the walk after it when it sets the rider down somewhere else. True when
+   * the journey now rides it. Everything the OS holds is re-armed by
+   * `replaceItinerary`; the rides before this one, and the boarding GPS has
+   * seen on this one, are kept.
+   */
+  const adoptRun = useCallback(async (legIndex: number, run: StationRun): Promise<boolean> => {
+    const before = latestJourney.current;
+    const planned = before?.itinerary.legs[legIndex];
+    if (!before || planned?.type !== 'transit') return false;
+    if (planned.tripId === run.tripId && planned.to.stop.stopId === run.alight.stopId) return true;
+    let trip: TripDetail;
+    try {
+      trip = await queryClient.fetchQuery({
+        queryKey: ['trip', run.tripId, i18n.language],
+        queryFn: () => apiGet<TripDetail>(`/trips/${run.tripId}`, { lang: i18n.language }),
+        staleTime: 5 * 60_000,
+      });
+    } catch {
+      return false;
+    }
+    // Dropped if the journey moved on while the trip was being read.
+    const current = latestJourney.current;
+    if (!current || current.id !== before.id || current.itinerary !== before.itinerary) return false;
+    const leg = legFromRun(run, trip, planned);
+    if (!leg) return false;
+    // The ride the trip was chosen for keeps being that ride, now to wherever
+    // this run sets the rider down (a different stop near home, on the last
+    // ride), so later re-plans do not read it as broken.
+    const backbone = current.backbone ?? null;
+    const isBackbone = backbone !== null
+      && sameStation(stationOf(planned.from.stop), backbone.board)
+      && sameStation(stationOf(planned.to.stop), backbone.alight);
+    await latestReplace.current(
+      withRun(current.itinerary, legIndex, leg),
+      legIndex,
+      isBackbone ? { backbone: { ...backbone, alight: stationOf(leg.to.stop) } } : {},
+    );
+    return true;
+  }, [queryClient]);
+
+  // Waiting at the station, the ride follows the board: when its run is no
+  // longer on it (it left, or was never coming), whatever comes next takes
+  // over. Only once GPS has the rider at the station; a journey on the
+  // timetable has no evidence of where they are. A run that cannot be read is
+  // not tried again on every tick.
+  const followingRun = useRef<string | null>(null);
+  const unadoptable = useRef(new Set<string>());
+  useEffect(() => {
+    if (!journey || !state?.leg || state.phase !== 'waiting' || state.trackedLegIndex !== state.legIndex) return;
+    if (board.legIndex !== state.legIndex) return;
+    const run = runToFollow(state.leg, board.runs.filter((each) => !unadoptable.current.has(each.key)), Date.now());
+    if (!run || followingRun.current !== null) return;
+    followingRun.current = run.key;
+    void adoptRun(state.legIndex, run)
+      .then((adopted) => {
+        if (!adopted) unadoptable.current.add(run.key);
+      })
+      .finally(() => {
+        followingRun.current = null;
+      });
+  }, [journey, state, board, adoptRun]);
+
+  // Just boarded, by GPS, while the ride's run is not due yet: the rider got
+  // on an earlier run (or a late one that already dropped off the board).
+  // Named from the runs the board showed, once per ride; the planner's own
+  // earlier runs of the same line are left to the early-run swap below.
+  const namedOnBoarding = useRef<string | null>(null);
+  useEffect(() => {
+    if (!journey || !state?.leg || (state.phase !== 'riding' && state.phase !== 'alight-soon')) return;
+    if (state.boardedLegIndex !== state.legIndex || board.legIndex !== state.legIndex) return;
+    const key = `${journey.id}:${state.legIndex}`;
+    if (namedOnBoarding.current === key) return;
+    namedOnBoarding.current = key;
+    if (boardedEarlierRun(state.leg, Date.now()) !== null) return;
+    const run = boardedRun(state.leg, board.seen, Date.now());
+    if (run) void adoptRun(state.legIndex, run);
+  }, [journey, state, board, adoptRun]);
 
   /**
    * The rider saying which bus they are actually on.
@@ -1328,7 +1438,7 @@ function useJourneyState() {
 
   return {
     journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replan, replanFromHere, end,
-    pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
+    board, adoptRun, pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
   };
 }
 

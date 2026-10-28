@@ -12,7 +12,7 @@ function state(to: string | null, overrides: Partial<JourneyState> = {}): Journe
     phase: 'waiting', legIndex: 1, leg: null, stopsRemaining: null,
     timer: to ? { from: '2026-08-31T10:00:00.000Z', to, countsDown: true } : null,
     offPlan: null, progress: 0.2, timeSource: 'live', busStopsAway: 3, stopsSource: null,
-    nextStopName: null, arrivalTime: '2026-08-31T10:35:00.000Z', trackedLegIndex: null,
+    nextStopName: null, arrivalTime: '2026-08-31T10:35:00.000Z', trackedLegIndex: null, boardedLegIndex: null,
     ridingEarly: false, ...overrides,
   };
 }

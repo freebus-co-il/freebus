@@ -93,7 +93,8 @@ test('the get-off moment turns the window orange and names the stop', () => {
 });
 
 test('off plan is red and points back into the app', () => {
-  const m = model(resolveJourneyState(journey, fix(32.061, 34.771, '2026-08-31T10:13:00.000Z'), at('2026-08-31T10:13:00.000Z')));
+  // A fix too old to track by, so the timetable still judges the journey.
+  const m = model(resolveJourneyState(journey, fix(32.061, 34.771, '2026-08-31T10:00:00.000Z'), at('2026-08-31T10:13:00.000Z')));
   assert.equal(m.tone, 'offPlan');
   assert.equal(m.title, 'HERO');
   assert.equal(m.hero, 'journey.pip.openToReplan');

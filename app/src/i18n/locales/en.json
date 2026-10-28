@@ -344,7 +344,13 @@
       "offerBody": "{{line}} gets you there at {{time}}",
       "offerAccept": "Switch route",
       "offerKeep": "Keep waiting",
-      "stuck": "No way found right now, still looking"
+      "stuck": "No way found right now, still looking",
+      "boardFrom": "Next from {{name}}",
+      "afterIt": "After it",
+      "offAt": "Off at {{name}}",
+      "rideMinutes_one": "{{count}} min ride",
+      "rideMinutes_other": "{{count}} min ride",
+      "now": "now"
     },
     "menu": {
       "more": "More options"

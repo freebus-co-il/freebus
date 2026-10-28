@@ -303,6 +303,8 @@ export type Departure = {
     arrivalTime: string;
     /** Scheduled seconds on board from this stop to the destination. */
     rideSeconds: number;
+    /** That stop's name. Absent from an API deploy older than it. */
+    name?: string | null;
   };
 };
 

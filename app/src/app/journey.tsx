@@ -13,6 +13,7 @@ import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
 import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
 import { LiveBusCard } from '@/features/journey/live-bus-card';
+import { RunPickerSheet } from '@/features/journey/run-picker-sheet';
 import { NavigationBanner } from '@/features/journey/navigation/navigation-banner';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { navigationCamera } from '@/features/journey/navigation/navigation-camera';
@@ -20,7 +21,6 @@ import { useCompassHeading } from '@/features/journey/navigation/use-compass-hea
 import { useNavigationFix } from '@/features/journey/navigation/use-navigation-fix';
 import { useWalkReroute } from '@/features/journey/navigation/use-walk-reroute';
 import { walkGuidance } from '@/features/journey/navigation/walk-guidance';
-import { backboneAhead } from '@/features/journey/replan/backbone';
 import { EtaHeader } from '@/features/journey/sheet/eta-header';
 import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
 import { JourneyMenu } from '@/features/journey/sheet/journey-menu';
@@ -39,6 +39,11 @@ import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
 import { countEvent } from '@/lib/analytics';
 import { routeColor } from '@/lib/route-color';
+
+/** How far either side of now a run can have left and still be the one the
+ *  rider is sitting on, for "which one are you on?". */
+const PICKABLE_AHEAD_MS = 2 * 60_000;
+const PICKABLE_BEHIND_MS = 45 * 60_000;
 
 /** The back button's height below the safe area, plus breathing room: the
  *  part of the map's top it covers before the header has been measured. */
@@ -72,7 +77,7 @@ function JourneyScreenContent() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
-  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan } = useJourney();
+  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan, board, adoptRun } = useJourney();
   const { alertSettings } = usePreferences();
 
   const [sheetHeight, setSheetHeight] = useState(0);
@@ -96,6 +101,9 @@ function JourneyScreenContent() {
   // by leg, so a `chooseLine` that swaps the leg underneath cannot leave the
   // sheet holding the run the rider just moved off.
   const [switchingLegIndex, setSwitchingLegIndex] = useState<number | null>(null);
+  // The station-board picker for the ride being ridden, when the board has
+  // runs to offer for it.
+  const [pickingRun, setPickingRun] = useState(false);
 
   // Every transit leg, not just the one being ridden: the rider watching for
   // their connection is watching this map too, and the whole chain is well
@@ -256,10 +264,20 @@ function JourneyScreenContent() {
       : undefined;
   if (switchingLegIndex !== null && switchingLeg === undefined) setSwitchingLegIndex(null);
 
-  const switchLine = state.leg !== null && canSwitchLine(state, state.legIndex)
-    ? () => setSwitchingLegIndex(state.legIndex)
-    : null;
   const nowMs = now.getTime();
+  // The runs the rider could have got on at this ride's station, most recent
+  // first: what "which one are you on?" offers once the board has shown any.
+  const boardedChoices = board.legIndex === state.legIndex && state.phase === 'riding'
+    ? board.seen
+      .filter((run) => Date.parse(run.departs) <= nowMs + PICKABLE_AHEAD_MS && Date.parse(run.departs) >= nowMs - PICKABLE_BEHIND_MS)
+      .sort((a, b) => Date.parse(b.departs) - Date.parse(a.departs))
+    : [];
+  if (pickingRun && boardedChoices.length === 0) setPickingRun(false);
+  // At the station the board already lists every run, and boarding any of
+  // them is followed by GPS, so the question is only asked on board.
+  const switchLine = state.leg !== null && state.phase === 'riding' && canSwitchLine(state, state.legIndex)
+    ? () => (boardedChoices.length > 0 ? setPickingRun(true) : setSwitchingLegIndex(state.legIndex))
+    : null;
   const body = (() => {
     switch (state.phase) {
       case 'off-plan':
@@ -272,9 +290,9 @@ function JourneyScreenContent() {
           <WaitingView
             state={state}
             leg={state.leg}
-            candidates={replan.candidates}
+            runs={board.legIndex === state.legIndex ? board.runs : []}
+            final={board.target?.final ?? false}
             nowMs={nowMs}
-            backbone={backboneAhead(journey.backbone ?? null, journey.itinerary.legs.slice(0, state.legIndex))}
             onSwitchLine={switchLine}
           />
         );
@@ -375,6 +393,15 @@ function JourneyScreenContent() {
         )}
         {body}
       </FloatingSheet>
+
+      <RunPickerSheet
+        runs={pickingRun ? boardedChoices : null}
+        currentTripId={state.leg?.tripId ?? null}
+        onChoose={(run) => {
+          if (state.phase === 'riding') void adoptRun(state.legIndex, run);
+        }}
+        onClose={() => setPickingRun(false)}
+      />
 
       <LineSwitchSheet
         leg={switchingLeg?.type === 'transit' ? switchingLeg : null}

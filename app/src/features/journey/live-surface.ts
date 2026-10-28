@@ -62,15 +62,36 @@ const native = requireOptionalNativeModule<LiveSurface & LiveSurfaceEmitter>('Li
  */
 export const liveSurface: LiveSurface = {
   async start(journey, state, rail, copy) {
-    await native?.start(journey, state, rail, copy);
+    await native?.start(withLineNames(journey), withLineName(state), rail, copy);
   },
   async update(state, copy, alert) {
-    await native?.update(state, copy, alert);
+    await native?.update(withLineName(state), copy, alert);
   },
   async stop() {
     await native?.stop();
   },
 };
+
+/**
+ * A train has no line number, and the planner sends `null` for it, while the
+ * native records require a string: passed as is, the Live Activity refused to
+ * start for every journey on a train. The surfaces label a train by its own
+ * glyph and number, so an empty line name is the honest value.
+ */
+function withLineName(state: JourneyState): JourneyState {
+  const leg = state.leg;
+  if (!leg || typeof leg.route.shortName === 'string') return state;
+  return { ...state, leg: { ...leg, route: { ...leg.route, shortName: '' } } };
+}
+
+function withLineNames(journey: ActiveJourney): ActiveJourney {
+  const legs = journey.itinerary.legs.map((leg) => (
+    leg.type === 'transit' && typeof leg.route.shortName !== 'string'
+      ? { ...leg, route: { ...leg.route, shortName: '' } }
+      : leg
+  ));
+  return { ...journey, itinerary: { ...journey.itinerary, legs } };
+}
 
 /**
  * Subscribes to the rider acknowledging the get-off alert from outside the

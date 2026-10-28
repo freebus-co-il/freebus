@@ -10,16 +10,22 @@ import { formatHeadsign } from '@/features/results/itinerary-facts';
  * is matching this against every bus that pulls in, so it is drawn to look
  * like the thing they are matching it against.
  */
-export function BusSign({ route, headsign }: Pick<TransitLeg, 'route' | 'headsign'>) {
+export function BusSign({ route, headsign, tripNumber = null }: Pick<TransitLeg, 'route' | 'headsign'> & {
+  /** A train's number: a train has no line number to match against, but the
+   *  station's own departure screens list it by number. */
+  tripNumber?: string | null;
+}) {
   const colors = useColors();
+  // Typed as a string, but the planner sends null for a train.
+  const label = (route.shortName ?? '').trim() || tripNumber?.trim() || '';
   return (
     <View
       style={[styles.sign, { backgroundColor: colors.busSignPanel }]}
       accessibilityRole="text"
-      accessibilityLabel={`${route.shortName} ${formatHeadsign(headsign)}`}
+      accessibilityLabel={`${label} ${formatHeadsign(headsign)}`}
     >
       <Text variant="largeTitle" emphasized numeric color="busSign" numberOfLines={1}>
-        {route.shortName}
+        {label}
       </Text>
       <Text variant="headline" color="busSign" numberOfLines={2} style={styles.headsign}>
         {formatHeadsign(headsign)}

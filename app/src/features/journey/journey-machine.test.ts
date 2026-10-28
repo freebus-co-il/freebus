@@ -205,7 +205,9 @@ test('the missed-departure grace counts from the predicted departure', () => {
   assert.equal(state.phase, 'waiting');
 });
 
-test('a bus past the boarding stop with the rider still there is missed at once', () => {
+test('under GPS, a rider at the station is waiting whatever the feed says the vehicle did', () => {
+  // The same moment with a fresh fix: a train standing at the platform jitters
+  // past the stop in the feed. Only the rider leaving boards them.
   const state = resolveJourneyState(
     journey(),
     fix(32.061, 34.771, '2026-08-31T10:10:25.000Z'),
@@ -213,8 +215,8 @@ test('a bus past the boarding stop with the rider still there is missed at once'
     S,
     live({ bus: { legIndex: 1, progress: { kind: 'toAlighting', stops: 3 }, recordedAt: '2026-08-31T10:10:20.000Z', lat: 32.07, lon: 34.78 } }),
   );
-  assert.equal(state.phase, 'off-plan');
-  assert.equal(state.offPlan, 'missed-departure');
+  assert.equal(state.phase, 'waiting');
+  assert.equal(state.offPlan, null);
 });
 
 test('a stale bus report changes nothing', () => {
@@ -506,8 +508,9 @@ test('a broken connection is not held against a rider already past that bus', ()
   assert.equal(state.offPlan, null);
 });
 
-// The control: still on the pavement, so the verdict is about their own bus.
-test('a broken connection still stands for a rider waiting at the stop', () => {
+// Still on the pavement: under GPS nothing is missed at a station, the next
+// run simply takes over (the station board follows it).
+test('a broken connection is not off plan for a rider waiting at the stop', () => {
   const live: LiveJourneyInput = {
     legs: [],
     connections: [{ afterLegIndex: 1, holds: false, fetchedAt: '2026-08-31T10:04:30.000Z' }],
@@ -520,6 +523,87 @@ test('a broken connection still stands for a rider waiting at the stop', () => {
     DEFAULT_ALERT_SETTINGS,
     live,
   );
-  assert.equal(state.phase, 'off-plan');
-  assert.equal(state.offPlan, 'missed-transfer');
+  assert.equal(state.phase, 'waiting');
+  assert.equal(state.offPlan, null);
+});
+
+// --- Field notes, 2026-10-26: HaShalom to Binyamina by train ---------------
+
+/** A train from HaShalom north along the Ayalon, with the stations between. */
+function trainJourney() {
+  const base = journey();
+  const ride = base.itinerary.legs[1];
+  if (ride?.type !== 'transit') throw new Error('fixture');
+  ride.route = { ...ride.route, type: 2, shortName: '' };
+  const walk = base.itinerary.legs[0];
+  if (walk?.type === 'walk') walk.to = { ...walk.to, lat: 32.061, lon: 34.771 };
+  return base;
+}
+
+test('field note 1: inside a rail station, short of its point, the walk is over', () => {
+  // ~190 m from the station's point: in the concourse, not on the platform.
+  const state = resolveJourneyState(trainJourney(), fix(32.0627, 34.7715, '2026-08-31T10:03:55.000Z', 30), at('2026-08-31T10:04:00.000Z'));
+  assert.equal(state.phase, 'waiting');
+  assert.equal(state.legIndex, 1);
+});
+
+test('field note 1: the same distance from a bus stop is still the walk', () => {
+  const state = resolveJourneyState(journey(), fix(32.0627, 34.7715, '2026-08-31T10:03:55.000Z', 30), at('2026-08-31T10:04:00.000Z'));
+  assert.equal(state.phase, 'walking-to-stop');
+});
+
+test('field note 3: at the station long after the planned departure, the rider is still waiting', () => {
+  const state = resolveJourneyState(
+    { ...trainJourney(), gpsLegIndex: 1 },
+    fix(32.061, 34.771, '2026-08-31T10:19:55.000Z', 40),
+    at('2026-08-31T10:20:00.000Z'),
+  );
+  assert.equal(state.phase, 'waiting');
+  assert.equal(state.offPlan, null);
+});
+
+test('field note 4: down the line on a vague fix, the rider is riding, and it is recorded', () => {
+  // Near Mid B, 2 km on from the station, with a carriage's 300 m accuracy --
+  // and a live prediction still claiming the train has not left.
+  const state = resolveJourneyState(
+    { ...trainJourney(), gpsLegIndex: 1 },
+    fix(32.075, 34.785, '2026-08-31T10:24:55.000Z', 300),
+    at('2026-08-31T10:25:00.000Z'),
+    S,
+    live({ legs: [liveLeg(1, '2026-08-31T10:24:30.000Z', { departure: '2026-08-31T10:27:00.000Z' })] }),
+  );
+  assert.ok(state.phase === 'riding' || state.phase === 'alight-soon');
+  assert.equal(state.boardedLegIndex, 1);
+});
+
+test('field note 4: a vague fix that could still be the platform does not board anyone', () => {
+  const state = resolveJourneyState(
+    { ...trainJourney(), gpsLegIndex: 1 },
+    fix(32.063, 34.773, '2026-08-31T10:11:55.000Z', 400),
+    at('2026-08-31T10:12:00.000Z'),
+  );
+  assert.equal(state.phase, 'waiting');
+});
+
+test('field note 2: once boarded, the ride never falls back to waiting', () => {
+  // Back beside the station on the next fix, with the feed saying the train is
+  // still short of it: neither undoes the boarding the record holds.
+  const state = resolveJourneyState(
+    { ...trainJourney(), gpsLegIndex: 1, boardedLegIndex: 1 },
+    fix(32.0612, 34.7712, '2026-08-31T10:12:55.000Z', 20),
+    at('2026-08-31T10:13:00.000Z'),
+    S,
+    live({ bus: { legIndex: 1, progress: { kind: 'toBoarding', stops: 1 }, recordedAt: '2026-08-31T10:12:50.000Z', lat: 32.06, lon: 34.77 } }),
+  );
+  assert.equal(state.phase, 'riding');
+});
+
+test('a boarding recorded on an earlier ride says nothing about the next one', () => {
+  const state = resolveJourneyState(
+    { ...twoRideJourney(), gpsLegIndex: 3, boardedLegIndex: 1 },
+    fix(32.082, 34.792, '2026-08-31T10:35:55.000Z', 20),
+    at('2026-08-31T10:36:00.000Z'),
+  );
+  assert.equal(state.phase, 'waiting');
+  assert.equal(state.legIndex, 3);
 });

@@ -69,7 +69,8 @@ test('a late bus the timetable already calls missed is still watched', () => {
   // Resolved without live data, a rider at the stop past the grace reads as
   // off-plan -- exactly when the bus position is what could overrule that.
   const journey = sampleJourney();
-  const base = resolveJourneyState(journey, fix(32.061, 34.771, '2026-08-31T10:12:55.000Z'), at('2026-08-31T10:13:00.000Z'));
+  // A fix too old to track by, so the timetable still judges the journey.
+  const base = resolveJourneyState(journey, fix(32.061, 34.771, '2026-08-31T10:00:00.000Z'), at('2026-08-31T10:13:00.000Z'));
   assert.equal(base.phase, 'off-plan');
   const plan = liveRequestPlan(journey, base);
   assert.deepEqual(indexes(plan), [1]);

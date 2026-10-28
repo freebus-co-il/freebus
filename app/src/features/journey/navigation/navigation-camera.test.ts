@@ -117,3 +117,13 @@ test('the camera key ignores jitter and changes for a real move or turn', () => 
   );
   assert.equal(cameraKey(null), 'none');
 });
+
+test('riding follows a carriage-vague fix rather than framing the station', () => {
+  // Field note: "back to my location" on the train flew the map to HaShalom.
+  const camera = navigationCamera(input({
+    state: { phase: 'riding', legIndex: 1 },
+    fix: fix(32.07, 34.78, '2026-08-31T10:01:55.000Z', 250),
+  }));
+  assert.equal(camera?.kind, 'follow');
+  assert.deepEqual((camera as FollowCamera).center, { latitude: 32.07, longitude: 34.78 });
+});

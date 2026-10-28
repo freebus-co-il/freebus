@@ -599,7 +599,7 @@ interface DestDeparture {
   departureTime: string;
   destination?: {
     stopId: string; stopSequence: number; walkMeters: number;
-    arrivalTime: string; rideSeconds: number;
+    arrivalTime: string; rideSeconds: number; name: string | null;
   };
 }
 
@@ -684,6 +684,8 @@ test("each surviving row says where it sets the rider down, and when", async () 
     assert.equal(destination.rideSeconds, 1200);
     // 4000 is a handful of metres from the point asked about.
     assert.ok(destination.walkMeters < 50, `walk was ${destination.walkMeters}`);
+    // Named, so a board of lines setting down at different stops can say where.
+    assert.equal(typeof destination.name, "string");
   } finally { await app.close(); index.stop(); }
 });
 

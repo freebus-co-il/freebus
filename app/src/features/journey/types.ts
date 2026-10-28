@@ -40,6 +40,11 @@ export type ActiveJourney = {
    *  by the timetable. Never decreases. Optional so a journey stored before
    *  this existed still reads back. */
   gpsLegIndex?: number | null;
+  /** The furthest ride GPS has seen the rider leave the boarding station on:
+   *  once set for a leg, that leg is being ridden whatever the clock or the
+   *  vehicle feed say, so the phase can never fall back to waiting. Optional
+   *  so a journey stored before this existed still reads back. */
+  boardedLegIndex?: number | null;
   /** The ride the rider chose this trip for -- its kind of vehicle and its two
    *  stations -- captured at Start and kept through every live re-plan, which
    *  may change anything around it but never it (see `replan/backbone`). Null
@@ -129,6 +134,10 @@ export type JourneyState = {
    *  for the provider to write back into the record. Null while the journey
    *  is still running on the timetable. */
   trackedLegIndex: number | null;
+  /** The ride GPS has the rider aboard as of this resolve, for the provider to
+   *  write back into the record as `boardedLegIndex`. Null when GPS has not
+   *  seen them leave a boarding station. */
+  boardedLegIndex: number | null;
   /** GPS has the rider travelling this ride's route while the bus the plan
    *  picked has not left yet: they set out early and caught the run before it.
    *  The provider switches the journey onto that run (see `earlier-run.ts`). */
