@@ -2,7 +2,7 @@ import type { Place, TransitLeg } from '@/api/types';
 import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
 import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
-import { distanceToPathMeters, hasLeftBoarding, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
+import { distanceToPathMeters, hasLeftBoarding, isTrackingFix, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
 import { buildLegSchedule } from './journey-rail';
 import type { ActiveJourney, AlertSettings, JourneyState, LiveBus, LiveJourneyInput, LiveLeg, OffPlanReason, RiderPosition } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
@@ -46,10 +46,19 @@ export const WEAK_FIX_AGE_SECONDS = 60;
  *  GPS tracking exists to fix: a slow walker losing the journey mid-street. */
 export const ARRIVAL_BACKSTOP_SECONDS = 30 * 60;
 
+/** The backstop while GPS has the rider on a ride or at its station. Trains
+ *  here run well over half an hour late, and ending the journey under a rider
+ *  still waiting for one, or sitting on it, is the failure GPS is there to
+ *  prevent; only a journey left running for hours is ended. */
+export const RIDE_BACKSTOP_SECONDS = 2 * 60 * 60;
+
 /** The instant a journey ends by the clock: at its arrival while it runs on
- *  the timetable, at the backstop once GPS is following it. */
-export function journeyEndsAt(arrivalTime: string, tracked: boolean): string {
-  return tracked ? new Date(ms(arrivalTime) + ARRIVAL_BACKSTOP_SECONDS * 1000).toISOString() : arrivalTime;
+ *  the timetable, at the backstop once GPS is following it, and at the longer
+ *  one while GPS has the rider on a ride. */
+export function journeyEndsAt(arrivalTime: string, tracked: boolean, onRide = false): string {
+  if (!tracked) return arrivalTime;
+  const backstop = onRide ? RIDE_BACKSTOP_SECONDS : ARRIVAL_BACKSTOP_SECONDS;
+  return new Date(ms(arrivalTime) + backstop * 1000).toISOString();
 }
 
 function ms(iso: string): number {
@@ -325,7 +334,12 @@ export function resolveJourneyState(
   // walk stays a walk past its scheduled minutes, a late bus stays a ride --
   // and the timetable decides only for a journey no fix has reached.
   const fix = position && !isWeakFix(position, nowMs) ? position : null;
-  const tracked = trackLegIndex(itinerary, journey.gpsLegIndex ?? null, fix, heldRide?.legIndex ?? scheduledIndex);
+  const tracked = trackLegIndex(
+    itinerary,
+    journey.gpsLegIndex ?? null,
+    position && isTrackingFix(position, nowMs) ? position : null,
+    heldRide?.legIndex ?? scheduledIndex,
+  );
 
   // The ride GPS has already seen the rider leave the station on. Only for the
   // leg GPS has them on: a record from a leg behind them says nothing now.
@@ -346,7 +360,8 @@ export function resolveJourneyState(
   // a few minutes out.
   const arrived = tracked === null
     ? nowMs >= ms(arrivalTime)
-    : tracked >= itinerary.legs.length || nowMs >= ms(journeyEndsAt(arrivalTime, true));
+    : tracked >= itinerary.legs.length
+      || nowMs >= ms(journeyEndsAt(arrivalTime, true, itinerary.legs[tracked]?.type === 'transit'));
   if (arrived) {
     return {
       ...quiet,
@@ -480,10 +495,13 @@ export function resolveJourneyState(
     // timetable: only a position knows how many stops are left, and a fabricated
     // count would look every bit as precise and be wrong the moment the bus ran
     // late.
+    // The arrival the bus is actually heading for: live when a prediction is
+    // usable, so a "minutes before" alarm on a late bus does not go off early.
+    const arrival = usableLiveLeg(live, legIndex, nowMs)?.predictedArrival ?? leg.to.arrivalTime;
     const countStops = settings.leadStops > 0 && stopsRemaining !== null;
     const dueToAlight = countStops
       ? stopsRemaining! <= settings.leadStops
-      : ms(leg.to.arrivalTime) - nowMs <= settings.leadSeconds * 1000;
+      : ms(arrival) - nowMs <= settings.leadSeconds * 1000;
     const alreadyAcknowledged = journey.acknowledgedAlightLegIndex === legIndex;
 
     return {
@@ -493,7 +511,7 @@ export function resolveJourneyState(
       leg,
       ...extra,
       stopsRemaining,
-      timer: { from: now.toISOString(), to: leg.to.arrivalTime, countsDown: true },
+      timer: { from: now.toISOString(), to: arrival, countsDown: true },
       stopsSource,
       nextStopName,
       offPlan: null,

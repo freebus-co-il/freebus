@@ -124,3 +124,20 @@ test('alert ids are stable so re-planning replaces rather than duplicates', () =
   const second = planAlightAlerts(journey(), DEFAULT_ALERT_SETTINGS);
   assert.deepEqual(first.map((a) => a.id), second.map((a) => a.id));
 });
+
+// Field note, 2026-10-29: waiting for whichever line came first, the rider
+// was told to get off at the stops of a 69 they never boarded.
+test('under GPS, a ride the rider has not boarded has no get-off alarm', () => {
+  const waiting = { ...journey(), gpsLegIndex: 1 };
+  assert.deepEqual(planAlightAlerts(waiting, DEFAULT_ALERT_SETTINGS), []);
+});
+
+test('once GPS has the rider aboard, that ride is armed', () => {
+  const aboard = { ...journey(), gpsLegIndex: 1, boardedLegIndex: 1 };
+  assert.ok(planAlightAlerts(aboard, DEFAULT_ALERT_SETTINGS).length > 0);
+});
+
+test('with nothing following in the background, every ride is armed up front', () => {
+  const waiting = { ...journey(), gpsLegIndex: 1 };
+  assert.ok(planAlightAlerts(waiting, DEFAULT_ALERT_SETTINGS, false).length > 0);
+});

@@ -10,7 +10,7 @@ import { Alert, AppState, Platform } from 'react-native';
 
 import { apiGet } from '@/api/client';
 import { useRealtimeAvailable } from '@/api/meta';
-import type { Itinerary, Place, TripDetail } from '@/api/types';
+import type { Itinerary, Place, TransitLeg, TripDetail } from '@/api/types';
 import { useColors } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { useSearch } from '@/features/search/search-context';
@@ -32,7 +32,7 @@ import { buildJourneyRegions } from './geofences';
 import { journeyCopy } from './journey-copy';
 import { liveLabelFor } from './journey-labels';
 import { journeyEndsAt, resolveJourneyState } from './journey-machine';
-import { reachedFromRegion } from './journey-progress';
+import { hasLeftOffRoute, isOnRoute, reachedFromRegion } from './journey-progress';
 import { buildJourneyRail, type JourneyRail } from './journey-rail';
 import { legToAcknowledge } from './replan/apply';
 import { sameStation, stationOf, type Backbone } from './replan/backbone';
@@ -48,7 +48,7 @@ import { RIDE_PHASES, setRideFixListener, startRideUpdates, stopRideUpdates } fr
 import { pip, useJourneyPipPosition, useJourneyVisible } from './pip';
 import { surfaceCopy } from './surface-copy';
 import { sameFacts, surfaceFacts, type SurfaceFacts } from './surface-facts';
-import { boardedRun, legFromRun, runToFollow, withRun, type StationRun } from './station-board';
+import { boardedRun, legFromRun, recentlyLeftRuns, runToFollow, withRun, type StationRun } from './station-board';
 import { useStationBoard } from './use-station-board';
 import { countEvent } from '@/lib/analytics';
 import { formatClockTime } from '@/lib/format';
@@ -58,6 +58,13 @@ import type { ActiveJourney, AlertSettings, JourneyState, RiderPosition } from '
 import { useJourneyLive } from './use-journey-live';
 
 const STORAGE_KEY = 'freebus.activeJourney.v1';
+
+/** What the OS-held alarm was armed for; see `armedWith`. */
+type ArmedWith = { journeyId: string; settings: AlertSettings; boarded: number | null; following: boolean };
+
+function armedFor(journey: ActiveJourney, settings: AlertSettings, following: boolean): ArmedWith {
+  return { journeyId: journey.id, settings, boarded: journey.boardedLegIndex ?? null, following };
+}
 
 /** Names the geofencing task registered below. Stable across releases: the OS
  *  keeps monitoring regions under this name while the app is terminated, so
@@ -318,7 +325,10 @@ async function acceptsBackgroundDisclosure(): Promise<boolean> {
 /** `prompt: false` re-arms only with what the rider already granted: a
  *  journey that re-plans itself must never put a permission dialog in front of
  *  them -- they did not do anything to be asked. */
-async function armGeofences(journey: ActiveJourney, { prompt = true }: { prompt?: boolean } = {}): Promise<void> {
+async function armGeofences(
+  journey: ActiveJourney,
+  { prompt = true, gpsFollowing = true }: { prompt?: boolean; gpsFollowing?: boolean } = {},
+): Promise<void> {
   try {
     if (prompt) {
       // Foreground first: iOS will not even offer the always-on prompt until
@@ -336,7 +346,7 @@ async function armGeofences(journey: ActiveJourney, { prompt = true }: { prompt?
 
     await Location.startGeofencingAsync(
       GEOFENCE_TASK,
-      buildJourneyRegions(journey).map((region) => ({
+      buildJourneyRegions(journey, gpsFollowing).map((region) => ({
         identifier: region.id,
         latitude: region.lat,
         longitude: region.lon,
@@ -365,7 +375,7 @@ async function disarmGeofences(): Promise<void> {
 async function scheduleAlightAlerts(
   journey: ActiveJourney,
   settings: AlertSettings,
-  { prompt = true }: { prompt?: boolean } = {},
+  { prompt = true, gpsFollowing = true }: { prompt?: boolean; gpsFollowing?: boolean } = {},
 ): Promise<void> {
   try {
     // See `armGeofences` for `prompt: false`.
@@ -387,7 +397,7 @@ async function scheduleAlightAlerts(
 
     const nowMs = Date.now();
     await Promise.all(
-      planAlightAlerts(journey, settings)
+      planAlightAlerts(journey, settings, gpsFollowing)
         // "Got it" is an answer that has to survive a re-arm. This function is
         // called again whenever the rider retunes the alert mid-journey, and
         // without this the retune would resurrect the very alerts the
@@ -577,11 +587,12 @@ function useJourneyState() {
    *  drops back to `riding` and returns -- and the second alarm for the same
    *  stop teaches the rider to ignore the first. */
   const alertedLegs = useRef(new Set<number>());
-  /** Which journey the pre-scheduled alerts were armed for, and on which
-   *  settings. A ref rather than state because it records what the OS is
-   *  already holding -- nothing renders from it, and writing it must not
-   *  itself trigger the effect that reads it. */
-  const armedWith = useRef<{ journeyId: string; settings: AlertSettings } | null>(null);
+  /** Which journey the pre-scheduled alerts were armed for, on which
+   *  settings, for which boarded ride and whether GPS was following in the
+   *  background (see `isAlarmedRide`). A ref rather than state because it
+   *  records what the OS is already holding -- nothing renders from it, and
+   *  writing it must not itself trigger the effect that reads it. */
+  const armedWith = useRef<ArmedWith | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -700,17 +711,28 @@ function useJourneyState() {
    * lead or a switched-off repeat schedules FEWER alerts than before, and
    * re-scheduling alone would only overwrite the ones that still exist.
    */
+  //
+  // The same goes for boarding: a ride's alarm is armed only once GPS has the
+  // rider aboard it (`isAlarmedRide`), so boarding re-arms both triggers, and
+  // so does the background tier being switched on or off.
   useEffect(() => {
     if (!journey) return;
     const armed = armedWith.current;
-    if (armed && armed.journeyId === journey.id && armed.settings === settings) return;
+    const next = armedFor(journey, settings, surfaceEnabled);
+    if (
+      armed && armed.journeyId === next.journeyId && armed.settings === next.settings
+      && armed.boarded === next.boarded && armed.following === next.following
+    ) return;
 
-    armedWith.current = { journeyId: journey.id, settings };
+    const onlySettings = armed !== null && armed.journeyId === next.journeyId
+      && armed.boarded === next.boarded && armed.following === next.following;
+    armedWith.current = next;
     void (async () => {
       await cancelAlertsMatching(`${journey.id}:alight:`);
-      await scheduleAlightAlerts(journey, settings);
+      await scheduleAlightAlerts(journey, settings, { gpsFollowing: next.following });
+      if (!onlySettings) await armGeofences(journey, { prompt: false, gpsFollowing: next.following });
     })();
-  }, [journey, settings]);
+  }, [journey, settings, surfaceEnabled]);
 
   /**
    * Tier one of the spec's location table: high accuracy, and only while the
@@ -922,12 +944,13 @@ function useJourneyState() {
    *  the timer here cannot both tear the same one down. */
   const finishedJourneyId = useRef<string | null>(null);
   const tracked = trackedLegIndex !== null;
+  const onRide = tracked && journey?.itinerary.legs[trackedLegIndex]?.type === 'transit';
 
   useEffect(() => {
     if (!journey || !arrivalTime) return;
     // A journey GPS is following ends when the rider gets there (the effect
     // below); this timer is then only the backstop for one who never does.
-    const arrivesIn = new Date(journeyEndsAt(arrivalTime, tracked)).getTime() - Date.now();
+    const arrivesIn = new Date(journeyEndsAt(arrivalTime, tracked, onRide)).getTime() - Date.now();
     const timer = setTimeout(() => {
       const final = resolveJourneyState(journey, null, new Date(), settings, liveRef.current);
       // The arrival moved between arming and firing; the render that moved it
@@ -947,7 +970,7 @@ function useJourneyState() {
       setTimeout(() => void pip.leave(), PIP_ARRIVED_LINGER_MS);
     }, Math.max(0, arrivesIn));
     return () => clearTimeout(timer);
-  }, [journey, arrivalTime, tracked, end, pushSurface, settings, copyFor]);
+  }, [journey, arrivalTime, tracked, onRide, end, pushSurface, settings, copyFor]);
 
   // Reaching the destination ends a journey GPS is following there and then --
   // not at a clock time the rider may have beaten, or may still be walking
@@ -1006,7 +1029,7 @@ function useJourneyState() {
       // above runs as soon as this commit lands, which can be inside the very
       // next await, and it has to recognise the schedule below as its own
       // rather than tear down and rebuild what `start` is still arming.
-      armedWith.current = { journeyId: next.id, settings };
+      armedWith.current = armedFor(next, settings, surfaceEnabledRef.current);
       await writeStoredJourney(next);
 
       // Any reminder is spent now: the rider is inside a journey, and a
@@ -1024,8 +1047,8 @@ function useJourneyState() {
       if (surfaceEnabledRef.current) {
         await liveSurface.start(next, opening, buildJourneyRail(next.itinerary), openingCopy);
       }
-      await armGeofences(next);
-      await scheduleAlightAlerts(next, settings);
+      await armGeofences(next, { gpsFollowing: surfaceEnabledRef.current });
+      await scheduleAlightAlerts(next, settings, { gpsFollowing: surfaceEnabledRef.current });
     },
     [journey, position, settings, copyFor],
   );
@@ -1151,15 +1174,15 @@ function useJourneyState() {
       };
 
       setJourney(next);
-      armedWith.current = { journeyId: next.id, settings };
+      armedWith.current = armedFor(next, settings, surfaceEnabledRef.current);
       for (const legIndex of [...alertedLegs.current]) {
         if (legIndex > keepThroughLegIndex) alertedLegs.current.delete(legIndex);
       }
       await writeStoredJourney(next);
 
       await cancelAlertsMatching(`${next.id}:alight:`);
-      await scheduleAlightAlerts(next, settings, { prompt: false });
-      await armGeofences(next, { prompt: false });
+      await scheduleAlightAlerts(next, settings, { prompt: false, gpsFollowing: surfaceEnabledRef.current });
+      await armGeofences(next, { prompt: false, gpsFollowing: surfaceEnabledRef.current });
 
       const resolved = resolveJourneyState(next, position, new Date(), settings);
       const copy = copyFor(next, resolved);
@@ -1204,7 +1227,13 @@ function useJourneyState() {
    * `replaceItinerary`; the rides before this one, and the boarding GPS has
    * seen on this one, are kept.
    */
-  const adoptRun = useCallback(async (legIndex: number, run: StationRun): Promise<boolean> => {
+  const adoptRun = useCallback(async (
+    legIndex: number,
+    run: StationRun,
+    /** Checked against the run's own ride before it is taken; false leaves
+     *  the journey as it was. */
+    accept?: (leg: TransitLeg) => boolean,
+  ): Promise<boolean> => {
     const before = latestJourney.current;
     const planned = before?.itinerary.legs[legIndex];
     if (!before || planned?.type !== 'transit') return false;
@@ -1223,7 +1252,7 @@ function useJourneyState() {
     const current = latestJourney.current;
     if (!current || current.id !== before.id || current.itinerary !== before.itinerary) return false;
     const leg = legFromRun(run, trip, planned);
-    if (!leg) return false;
+    if (!leg || (accept && !accept(leg))) return false;
     // The ride the trip was chosen for keeps being that ride, now to wherever
     // this run sets the rider down (a different stop near home, on the last
     // ride), so later re-plans do not read it as broken.
@@ -1277,6 +1306,35 @@ function useJourneyState() {
     if (run) void adoptRun(state.legIndex, run);
   }, [journey, state, board, adoptRun]);
 
+  // Gone from the station, but not along the ride's route: the rider got on
+  // another line from the board, one whose route splits off at once, so GPS
+  // never sees them on the ride's. The runs that just left are tried, most
+  // recent first, and the first whose stops the rider is on is taken; GPS
+  // then boards them on it. Once per ride and fix, so a rider who simply walked
+  // off is not searched for again on every tick.
+  const searchedOffRoute = useRef<string | null>(null);
+  const searchingOffRoute = useRef(false);
+  useEffect(() => {
+    if (!journey || !state?.leg || state.phase !== 'waiting' || state.trackedLegIndex !== state.legIndex) return;
+    if (board.legIndex !== state.legIndex || !position || !hasLeftOffRoute(state.leg, position, Date.now())) return;
+    const key = `${journey.id}:${state.legIndex}:${position.at}`;
+    if (searchedOffRoute.current === key || searchingOffRoute.current) return;
+    searchedOffRoute.current = key;
+    searchingOffRoute.current = true;
+    const legIndex = state.legIndex;
+    const fix = position;
+    const candidates = recentlyLeftRuns(state.leg, board.seen, Date.now());
+    void (async () => {
+      try {
+        for (const run of candidates) {
+          if (await adoptRun(legIndex, run, (leg) => isOnRoute(leg, fix))) return;
+        }
+      } finally {
+        searchingOffRoute.current = false;
+      }
+    })();
+  }, [journey, state, board, position, adoptRun]);
+
   /**
    * The rider saying which bus they are actually on.
    *
@@ -1298,12 +1356,12 @@ function useJourneyState() {
       const next: ActiveJourney = { ...journey, itinerary };
 
       setJourney(next);
-      armedWith.current = { journeyId: next.id, settings };
+      armedWith.current = armedFor(next, settings, surfaceEnabledRef.current);
       await writeStoredJourney(next);
 
       await cancelAlertsMatching(`${next.id}:alight:`);
-      await scheduleAlightAlerts(next, settings);
-      await armGeofences(next);
+      await scheduleAlightAlerts(next, settings, { gpsFollowing: surfaceEnabledRef.current });
+      await armGeofences(next, { gpsFollowing: surfaceEnabledRef.current });
     },
     [journey, settings],
   );

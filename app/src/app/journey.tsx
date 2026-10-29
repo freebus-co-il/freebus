@@ -34,6 +34,7 @@ import {
   WalkingView,
 } from '@/features/journey/sheet/phase-views';
 import { SwitchToast } from '@/features/journey/sheet/switch-toast';
+import { guessedLegIndexes } from '@/features/journey/station-board';
 import { TripMap, type LineShape } from '@/features/results/trip-map';
 import { useAppActive } from '@/hooks/use-app-active';
 import { useNow } from '@/hooks/use-now';
@@ -110,9 +111,21 @@ function JourneyScreenContent() {
   // inside the endpoint's own 12-trip bound (`/plan` caps a journey at 7
   // legs). Declared here, above the early return below, because the poll it
   // feeds is a hook and hooks cannot be conditional.
+  // The last ride, until the rider is on it, is only the station board's
+  // guess: any line stopping near the destination makes it. Its route, its
+  // line's path and its bus stay off the map until GPS boards the rider.
+  const guessedKey = journey && state
+    ? guessedLegIndexes(journey.itinerary, state).join(',')
+    : '';
+  const guessed = useMemo(
+    () => (guessedKey === '' ? [] : guessedKey.split(',').map(Number)),
+    [guessedKey],
+  );
   const transitLegs = useMemo(
-    () => (journey?.itinerary.legs ?? []).filter((leg): leg is TransitLeg => leg.type === 'transit'),
-    [journey],
+    () => (journey?.itinerary.legs ?? []).filter(
+      (leg, index): leg is TransitLeg => leg.type === 'transit' && !guessed.includes(index),
+    ),
+    [journey, guessed],
   );
   const tripIds = useMemo(() => transitLegs.map((leg) => leg.tripId), [transitLegs]);
   // A bus is listed only while its own report is fresh: on a keyless feed the
@@ -311,7 +324,7 @@ function JourneyScreenContent() {
         );
       case 'arriving':
       case 'arrived':
-        return <ArrivingView state={state} destinationLabel={journey.destinationLabel} />;
+        return <ArrivingView state={state} itinerary={journey.itinerary} position={position} destinationLabel={journey.destinationLabel} />;
     }
   })();
 
@@ -347,6 +360,7 @@ function JourneyScreenContent() {
         onUserGesture={() => {
           if (camera !== null) setCameraPaused(true);
         }}
+        guessedLegIndexes={guessed}
         walkOverride={walkRoute?.reroutedGeometry
           ? { legIndex: state.legIndex, geometry: walkRoute.reroutedGeometry }
           : null}

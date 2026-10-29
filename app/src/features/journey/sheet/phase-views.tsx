@@ -193,7 +193,7 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
                       ? `${t('results.trainNumber', { number: run.tripNumber })} · ${formatHeadsign(run.headsign)}`
                       : formatHeadsign(run.headsign)}
                 </Text>
-                <Text variant="footnote" color="textSecondary" numeric numberOfLines={1}>
+                <Text variant="footnote" color="textSecondary" numeric numberOfLines={2}>
                   {runDetail(run, final, t)}
                 </Text>
               </View>
@@ -307,13 +307,22 @@ export function AlightView({ state, itinerary, leg, nowMs, canSilence, onSilence
 }
 
 /** The last walk, and the end. */
-export function ArrivingView({ state, destinationLabel }: { state: JourneyState; destinationLabel: string }) {
+export function ArrivingView({ state, itinerary, position, destinationLabel }: {
+  state: JourneyState; itinerary: Itinerary; position: RiderPosition | null; destinationLabel: string;
+}) {
   const { t } = useTranslation();
   if (state.phase === 'arrived') return <Hero>{t('journey.sheet.arrived')}</Hero>;
+  // The walk left from where the rider is, as on the way to the station: the
+  // time to the planned arrival says nothing once the ride ran late or early.
+  const last = itinerary.legs[itinerary.legs.length - 1];
+  const destination = last?.type === 'walk' ? last.to : last?.to.stop;
+  const minutes = position && destination
+    ? Math.round((haversineMeters(position, destination) * WALK_DETOUR) / WALK_METERS_PER_SECOND / 60)
+    : minutesLeft(state.timer);
   return (
     <View style={styles.block}>
       <Kicker>{t('journey.sheet.toDestination', { name: destinationLabel })}</Kicker>
-      <Hero>{t('journey.sheet.walkMinutes', { count: Math.max(1, minutesLeft(state.timer)) })}</Hero>
+      <Hero>{t('journey.sheet.walkMinutes', { count: Math.max(1, minutes) })}</Hero>
     </View>
   );
 }

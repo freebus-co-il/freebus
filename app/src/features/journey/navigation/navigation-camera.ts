@@ -86,8 +86,9 @@ function frameLeg(itinerary: Itinerary, legIndex: number, extra: Point[] = []): 
  *
  * - **Walking**: follows the rider close and tilted, turned to where the phone
  *   faces (or, without a compass, the way the walk runs from where they are).
- * - **Waiting**: frames the stop, the rider and the approaching vehicle
- *   together -- the three things that decide whether they make it.
+ * - **Waiting**: frames the station, the rider and the approaching vehicle
+ *   together -- the three things that decide whether they make it -- and not
+ *   the ride, whose run is not decided until GPS boards the rider.
  * - **Riding**: follows the ride further out, turned along its route, from the
  *   rider's own fix or -- when that is too weak -- the vehicle's position.
  *
@@ -114,7 +115,12 @@ export function navigationCamera(input: NavigationCameraInput): NavigationCamera
   }
 
   if (state.phase === 'waiting' || state.phase === 'walking-to-stop' || state.phase === 'transferring') {
-    return frameLeg(itinerary, state.legIndex, [leg.from.stop, ...(fix ? [fix] : []), ...(bus ? [bus] : [])]);
+    // The station, the rider and the vehicle coming, and not the ride: until
+    // GPS boards the rider, which run they take (and, on the last ride, where
+    // it sets them down) is still open, so framing the planned run's whole
+    // route showed one line as the trip.
+    const points = [leg.from.stop, ...(fix ? [fix] : []), ...(bus ? [bus] : [])].map(toLatLng);
+    return { kind: 'frame', coordinates: withMinimumSpan(points) };
   }
 
   const anchor: Point | null = usableFix(input.fix, now, RIDE_FIX_MAX_ACCURACY_METERS) ?? bus;

@@ -105,3 +105,11 @@ test('never exceeds the platform region budget', () => {
   base.itinerary.legs = [base.itinerary.legs[0], ...Array.from({ length: 12 }, () => structuredClone(ride))];
   assert.ok(buildJourneyRegions(base).length <= MAX_REGIONS);
 });
+
+test('under GPS, the wake ring waits for the rider to board; the stop regions do not', () => {
+  const waiting = buildJourneyRegions({ ...journey(), gpsLegIndex: 1 }).map((region) => region.kind);
+  assert.ok(!waiting.includes('wake'));
+  assert.ok(waiting.includes('board') && waiting.includes('alight'));
+  const aboard = buildJourneyRegions({ ...journey(), gpsLegIndex: 1, boardedLegIndex: 1 }).map((region) => region.kind);
+  assert.ok(aboard.includes('wake'));
+});
