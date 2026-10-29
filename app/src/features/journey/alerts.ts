@@ -23,18 +23,38 @@ export type PlannedAlert = {
 };
 
 /**
- * When to shout, for every ride in the journey.
+ * Whether a ride's get-off alarm should be armed with the OS (the scheduled
+ * notifications here, the wake ring in `geofences.ts`).
  *
- * Scheduled from the TIMETABLE, because that is all that is knowable at start
- * time -- the geofence is what makes it accurate when the bus runs late. The
+ * Under GPS, only the ride the rider is aboard: until GPS has seen them leave
+ * the station on it, the ride's run is the station board's best guess, and an
+ * alarm for its stops fires for a bus they never took. Reported from the
+ * field: waiting for whichever line came first, the rider was told to get off
+ * at the 69's stops.
+ *
+ * `gpsFollowing` is false when nothing will see the boarding happen with the
+ * app out of sight (the background location tier is off): then, and on a
+ * journey no fix has ever placed, every ride is armed from the start, as the
+ * only alarm there can be.
+ */
+export function isAlarmedRide(journey: ActiveJourney, legIndex: number, gpsFollowing: boolean): boolean {
+  if (!gpsFollowing || (journey.gpsLegIndex ?? null) === null) return true;
+  return (journey.boardedLegIndex ?? null) === legIndex;
+}
+
+/**
+ * When to shout, for every ride whose alarm is armed (see `isAlarmedRide`).
+ *
+ * Scheduled from the ride's own times, because nothing else is knowable ahead
+ * -- the geofence is what makes it accurate when the bus runs late. The
  * repeat is a second scheduled notification rather than a runtime timer, so it
  * survives the app being suspended or killed between the two.
  */
-export function planAlightAlerts(journey: ActiveJourney, settings: AlertSettings): PlannedAlert[] {
+export function planAlightAlerts(journey: ActiveJourney, settings: AlertSettings, gpsFollowing = true): PlannedAlert[] {
   const alerts: PlannedAlert[] = [];
 
   journey.itinerary.legs.forEach((leg, legIndex) => {
-    if (leg.type !== 'transit') return;
+    if (leg.type !== 'transit' || !isAlarmedRide(journey, legIndex, gpsFollowing)) return;
     const arrival = new Date(leg.to.arrivalTime).getTime();
     const stopName = leg.to.stop.name ?? '';
 

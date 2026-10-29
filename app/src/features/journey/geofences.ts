@@ -1,3 +1,4 @@
+import { isAlarmedRide } from './alerts';
 import type { ActiveJourney } from './types';
 
 /**
@@ -33,7 +34,7 @@ export type JourneyRegion = {
  * attention. Entering a `wake` ring is what escalates location accuracy and
  * arms the get-off alert; everything else is a phase transition.
  */
-export function buildJourneyRegions(journey: ActiveJourney): JourneyRegion[] {
+export function buildJourneyRegions(journey: ActiveJourney, gpsFollowing = true): JourneyRegion[] {
   const regions: JourneyRegion[] = [];
   const legs = journey.itinerary.legs;
   const firstTransit = legs.findIndex((leg) => leg.type === 'transit');
@@ -50,8 +51,11 @@ export function buildJourneyRegions(journey: ActiveJourney): JourneyRegion[] {
       legIndex,
     });
 
+    // The wake ring is the alarm: only on a ride whose alarm is armed (see
+    // `isAlarmedRide`). The stop regions stay on every ride, as evidence of
+    // where the rider has got to.
     const penultimate = leg.intermediateStops.at(-1);
-    regions.push(
+    if (isAlarmedRide(journey, legIndex, gpsFollowing)) regions.push(
       penultimate
         ? {
             id: `wake:${legIndex}`,
