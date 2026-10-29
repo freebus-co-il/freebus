@@ -279,7 +279,8 @@ test('with no fix, a fresh bus counts the stops', () => {
 
 test('an inaccurate fix gives way to a fresh bus', () => {
   const state = resolveJourneyState(
-    journey(), fix(32.061, 34.771, '2026-08-31T10:14:58.000Z', 400), at('2026-08-31T10:15:00.000Z'), S,
+    // Too vague even to track the journey by (see `isTrackingFix`).
+    journey(), fix(32.061, 34.771, '2026-08-31T10:14:58.000Z', 600), at('2026-08-31T10:15:00.000Z'), S,
     busOn(2, '2026-08-31T10:14:40.000Z', 32.07, 34.78),
   );
   assert.equal(state.stopsSource, 'bus');
@@ -639,4 +640,18 @@ test('gone from the stop off the ride\'s route is told apart from riding it', ()
   // On the 480's route: boarded, not off it.
   const onRoute = fix(32.07, 34.78, '2026-08-31T10:11:55.000Z', 30);
   assert.equal(hasLeftOffRoute(leg, onRoute, Date.parse('2026-08-31T10:12:00.000Z')), false);
+});
+
+test('field note: a carriage\'s vague fixes still move a journey on, from the station onto the train', () => {
+  // Started without a sharp fix: no tracking yet. Then a 350 m fix at the
+  // station, and a 400 m fix 2 km down the line, as a phone in a train gives.
+  const atStation = resolveJourneyState(journey(), fix(32.061, 34.771, '2026-08-31T10:03:55.000Z', 350), at('2026-08-31T10:04:00.000Z'));
+  assert.equal(atStation.trackedLegIndex, 1);
+  assert.equal(atStation.phase, 'waiting');
+  const onBoard = resolveJourneyState(
+    { ...journey(), gpsLegIndex: 1 },
+    fix(32.075, 34.785, '2026-08-31T10:05:55.000Z', 400),
+    at('2026-08-31T10:06:00.000Z'),
+  );
+  assert.ok(onBoard.phase === 'riding' || onBoard.phase === 'alight-soon');
 });

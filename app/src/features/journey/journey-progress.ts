@@ -86,11 +86,12 @@ function hasFinished(legs: readonly Leg[], index: number, point: Point): boolean
 /** Where a first fix puts the rider: on the leg the timetable expects if they
  *  are on its route, else on whichever leg's route they are nearest to, else
  *  -- on none of them -- where the timetable expects after all. */
-function place(legs: Leg[], expected: number, point: Point): number {
+function place(legs: Leg[], expected: number, point: Point, slack: number): number {
+  const onPath = Math.max(ON_PATH_METERS, slack);
   const distances = legs.map((leg) => distanceToPathMeters(point, legPath(leg)));
-  if ((distances[expected] ?? Number.POSITIVE_INFINITY) <= ON_PATH_METERS) return expected;
+  if ((distances[expected] ?? Number.POSITIVE_INFINITY) <= onPath) return expected;
   let best = expected;
-  let bestDistance = ON_PATH_METERS;
+  let bestDistance = onPath;
   distances.forEach((distance, index) => {
     if (distance < bestDistance) {
       best = index;
@@ -103,10 +104,10 @@ function place(legs: Leg[], expected: number, point: Point): number {
 /** A rider well off the current leg's route but on a later one's got there
  *  unseen -- the app was closed, the fixes starved -- and is placed there.
  *  Ties go to the later leg: where two legs meet, the rider has moved on. */
-function skipAhead(legs: Leg[], current: number, point: Point): number {
-  if (distanceToPathMeters(point, legPath(legs[current]!)) <= OFF_PATH_METERS) return current;
+function skipAhead(legs: Leg[], current: number, point: Point, slack: number): number {
+  if (distanceToPathMeters(point, legPath(legs[current]!)) <= Math.max(OFF_PATH_METERS, slack)) return current;
   let best = current;
-  let bestDistance = ON_PATH_METERS;
+  let bestDistance = Math.max(ON_PATH_METERS, slack);
   for (let index = current + 1; index < legs.length; index += 1) {
     const distance = distanceToPathMeters(point, legPath(legs[index]!));
     if (distance <= bestDistance) {
@@ -128,22 +129,27 @@ function skipAhead(legs: Leg[], current: number, point: Point): number {
  * simply holds.
  *
  * @param previous the placement so far, from the journey record
- * @param fix the rider's position, already judged good enough to act on
+ * @param fix the rider's position, already judged good enough to act on (see
+ *   `isTrackingFix`); its accuracy widens how near a route counts as on it
  * @param expected the leg the timetable puts the rider on, for a first fix
  */
 export function trackLegIndex(
   itinerary: Itinerary,
   previous: number | null,
-  fix: Point | null,
+  fix: (Point & { accuracyMeters?: number }) | null,
   expected: number,
 ): number | null {
   const { legs } = itinerary;
   if (fix === null || legs.length === 0) return previous;
   if (previous !== null && previous >= legs.length) return legs.length;
 
+  // How far a vague fix may sit off a route and still be on it: its own
+  // accuracy. A phone in a station or a carriage often reports a few hundred
+  // metres, and refusing those left the journey on the timetable.
+  const slack = fix.accuracyMeters ?? 0;
   let index = previous === null
-    ? place(legs, Math.min(Math.max(expected, 0), legs.length - 1), fix)
-    : skipAhead(legs, previous, fix);
+    ? place(legs, Math.min(Math.max(expected, 0), legs.length - 1), fix, slack)
+    : skipAhead(legs, previous, fix, slack);
   while (index < legs.length && hasFinished(legs, index, fix)) index += 1;
   return previous === null ? index : Math.max(previous, index);
 }
@@ -157,6 +163,20 @@ export const LEFT_STATION_METERS = 300;
 export const BOARDING_FIX_AGE_SECONDS = 120;
 /** Vaguer than this a fix cannot tell a platform from the next station. */
 export const BOARDING_FIX_MAX_ACCURACY_METERS = 500;
+
+/**
+ * Whether a fix is fit to move the journey on: recent, and vague by no more
+ * than a station is wide. Looser than the stop counting's rule on purpose:
+ * inside a station and on a train phones rarely do better than a few hundred
+ * metres, and a journey that waited for a sharper fix never left the
+ * timetable. Reported from the field: on the train past Hadera, the journey
+ * still waited at Binyamina for the planned train.
+ */
+export function isTrackingFix(fix: { accuracyMeters: number; at: string } | null, nowMs: number): boolean {
+  return fix !== null
+    && fix.accuracyMeters <= BOARDING_FIX_MAX_ACCURACY_METERS
+    && nowMs - Date.parse(fix.at) <= BOARDING_FIX_AGE_SECONDS * 1000;
+}
 
 /**
  * Whether a fix proves the rider is aboard this ride: away from the boarding

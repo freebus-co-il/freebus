@@ -29,14 +29,16 @@ export const RIDE_PHASES: ReadonlySet<JourneyPhase> = new Set([
 ]);
 
 /**
- * Balanced, not best: a stop is a few hundred metres from the next, so a fix
- * good to 100 m counts them correctly at a fraction of the GPS cost.
+ * High, not Balanced: GPS is what moves the journey on, and Balanced hands
+ * back cell and Wi-Fi fixes hundreds of metres wide inside a station or a
+ * train carriage, exactly where boarding has to be seen. Reported from the
+ * field: on the train past Hadera the journey still waited at the station.
  * `distanceInterval` because a bus at a red light has nothing new to say.
  * Never auto-paused: iOS reads a long stop at a light as the trip being over
  * and would go quiet until the rider unlocked the phone.
  */
 const RIDE_UPDATES: Location.LocationTaskOptions = {
-  accuracy: Location.Accuracy.Balanced,
+  accuracy: Location.Accuracy.High,
   distanceInterval: 40,
   activityType: Location.ActivityType.OtherNavigation,
   pausesUpdatesAutomatically: false,

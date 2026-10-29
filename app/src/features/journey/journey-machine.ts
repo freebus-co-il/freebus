@@ -2,7 +2,7 @@ import type { Place, TransitLeg } from '@/api/types';
 import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
 import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
-import { distanceToPathMeters, hasLeftBoarding, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
+import { distanceToPathMeters, hasLeftBoarding, isTrackingFix, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
 import { buildLegSchedule } from './journey-rail';
 import type { ActiveJourney, AlertSettings, JourneyState, LiveBus, LiveJourneyInput, LiveLeg, OffPlanReason, RiderPosition } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
@@ -334,7 +334,12 @@ export function resolveJourneyState(
   // walk stays a walk past its scheduled minutes, a late bus stays a ride --
   // and the timetable decides only for a journey no fix has reached.
   const fix = position && !isWeakFix(position, nowMs) ? position : null;
-  const tracked = trackLegIndex(itinerary, journey.gpsLegIndex ?? null, fix, heldRide?.legIndex ?? scheduledIndex);
+  const tracked = trackLegIndex(
+    itinerary,
+    journey.gpsLegIndex ?? null,
+    position && isTrackingFix(position, nowMs) ? position : null,
+    heldRide?.legIndex ?? scheduledIndex,
+  );
 
   // The ride GPS has already seen the rider leave the station on. Only for the
   // leg GPS has them on: a record from a leg behind them says nothing now.
