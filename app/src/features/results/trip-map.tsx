@@ -147,7 +147,14 @@ export type TripMapProps = {
   /** A walk leg re-planned from where the rider strayed, drawn in place of
    *  that leg's own line. */
   walkOverride?: { legIndex: number; geometry: string } | null;
+  /** Legs whose run is not decided yet (a last ride before the rider has
+   *  boarded, which any of several lines may make): not drawn, and only their
+   *  boarding stop is marked. Drawing one would show a line the rider may never
+   *  take as if it were the trip. */
+  guessedLegIndexes?: readonly number[];
 };
+
+const NO_LEGS: ReadonlySet<number> = new Set();
 
 type LatLng = { latitude: number; longitude: number };
 
@@ -206,7 +213,7 @@ function coordinateKey(lat: number, lon: number): string {
  * nothing here; their endpoints are either those pins or a stop some transit
  * leg already claims.
  */
-function itineraryStopMarkers(itinerary: Itinerary | null): StopMarker[] {
+function itineraryStopMarkers(itinerary: Itinerary | null, guessed: ReadonlySet<number> = NO_LEGS): StopMarker[] {
   if (!itinerary || itinerary.legs.length === 0) return [];
 
   const firstLeg = itinerary.legs[0]!;
@@ -216,14 +223,18 @@ function itineraryStopMarkers(itinerary: Itinerary | null): StopMarker[] {
   const seen = new Set([coordinateKey(start.lat, start.lon), coordinateKey(end.lat, end.lon)]);
 
   const markers: StopMarker[] = [];
-  for (const leg of itinerary.legs) {
+  for (const [legIndex, leg] of itinerary.legs.entries()) {
     if (leg.type !== 'transit') continue;
     const color = routeColor(leg.route);
-    const stops: { place: Place; kind: StopMarker['kind'] }[] = [
-      { place: leg.from.stop, kind: 'board' },
-      ...leg.intermediateStops.map((place) => ({ place, kind: 'intermediate' as const })),
-      { place: leg.to.stop, kind: 'alight' as const },
-    ];
+    // A ride whose run is only a guess marks where it is boarded and nothing
+    // else: its stops are the guessed run's.
+    const stops: { place: Place; kind: StopMarker['kind'] }[] = guessed.has(legIndex)
+      ? [{ place: leg.from.stop, kind: 'board' }]
+      : [
+        { place: leg.from.stop, kind: 'board' },
+        ...leg.intermediateStops.map((place) => ({ place, kind: 'intermediate' as const })),
+        { place: leg.to.stop, kind: 'alight' as const },
+      ];
     for (const { place, kind } of stops) {
       const key = coordinateKey(place.lat, place.lon);
       if (seen.has(key)) continue;
@@ -313,7 +324,7 @@ export function TripMap({
   vehicles = EMPTY_VEHICLES, onVehiclePress, lineShapes = EMPTY_LINE_SHAPES,
   selectedVehicleTripId = null, vehicleCard = null, onMapPress,
   edgePadding = DEFAULT_EDGE_PADDING, showCredit = true, focusLegIndex = null,
-  navigationCamera = null, cameraPaused = false, onUserGesture, walkOverride = null,
+  navigationCamera = null, cameraPaused = false, onUserGesture, walkOverride = null, guessedLegIndexes,
   vehiclePredictions, vehiclesTowardsAlighting = false,
 }: TripMapProps) {
   const { t } = useTranslation();
@@ -322,7 +333,10 @@ export function TripMap({
   const { userInterfaceStyle, remountKey, customMapStyle } = useMapAppearance({ monochrome });
   const showsUserLocation = useLocationGranted();
 
-  const stopMarkers = useMemo(() => itineraryStopMarkers(itinerary), [itinerary]);
+  const guessedKey = guessedLegIndexes?.join(',') ?? '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const guessed = useMemo<ReadonlySet<number>>(() => new Set(guessedLegIndexes ?? []), [guessedKey]);
+  const stopMarkers = useMemo(() => itineraryStopMarkers(itinerary, guessed), [itinerary, guessed]);
   // Ticks on its own, so a dot's age keeps counting between polls -- React
   // Query hands back the same array when a poll finds nothing new, which
   // would otherwise freeze the label on whatever it first said.
@@ -593,6 +607,7 @@ export function TripMap({
         />
       ))}
       {(drawnItinerary?.legs ?? []).map((leg, index) => {
+        if (guessed.has(index)) return null;
         const rerouted = walkOverride !== null && walkOverride.legIndex === index;
         const coordinates = rerouted
           ? decodePolyline(walkOverride.geometry).map(([lat, lon]) => ({ latitude: lat, longitude: lon }))

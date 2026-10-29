@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { resolveJourneyState } from './journey-machine';
+import { hasLeftBoarding, hasLeftOffRoute } from './journey-progress';
 import { at, fix, sampleJourney as journey, twoRideJourney } from './journey-fixtures';
 import { DEFAULT_ALERT_SETTINGS } from './types';
 import type { RiderPosition, LiveJourneyInput } from './types';
@@ -606,4 +607,36 @@ test('a boarding recorded on an earlier ride says nothing about the next one', (
   );
   assert.equal(state.phase, 'waiting');
   assert.equal(state.legIndex, 3);
+});
+
+test('a "minutes before" alarm on a late bus counts to its live arrival', () => {
+  const minutes = { ...S, leadStops: 0, leadSeconds: 90 };
+  // 10:29, a minute before the scheduled arrival, but the bus is 6 min late.
+  const state = resolveJourneyState(
+    { ...journey(), gpsLegIndex: 1, boardedLegIndex: 1 },
+    fix(32.072, 34.782, '2026-08-31T10:28:55.000Z', 30),
+    at('2026-08-31T10:29:00.000Z'),
+    minutes,
+    live({ legs: [liveLeg(1, '2026-08-31T10:28:30.000Z', { arrival: '2026-08-31T10:36:00.000Z' })] }),
+  );
+  assert.equal(state.phase, 'riding');
+  assert.equal(state.timer?.to, '2026-08-31T10:36:00.000Z');
+});
+
+test('a journey GPS has on a ride is not ended half an hour past its arrival', () => {
+  const onRide = { ...journey(), gpsLegIndex: 1 };
+  assert.equal(resolveJourneyState(onRide, null, at('2026-08-31T11:20:00.000Z')).phase, 'waiting');
+  assert.equal(resolveJourneyState(onRide, null, at('2026-08-31T12:36:00.000Z')).phase, 'arrived');
+});
+
+test('gone from the stop off the ride\'s route is told apart from riding it', () => {
+  const leg = journey().itinerary.legs[1];
+  if (leg?.type !== 'transit') throw new Error('fixture');
+  // 1 km west of Rothschild, nowhere near the 480's stops.
+  const elsewhere = fix(32.061, 34.76, '2026-08-31T10:11:55.000Z', 30);
+  assert.equal(hasLeftOffRoute(leg, elsewhere, Date.parse('2026-08-31T10:12:00.000Z')), true);
+  assert.equal(hasLeftBoarding(leg, elsewhere, Date.parse('2026-08-31T10:12:00.000Z')), false);
+  // On the 480's route: boarded, not off it.
+  const onRoute = fix(32.07, 34.78, '2026-08-31T10:11:55.000Z', 30);
+  assert.equal(hasLeftOffRoute(leg, onRoute, Date.parse('2026-08-31T10:12:00.000Z')), false);
 });

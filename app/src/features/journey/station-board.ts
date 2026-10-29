@@ -41,16 +41,29 @@ export function isFinalRide(itinerary: Itinerary, legIndex: number): boolean {
   return !itinerary.legs.slice(legIndex + 1).some((leg) => leg.type === 'transit');
 }
 
+/** The server's own radius for "arrives at the destination" (the API's
+ *  `DESTINATION_RADIUS_METERS`): any stop this close counts. */
+export const DESTINATION_RADIUS_METERS = 500;
+
 /**
  * What the board for this ride is filtered to. Null when the leg is not a ride
  * from a known stop, which no board can be asked about.
+ *
+ * The last ride is filtered to the destination itself, so any line stopping
+ * near it counts, only when the planned ride already ends that near. One that
+ * ends further off (a train to the town's station, then a long walk) is
+ * filtered to the station it ends at, like any earlier ride: no run of it
+ * stops near the destination, and a board asked about the destination would
+ * come back empty.
  */
 export function boardTarget(itinerary: Itinerary, legIndex: number): BoardTarget | null {
   const leg = itinerary.legs[legIndex];
   if (leg?.type !== 'transit' || !leg.from.stop.stopId) return null;
-  const final = isFinalRide(itinerary, legIndex);
   const last = itinerary.legs[itinerary.legs.length - 1];
-  const point = final && last?.type === 'walk' ? last.to : leg.to.stop;
+  const destination = last?.type === 'walk' ? last.to : leg.to.stop;
+  const final = isFinalRide(itinerary, legIndex)
+    && haversineMeters(leg.to.stop, destination) <= DESTINATION_RADIUS_METERS;
+  const point = final ? destination : leg.to.stop;
   return { lat: point.lat, lon: point.lon, final, mode: modeFamily(leg.route.type) };
 }
 
@@ -138,17 +151,26 @@ export const LATE_HOLD_SECONDS = 5 * 60;
  * The run the journey should switch its ride to while the rider waits, or
  * null to keep it.
  *
- * The ride keeps its run for as long as that run is still on the board: the
- * plan may have picked a faster run over a slower one leaving first, and a
- * late run is still on the board. Only once it is gone, and `LATE_HOLD_SECONDS`
- * past due, does the ride move to whatever comes next.
+ * The ride is whichever run comes first: the rider takes the first one that
+ * makes the step, so that is the run the countdown, the arrival and the Lock
+ * Screen follow (the board still shows the ones after it, with their own
+ * arrivals, for a rider who would rather wait for a faster one). The only
+ * exception is the ride's own run dropping off the board: the board keeps a
+ * late run only while realtime vouches for it, so for `LATE_HOLD_SECONDS` past
+ * due it may simply be late, and the ride holds on to it.
  */
 export function runToFollow(leg: TransitLeg, runs: readonly StationRun[], nowMs: number): StationRun | null {
-  if (runs.length === 0) return null;
-  if (runs.some((run) => run.tripId === leg.tripId)) return null;
+  // Only a run still to come can be switched to: one pulling out right now
+  // (still on the board for `BOARD_GRACE_SECONDS`) is not one to send the
+  // rider to, and following it moved the arrival twice in a few seconds.
+  const first = runs.find((run) => Date.parse(run.departs) >= nowMs);
+  if (!first || first.tripId === leg.tripId) return null;
+  const own = runs.find((run) => run.tripId === leg.tripId);
+  // The ride's own run pulling in now is the one the rider is about to board.
+  if (own) return Date.parse(own.departs) < nowMs ? null : first;
   const legDeparts = Date.parse(leg.realtime?.predictedDeparture ?? leg.from.departureTime);
   if (nowMs - legDeparts < LATE_HOLD_SECONDS * 1000) return null;
-  return runs[0]!;
+  return first;
 }
 
 /**
@@ -267,4 +289,50 @@ export function withRun(itinerary: Itinerary, legIndex: number, leg: TransitLeg)
     walkSeconds: walks.reduce((sum, each) => sum + each.durationSeconds, 0),
     walkMeters: walks.reduce((sum, each) => sum + each.distanceMeters, 0),
   };
+}
+
+/**
+ * The legs whose run is still a guess: the last ride, when it is bound for
+ * the destination's area (see `boardTarget`) and until the rider is on it,
+ * and the walk after it, which starts wherever that guess sets them down.
+ * Any line that stops near the destination makes that ride, each at its own
+ * stop, so its drawn route and stops would show one line as if it were the
+ * trip. Earlier rides run between two fixed stations, so their path holds
+ * whichever run makes them.
+ */
+export function guessedLegIndexes(
+  itinerary: Itinerary,
+  state: { phase: string; legIndex: number; boardedLegIndex: number | null },
+): number[] {
+  let last = -1;
+  itinerary.legs.forEach((leg, index) => {
+    if (leg.type === 'transit') last = index;
+  });
+  // Only a last ride whose board is the destination's is open to several
+  // lines; one bound for a station is not (see `boardTarget`).
+  if (last < 0 || !boardTarget(itinerary, last)?.final) return [];
+  if (state.legIndex > last || state.boardedLegIndex === last) return [];
+  if (state.legIndex === last && (state.phase === 'riding' || state.phase === 'alight-soon')) return [];
+  return itinerary.legs[last + 1]?.type === 'walk' ? [last, last + 1] : [last];
+}
+
+/** How far back a run that left the station can still be the one the rider
+ *  is on, once GPS has them gone from it. */
+export const RECENTLY_LEFT_SECONDS = 10 * 60;
+
+/**
+ * The runs that left the station lately, most recent first, other than the
+ * ride's own: the ones a rider GPS has seen leave the station off the ride's
+ * route may be on. The caller confirms one against the fix before taking it.
+ */
+export function recentlyLeftRuns(leg: TransitLeg, seen: readonly StationRun[], nowMs: number, limit = 4): StationRun[] {
+  return seen
+    .filter((run) => {
+      const departs = Date.parse(run.departs);
+      return run.tripId !== leg.tripId
+        && departs <= nowMs + BOARD_GRACE_SECONDS * 1000
+        && departs >= nowMs - RECENTLY_LEFT_SECONDS * 1000;
+    })
+    .sort((a, b) => Date.parse(b.departs) - Date.parse(a.departs))
+    .slice(0, limit);
 }

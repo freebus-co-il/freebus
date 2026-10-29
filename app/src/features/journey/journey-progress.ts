@@ -182,6 +182,26 @@ export function hasLeftBoarding(leg: TransitLeg, fix: (Point & { accuracyMeters:
 }
 
 /**
+ * Whether a fix has the rider gone from the boarding station, but not along
+ * this ride's route: on some other line that left from the same station (the
+ * station board offers several), or walking off. Same evidence rules as
+ * `hasLeftBoarding`.
+ */
+export function hasLeftOffRoute(leg: TransitLeg, fix: (Point & { accuracyMeters: number; at: string }) | null, nowMs: number): boolean {
+  if (!fix || fix.accuracyMeters > BOARDING_FIX_MAX_ACCURACY_METERS) return false;
+  if (nowMs - Date.parse(fix.at) > BOARDING_FIX_AGE_SECONDS * 1000) return false;
+  const away = Math.max(isRail(leg) ? LEFT_STATION_METERS : LEFT_STOP_METERS, fix.accuracyMeters);
+  if (haversineMeters(fix, leg.from.stop) <= away) return false;
+  return distanceToPathMeters(fix, legPath(leg)) > Math.max(ON_PATH_METERS, fix.accuracyMeters);
+}
+
+/** Whether a fix is on a ride's route, within what the fix's own accuracy
+ *  allows: how a run the rider might be on is confirmed. */
+export function isOnRoute(leg: TransitLeg, fix: Point & { accuracyMeters: number }): boolean {
+  return distanceToPathMeters(fix, legPath(leg)) <= Math.max(ON_PATH_METERS, fix.accuracyMeters);
+}
+
+/**
  * The leg a journey's geofence proves the rider has reached, from the
  * region's id (see `buildJourneyRegions`): at a ride's boarding stop they are
  * on that ride; at its alight stop they are past it; at the destination the

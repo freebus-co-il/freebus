@@ -127,3 +127,14 @@ test('riding follows a carriage-vague fix rather than framing the station', () =
   assert.equal(camera?.kind, 'follow');
   assert.deepEqual((camera as FollowCamera).center, { latitude: 32.07, longitude: 34.78 });
 });
+
+test('waiting frames the station and the rider, not the ride still to be decided', () => {
+  const camera = navigationCamera(input({
+    state: { phase: 'waiting', legIndex: 1 },
+    fix: fix(32.0611, 34.7711, '2026-08-31T10:01:55.000Z'),
+  }));
+  assert.equal(camera?.kind, 'frame');
+  const lats = (camera as { coordinates: { latitude: number }[] }).coordinates.map((point) => point.latitude);
+  // The ride's alight stop (Allenby, 32.08) is well outside the frame.
+  assert.ok(Math.max(...lats) < 32.07, `frame reaches ${Math.max(...lats)}`);
+});

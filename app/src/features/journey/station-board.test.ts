@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import type { Departure, TransitLeg, TripDetail } from '@/api/types';
 
 import { sampleItinerary, twoRideItinerary } from './journey-fixtures';
-import { boardedRun, boardTarget, legFromRun, rememberRuns, runToFollow, stationRuns, withRun, type StationRun } from './station-board';
+import { boardedRun, boardTarget, guessedLegIndexes, legFromRun, recentlyLeftRuns, rememberRuns, runToFollow, stationRuns, withRun, type StationRun } from './station-board';
 
 const NOW = Date.parse('2026-08-31T10:05:00.000Z');
 
@@ -83,9 +83,24 @@ function run(tripId: string, departs: string): StationRun {
   return stationRuns([departure({ tripId, departureTime: departs })], ride(), boardTarget(sampleItinerary(), 1)!, Date.parse(departs))[0]!;
 }
 
-test('the ride keeps its run while that run is still on the board, even behind another', () => {
+test('the ride follows whichever run comes first', () => {
+  // Reported from the field: the hero was a 40 in 10 minutes, with three
+  // runs coming sooner listed "after it".
   const runs = [run('t0', '2026-08-31T10:07:00.000Z'), run('t1', '2026-08-31T10:10:00.000Z')];
-  assert.equal(runToFollow(ride(), runs, NOW), null);
+  assert.equal(runToFollow(ride(), runs, NOW)?.tripId, 't0');
+  // Already on the first one: nothing to do.
+  assert.equal(runToFollow(ride(), [run('t1', '2026-08-31T10:10:00.000Z')], NOW), null);
+});
+
+test('a run pulling out right now is never switched to, and the ride\'s own is kept', () => {
+  // 10:05: t0 is pulling out, t2 comes at 10:07, the ride's own t1 at 10:20.
+  const leaving = run('t0', '2026-08-31T10:04:40.000Z');
+  const next = run('t2', '2026-08-31T10:07:00.000Z');
+  const later = { ...run('t1', '2026-08-31T10:20:00.000Z') };
+  assert.equal(runToFollow(ride(), [leaving, next, later], NOW)?.tripId, 't2');
+  // The ride's own run pulling in now stays the ride.
+  const own = { ...leaving, tripId: 't1' };
+  assert.equal(runToFollow(ride(), [own, next], NOW), null);
 });
 
 test('field note 3: a run off the board is held a while, since it may just be late', () => {
@@ -175,4 +190,35 @@ test('runs seen for a ride are kept across boards until long past due', () => {
   const kept = rememberRuns([early], [later], Date.parse('2026-08-31T09:40:00.000Z'));
   assert.deepEqual(kept.map((each) => each.tripId), ['t0', 't2']);
   assert.deepEqual(rememberRuns(kept, [], Date.parse('2026-08-31T10:10:00.000Z')).map((each) => each.tripId), ['t2']);
+});
+
+test('the last ride is a guess until the rider is on it, and so is the walk after it', () => {
+  const itinerary = twoRideItinerary();
+  assert.deepEqual(guessedLegIndexes(itinerary, { phase: 'waiting', legIndex: 3, boardedLegIndex: null }), [3]);
+  assert.deepEqual(guessedLegIndexes(sampleItinerary(), { phase: 'waiting', legIndex: 1, boardedLegIndex: null }), [1, 2]);
+  assert.deepEqual(guessedLegIndexes(sampleItinerary(), { phase: 'riding', legIndex: 1, boardedLegIndex: 1 }), []);
+  assert.deepEqual(guessedLegIndexes(sampleItinerary(), { phase: 'arriving', legIndex: 2, boardedLegIndex: null }), []);
+});
+
+test('a last ride ending far from the destination is filtered to its own station', () => {
+  // A train to the town's station, then a long walk: no run stops near home.
+  const itinerary = sampleItinerary();
+  const walk = itinerary.legs[2];
+  if (walk?.type === 'walk') walk.to = { type: 'coordinate', lat: 32.09, lon: 34.8 };
+  const target = boardTarget(itinerary, 1);
+  assert.equal(target?.final, false);
+  assert.deepEqual([target?.lat, target?.lon], [32.08, 34.79]);
+  // And its path is the station's, not a guess.
+  assert.deepEqual(guessedLegIndexes(itinerary, { phase: 'waiting', legIndex: 1, boardedLegIndex: null }), []);
+});
+
+test('the runs a rider gone off the ride\'s route may be on: lately left, most recent first', () => {
+  const seen = [
+    run('old', '2026-08-31T09:50:00.000Z'),
+    run('a', '2026-08-31T10:02:00.000Z'),
+    run('b', '2026-08-31T10:04:30.000Z'),
+    run('t1', '2026-08-31T10:04:00.000Z'),
+    run('later', '2026-08-31T10:20:00.000Z'),
+  ];
+  assert.deepEqual(recentlyLeftRuns(ride(), seen, NOW).map((each) => each.tripId), ['b', 'a']);
 });
