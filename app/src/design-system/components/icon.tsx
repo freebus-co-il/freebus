@@ -62,6 +62,7 @@ const GLYPHS = {
   language: { ios: 'globe', android: 'language' },
   appearance: { ios: 'circle.lefthalf.filled', android: 'dark_mode' },
   share: { ios: 'square.and.arrow.up', android: 'share' },
+  externalLink: { ios: 'arrow.up.right.square', android: 'open_in_new' },
   more: { ios: 'ellipsis', android: 'more_horiz' },
   layers: { ios: 'square.3.layers.3d', android: 'layers' },
   history: { ios: 'clock.arrow.circlepath', android: 'history' },

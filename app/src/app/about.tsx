@@ -40,7 +40,7 @@ function Source({ title, body, url }: { title: string; body: string; url?: strin
           {body}
         </Text>
       }
-      accessory={url ? 'chevron' : 'none'}
+      accessory={url ? 'externalLink' : 'none'}
       onPress={url ? () => void Linking.openURL(url) : undefined}
     />
   );
@@ -48,7 +48,7 @@ function Source({ title, body, url }: { title: string; body: string; url?: strin
 
 /** A row that opens a page outside the app. */
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
-  return <ListRow title={label} accessory="chevron" onPress={onPress} />;
+  return <ListRow title={label} accessory="externalLink" onPress={onPress} />;
 }
 
 /**
@@ -65,7 +65,7 @@ export default function AboutScreen() {
       <ListSection footer={t('about.openSource')}>
         <LinkRow label={t('about.sourceCode')} onPress={() => void Linking.openURL(REPO_URL)} />
         <LinkRow label={t('about.privacy')} onPress={() => void Linking.openURL(PRIVACY_URL)} />
-        <LinkRow label={t('about.licenses')} onPress={() => openLicenses(t('about.licenses'))} />
+        <ListRow title={t('about.licenses')} accessory="chevron" onPress={() => openLicenses(t('about.licenses'))} />
       </ListSection>
 
       <ListSection title={t('about.dataSources')}>

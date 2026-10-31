@@ -103,7 +103,7 @@ export type ListRowProps = {
    *  the title's own line -- which lets a wide subtitle (a row of departures)
    *  run all the way to the row's end edge under them. */
   trailingAlign?: 'row' | 'title';
-  accessory?: 'chevron' | 'check' | 'none';
+  accessory?: 'chevron' | 'externalLink' | 'check' | 'none';
   /** With accessory `check`: shows the mark. */
   selected?: boolean;
   /** With accessory `check`: `multiple` makes the row a checkbox (checked),
@@ -158,6 +158,7 @@ export function ListRow({
     <>
       {trailing}
       {accessory === 'chevron' && <Icon name="chevronForward" size="sm" color="textTertiary" weight="semibold" />}
+      {accessory === 'externalLink' && <Icon name="externalLink" size="sm" color="textTertiary" weight="semibold" />}
       {accessory === 'check' && (
         <View style={styles.check}>{selected && <Icon name="check" size="md" color="accent" weight="semibold" />}</View>
       )}
