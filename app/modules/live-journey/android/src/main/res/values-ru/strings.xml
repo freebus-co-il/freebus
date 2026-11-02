@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the chrome lives here; the journey's own copy comes from
+     src/i18n/locales/ru.json over the bridge. -->
+<resources>
+  <string name="live_journey_channel_ongoing">Активный маршрут</string>
+  <string name="live_journey_channel_ongoing_description">Маршрут, обратный отсчёт и значок в строке состояния во время поездки.</string>
+  <string name="live_journey_channel_alert">Оповещения о выходе</string>
+  <string name="live_journey_channel_alert_description">Вовремя предупреждает, чтобы вы вышли на своей остановке.</string>
+
+  <string name="live_journey_got_it">Понятно</string>
+</resources>

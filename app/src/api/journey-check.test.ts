@@ -62,3 +62,11 @@ test('the path repeats leg in journey order and encodes each triple', () => {
     '/journey/check?leg=t1%2Cs1%2Cs2&leg=t2%2Cs3%2Cs4&lang=he',
   );
 });
+
+// The API rejects a `lang` the feed has no names in, which would fail every
+// live check for a Russian or Spanish rider.
+test('the path asks for English names when the app language is not in the feed', () => {
+  const plan = itinerary([ride('t1', 's1', 's2')]);
+  assert.equal(journeyCheckPath(legsToCheck(plan, 0), 'ru'), '/journey/check?leg=t1%2Cs1%2Cs2&lang=en');
+  assert.equal(journeyCheckPath(legsToCheck(plan, 0), 'ar'), '/journey/check?leg=t1%2Cs1%2Cs2&lang=ar');
+});

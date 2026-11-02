@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/env';
+import { feedLanguage } from '@/features/preferences/resolve-language';
 
 import type { ApiErrorBody } from './types';
 
@@ -23,7 +24,9 @@ function buildQueryString(params?: Record<string, string | number | boolean | un
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
-    search.set(key, String(value));
+    // Every caller passes the interface language; the API only has names in
+    // the feed's languages, so this is the one place the two are reconciled.
+    search.set(key, key === 'lang' ? feedLanguage(String(value)) : String(value));
   }
   const query = search.toString();
   return query ? `?${query}` : '';

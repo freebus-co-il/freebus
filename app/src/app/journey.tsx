@@ -33,6 +33,7 @@ import {
   OfferView,
   RecalculatingView,
   RidingView,
+  shownArrivalTime,
   WaitingView,
   WalkingView,
 } from '@/features/journey/sheet/phase-views';
@@ -429,7 +430,10 @@ function JourneyScreenContent() {
       </SafeAreaView>
 
       <FloatingSheet onHeightChange={setSheetHeight}>
-        <EtaHeader arrivalTime={state.arrivalTime} live={state.timeSource === 'live'} />
+        <EtaHeader
+          arrivalTime={shownArrivalTime(state, journey.itinerary, position, nowMs)}
+          live={state.timeSource === 'live'}
+        />
         {/* A different kind of trip, offered because the rider's own way broke
             -- in whatever phase that was found, above what the phase says. */}
         {replan.offer && (

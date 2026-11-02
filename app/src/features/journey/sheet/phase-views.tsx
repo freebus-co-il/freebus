@@ -306,19 +306,41 @@ export function AlightView({ state, itinerary, leg, nowMs, canSilence, onSilence
   );
 }
 
+/** Minutes left on the final walk, measured from where the rider is: the time
+ *  to the planned arrival says nothing once the ride ran late or early. Null
+ *  without a fix or a destination to measure to. */
+function finalWalkMinutes(itinerary: Itinerary, position: RiderPosition | null): number | null {
+  const last = itinerary.legs[itinerary.legs.length - 1];
+  const destination = last?.type === 'walk' ? last.to : last?.to.stop;
+  if (!position || !destination) return null;
+  return Math.max(1, Math.round((haversineMeters(position, destination) * WALK_DETOUR) / WALK_METERS_PER_SECOND / 60));
+}
+
+/**
+ * The arrival the ETA header shows. On the final walk it is now plus the walk
+ * left, the same minutes the sheet's hero counts, so a rider who walks slower
+ * than the plan never sees an arrival that is already behind them. Anywhere
+ * else it is the journey's (live-shifted) arrival, never earlier than now.
+ */
+export function shownArrivalTime(
+  state: JourneyState, itinerary: Itinerary, position: RiderPosition | null, nowMs: number,
+): string {
+  if (state.phase === 'arriving') {
+    const minutes = finalWalkMinutes(itinerary, position);
+    // Whole minutes from the start of this one, so GPS jitter inside a minute
+    // neither moves the time nor flashes a delta.
+    if (minutes !== null) return new Date(Math.floor(nowMs / 60_000) * 60_000 + minutes * 60_000).toISOString();
+  }
+  return Date.parse(state.arrivalTime) >= nowMs ? state.arrivalTime : new Date(Math.floor(nowMs / 60_000) * 60_000).toISOString();
+}
+
 /** The last walk, and the end. */
 export function ArrivingView({ state, itinerary, position, destinationLabel }: {
   state: JourneyState; itinerary: Itinerary; position: RiderPosition | null; destinationLabel: string;
 }) {
   const { t } = useTranslation();
   if (state.phase === 'arrived') return <Hero>{t('journey.sheet.arrived')}</Hero>;
-  // The walk left from where the rider is, as on the way to the station: the
-  // time to the planned arrival says nothing once the ride ran late or early.
-  const last = itinerary.legs[itinerary.legs.length - 1];
-  const destination = last?.type === 'walk' ? last.to : last?.to.stop;
-  const minutes = position && destination
-    ? Math.round((haversineMeters(position, destination) * WALK_DETOUR) / WALK_METERS_PER_SECOND / 60)
-    : minutesLeft(state.timer);
+  const minutes = finalWalkMinutes(itinerary, position) ?? minutesLeft(state.timer);
   return (
     <View style={styles.block}>
       <Kicker>{t('journey.sheet.toDestination', { name: destinationLabel })}</Kicker>

@@ -1,29 +1,50 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { isRTLLanguage, needsDirectionRestart, resolveLanguage } from './resolve-language';
+import { feedLanguage, isRTLLanguage, needsDirectionRestart, resolveLanguage } from './resolve-language';
 
 test('an explicit language preference wins over the device locale', () => {
   assert.equal(resolveLanguage('en', 'he'), 'en');
   assert.equal(resolveLanguage('he', 'en'), 'he');
+  assert.equal(resolveLanguage('ar', 'en'), 'ar');
 });
 
 test('the device preference follows a device locale the app supports', () => {
   assert.equal(resolveLanguage('device', 'en'), 'en');
   assert.equal(resolveLanguage('device', 'he'), 'he');
+  assert.equal(resolveLanguage('device', 'ar'), 'ar');
+  assert.equal(resolveLanguage('device', 'ru'), 'ru');
+  assert.equal(resolveLanguage('device', 'es'), 'es');
 });
 
-// Hebrew is the default because this is an Israeli transit app -- a rider whose
-// phone is in a language the app does not speak is far likelier to read Hebrew
-// than to be served by falling back to English.
-test('an unsupported device locale falls back to Hebrew', () => {
-  assert.equal(resolveLanguage('device', 'fr'), 'he');
-  assert.equal(resolveLanguage('device', undefined), 'he');
+// Some Android versions still report Hebrew under its legacy code.
+test('the legacy iw code resolves to Hebrew', () => {
+  assert.equal(resolveLanguage('device', 'iw'), 'he');
 });
 
-test('Hebrew is RTL and English is not', () => {
+test('an unsupported device locale falls back to English', () => {
+  assert.equal(resolveLanguage('device', 'fr'), 'en');
+  assert.equal(resolveLanguage('device', 'de'), 'en');
+  assert.equal(resolveLanguage('device', undefined), 'en');
+});
+
+test('Hebrew and Arabic are RTL; English, Russian and Spanish are not', () => {
   assert.equal(isRTLLanguage('he'), true);
+  assert.equal(isRTLLanguage('ar'), true);
   assert.equal(isRTLLanguage('en'), false);
+  assert.equal(isRTLLanguage('ru'), false);
+  assert.equal(isRTLLanguage('es'), false);
+});
+
+// The feed only has names in Hebrew, English and Arabic, and the API rejects
+// any other `lang`: a Russian or Spanish interface shows English names.
+test('names come in the app language when the feed has it, otherwise English', () => {
+  assert.equal(feedLanguage('he'), 'he');
+  assert.equal(feedLanguage('en'), 'en');
+  assert.equal(feedLanguage('ar'), 'ar');
+  assert.equal(feedLanguage('ru'), 'en');
+  assert.equal(feedLanguage('es'), 'en');
+  assert.equal(feedLanguage(''), 'en');
 });
 
 // This is what gates `Updates.reloadAsync()`. Getting it wrong in either
@@ -32,11 +53,20 @@ test('Hebrew is RTL and English is not', () => {
 test('a language laid out the wrong way needs a restart', () => {
   assert.equal(needsDirectionRestart('he', false), true);
   assert.equal(needsDirectionRestart('en', true), true);
+  assert.equal(needsDirectionRestart('ar', false), true);
 });
 
 test('a language already laid out its own way needs no restart', () => {
   assert.equal(needsDirectionRestart('he', true), false);
   assert.equal(needsDirectionRestart('en', false), false);
+  assert.equal(needsDirectionRestart('ar', true), false);
+});
+
+// Hebrew and Arabic both run right to left, so switching between them swaps
+// the strings without a restart.
+test('switching between two RTL languages needs no restart', () => {
+  assert.equal(needsDirectionRestart('ar', isRTLLanguage('he')), false);
+  assert.equal(needsDirectionRestart('he', isRTLLanguage('ar')), false);
 });
 
 // Picking "device default" while the device is already showing that language

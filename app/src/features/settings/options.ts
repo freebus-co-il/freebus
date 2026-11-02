@@ -9,6 +9,9 @@ export const LANGUAGE_OPTIONS: { value: LanguagePreference; labelKey: string }[]
   { value: 'device', labelKey: 'settings.deviceDefault' },
   { value: 'he', labelKey: 'settings.languageHebrew' },
   { value: 'en', labelKey: 'settings.languageEnglish' },
+  { value: 'ar', labelKey: 'settings.languageArabic' },
+  { value: 'ru', labelKey: 'settings.languageRussian' },
+  { value: 'es', labelKey: 'settings.languageSpanish' },
 ];
 
 // "System", not the language list's "Device default": it also shows as the
