@@ -655,3 +655,20 @@ test('field note: a carriage\'s vague fixes still move a journey on, from the st
   );
   assert.ok(onBoard.phase === 'riding' || onBoard.phase === 'alight-soon');
 });
+
+test('one stop out but half an hour away, it is not yet the alert moment', () => {
+  // Reported from the field: on the train, one station out, the Island said
+  // "now" 28 minutes before the station. The same stop count with the arrival
+  // far off stays on riding until the arrival is close.
+  const far = journey();
+  const ride = far.itinerary.legs[1]!;
+  if (ride.type !== 'transit') throw new Error('fixture changed');
+  far.itinerary.legs[1] = { ...ride, to: { ...ride.to, arrivalTime: '2026-08-31T10:55:00.000Z' } };
+  const fixAt = (iso: string): RiderPosition => ({ ...near(32.075, 34.785), at: iso });
+  const early = resolveJourneyState(far, fixAt('2026-08-31T10:25:00.000Z'), at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(early.stopsRemaining, 1);
+  assert.equal(early.phase, 'riding');
+  const close = resolveJourneyState(far, fixAt('2026-08-31T10:51:00.000Z'), at('2026-08-31T10:51:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(close.stopsRemaining, 1);
+  assert.equal(close.phase, 'alight-soon');
+});

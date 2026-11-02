@@ -3,6 +3,7 @@ import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
 import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
 import { distanceToPathMeters, hasLeftBoarding, isTrackingFix, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
+import { stopCountIsDue } from './alerts';
 import { buildLegSchedule } from './journey-rail';
 import type { ActiveJourney, AlertSettings, JourneyState, LiveBus, LiveJourneyInput, LiveLeg, OffPlanReason, RiderPosition } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
@@ -499,8 +500,10 @@ export function resolveJourneyState(
     // usable, so a "minutes before" alarm on a late bus does not go off early.
     const arrival = usableLiveLeg(live, legIndex, nowMs)?.predictedArrival ?? leg.to.arrivalTime;
     const countStops = settings.leadStops > 0 && stopsRemaining !== null;
+    // A stop count alone is not enough: one stop on a train can be half an
+    // hour, so it also waits for the arrival to be close (see `stopCountIsDue`).
     const dueToAlight = countStops
-      ? stopsRemaining! <= settings.leadStops
+      ? stopsRemaining! <= settings.leadStops && stopCountIsDue(arrival, nowMs, settings)
       : ms(arrival) - nowMs <= settings.leadSeconds * 1000;
     const alreadyAcknowledged = journey.acknowledgedAlightLegIndex === legIndex;
 

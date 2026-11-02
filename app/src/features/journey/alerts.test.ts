@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import type { Itinerary } from '@/api/types';
 
-import { planAlightAlerts } from './alerts';
+import { planAlightAlerts, stopCountIsDue } from './alerts';
 import type { ActiveJourney } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
 
@@ -140,4 +140,18 @@ test('once GPS has the rider aboard, that ride is armed', () => {
 test('with nothing following in the background, every ride is armed up front', () => {
   const waiting = { ...journey(), gpsLegIndex: 1 };
   assert.ok(planAlightAlerts(waiting, DEFAULT_ALERT_SETTINGS, false).length > 0);
+});
+
+test('a stop count says get off only once the arrival is close too', () => {
+  const now = Date.parse('2026-11-02T15:00:00.000Z');
+  const inMinutes = (minutes: number) => new Date(now + minutes * 60_000).toISOString();
+  const oneStop = { ...DEFAULT_ALERT_SETTINGS, leadStops: 1, leadSeconds: 90 };
+  // The next station is 28 minutes away: too early.
+  assert.equal(stopCountIsDue(inMinutes(28), now, oneStop), false);
+  assert.equal(stopCountIsDue(inMinutes(4), now, oneStop), true);
+  // A late run whose timetabled arrival has passed is close, not held back.
+  assert.equal(stopCountIsDue(inMinutes(-3), now, oneStop), true);
+  // Two stops of warning allow twice the time.
+  assert.equal(stopCountIsDue(inMinutes(9), now, { ...oneStop, leadStops: 2 }), true);
+  assert.equal(stopCountIsDue(inMinutes(11), now, { ...oneStop, leadStops: 2 }), false);
 });
