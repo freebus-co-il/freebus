@@ -92,8 +92,8 @@ module.exports = {
         "expo-localization",
         {
           supportedLocales: {
-            ios: ["he", "en"],
-            android: ["he", "en"]
+            ios: ["he", "en", "ar", "ru", "es"],
+            android: ["he", "en", "ar", "ru", "es"]
           }
         }
       ],

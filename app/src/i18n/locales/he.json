@@ -103,6 +103,7 @@
     },
     "leaveNow": "עכשיו",
     "leaveIn_one": "בעוד דקה",
+    "leaveIn_two": "בעוד {{count}} דק׳",
     "leaveIn_other": "בעוד {{count}} דק׳",
     "leaveAt": "ב-{{time}}",
     "leaveDeparted": "כבר יצא",
@@ -499,6 +500,7 @@
   "run": {
     "error": "לא הצלחנו לטעון את הקו הזה.",
     "stopCount_one": "תחנה אחת",
+    "stopCount_two": "שתי תחנות",
     "stopCount_other": "{{count}} תחנות"
   },
   "line": {
@@ -554,6 +556,9 @@
     "themeSystem": "מערכת",
     "languageHebrew": "עברית",
     "languageEnglish": "English",
+    "languageArabic": "العربية",
+    "languageRussian": "Русский",
+    "languageSpanish": "Español",
     "themeLight": "בהיר",
     "themeDark": "כהה",
     "mapStyle": "מפה",

@@ -1,3 +1,5 @@
+import { feedLanguage } from '@/features/preferences/resolve-language';
+
 import type { Itinerary, TransitLeg } from './types';
 
 /** One end of a checked leg. `predicted` is the only reliable live/scheduled
@@ -63,6 +65,6 @@ export function journeyCheckPath(legs: readonly CheckedLeg[], lang: string): str
   const params = legs.map(
     ({ leg }) => `leg=${encodeURIComponent(`${leg.tripId},${leg.from.stop.stopId},${leg.to.stop.stopId}`)}`,
   );
-  params.push(`lang=${encodeURIComponent(lang)}`);
+  params.push(`lang=${encodeURIComponent(feedLanguage(lang))}`);
   return `/journey/check?${params.join('&')}`;
 }

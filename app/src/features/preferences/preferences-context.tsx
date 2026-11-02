@@ -8,7 +8,7 @@ import i18n from '@/i18n';
 import { applyLayoutDirection, layoutMatchesLanguage, restartApp } from '@/i18n/direction';
 import { setCurrentTimeFormat, type TimeFormat } from '@/lib/time-format';
 
-import { isRTLLanguage, resolveLanguage, type LanguagePreference } from './resolve-language';
+import { isRTLLanguage, isSupportedLanguage, resolveLanguage, type LanguagePreference } from './resolve-language';
 
 const STORAGE_KEY = 'freebus.preferences.v1';
 
@@ -95,7 +95,7 @@ function parseStoredState(raw: string | null): StoredState {
   try {
     const parsed = JSON.parse(raw);
     return {
-      language: ['device', 'he', 'en'].includes(parsed?.language) ? parsed.language : 'device',
+      language: isSupportedLanguage(parsed?.language) ? parsed.language : 'device',
       theme: ['device', 'light', 'dark'].includes(parsed?.theme) ? parsed.theme : 'device',
       mapStyle: ['app', 'light', 'dark'].includes(parsed?.mapStyle) ? parsed.mapStyle : 'app',
       timeFormat: ['countdown', 'clock'].includes(parsed?.timeFormat) ? parsed.timeFormat : 'countdown',

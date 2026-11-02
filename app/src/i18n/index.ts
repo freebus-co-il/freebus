@@ -7,8 +7,11 @@ import {
   resolveLanguage,
 } from '@/features/preferences/resolve-language';
 
+import ar from './locales/ar.json';
 import en from './locales/en.json';
+import es from './locales/es.json';
 import he from './locales/he.json';
+import ru from './locales/ru.json';
 
 // The DEVICE language, not the rider's stored preference -- reading that means
 // touching AsyncStorage, which is async, and this module initialises i18n
@@ -26,6 +29,9 @@ i18n.use(initReactI18next).init({
   resources: {
     he: { translation: he },
     en: { translation: en },
+    ar: { translation: ar },
+    ru: { translation: ru },
+    es: { translation: es },
   },
   lng: language,
   fallbackLng: DEFAULT_LANGUAGE,

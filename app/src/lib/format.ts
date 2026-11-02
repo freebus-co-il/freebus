@@ -14,14 +14,40 @@ import i18n from '@/i18n';
  * `i18n.language` (e.g. an English-region device running the Hebrew UI), and
  * shows up as a stray English date sitting inside an otherwise-Hebrew screen.
  */
-const LOCALE_TAGS: Record<string, string> = { he: 'he-IL', en: 'en-US' };
+const LOCALE_TAGS: Record<string, string> = { he: 'he-IL', en: 'en-US', ar: 'ar-IL-u-nu-latn', ru: 'ru-RU', es: 'es-ES' };
 function currentLocaleTag(): string {
   return LOCALE_TAGS[i18n.language] ?? 'en-US';
 }
 
+/**
+ * Arabic's own defaults are Arabic-Indic digits and a 12-hour clock. Neither
+ * fits here: line numbers, countdowns and every other number in the app are
+ * Western digits (and so are the signs at the stop), and Israeli timetables
+ * run on a 24-hour clock in all three languages. The `nu-latn` tag asks for
+ * Western digits; `toWesternDigits` still converts afterwards, for an engine
+ * that ignores the extension.
+ */
+function clockOptions(): Intl.DateTimeFormatOptions {
+  return i18n.language === 'ar'
+    ? { hour: '2-digit', minute: '2-digit', hour12: false }
+    : { hour: '2-digit', minute: '2-digit' };
+}
+
+const EASTERN_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
+function toWesternDigits(text: string): string {
+  return text.replace(EASTERN_DIGITS, (digit) => String(digit.charCodeAt(0) & 0xf));
+}
+
+function localeTime(date: Date): string {
+  return toWesternDigits(date.toLocaleTimeString(currentLocaleTag(), clockOptions()));
+}
+
+function localeDate(date: Date, options: Intl.DateTimeFormatOptions): string {
+  return toWesternDigits(date.toLocaleDateString(currentLocaleTag(), options));
+}
+
 export function formatClockTime(iso: string): string {
-  const date = new Date(iso);
-  return date.toLocaleTimeString(currentLocaleTag(), { hour: '2-digit', minute: '2-digit' });
+  return localeTime(new Date(iso));
 }
 
 export function formatDurationMinutes(seconds: number): string {
@@ -35,10 +61,9 @@ export function formatDurationMinutes(seconds: number): string {
 }
 
 export function formatPickerDateTime(date: Date, referenceNow: Date): string {
-  const locale = currentLocaleTag();
-  const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const time = localeTime(date);
   if (date.toDateString() === referenceNow.toDateString()) return time;
-  const day = date.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
+  const day = localeDate(date, { weekday: 'short', month: 'short', day: 'numeric' });
   return i18n.t('units.dateAtTime', { date: day, time });
 }
 
@@ -66,5 +91,5 @@ export function formatRelativeDay(iso: string, referenceNow: Date = new Date()):
   // Past tomorrow a weekday name is what people actually say, and this never
   // runs more than eight days out (the API's own lookahead limit), so a
   // weekday is never ambiguous between two different weeks.
-  return date.toLocaleDateString(currentLocaleTag(), { weekday: 'long' });
+  return localeDate(date, { weekday: 'long' });
 }

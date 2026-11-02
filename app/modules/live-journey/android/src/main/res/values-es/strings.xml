@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the chrome lives here; the journey's own copy comes from
+     src/i18n/locales/es.json over the bridge. -->
+<resources>
+  <string name="live_journey_channel_ongoing">Recorrido activo</string>
+  <string name="live_journey_channel_ongoing_description">El recorrido, la cuenta atrás y el indicador de la barra de estado durante un viaje.</string>
+  <string name="live_journey_channel_alert">Alertas para bajar</string>
+  <string name="live_journey_channel_alert_description">Te avisa a tiempo para bajar en tu parada.</string>
+
+  <string name="live_journey_got_it">Entendido</string>
+</resources>
