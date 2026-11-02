@@ -419,8 +419,6 @@
     "startFailedStep": "No way to get to {{name}} right now.",
     "startFailedGeneric": "Check your connection and try again.",
     "map": {
-      "lineIn_one": "{{line}} · {{count}} min",
-      "lineIn_other": "{{line}} · {{count}} min",
       "in_one": "{{count}} min",
       "in_other": "{{count}} min"
     },

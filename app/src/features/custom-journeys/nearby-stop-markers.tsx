@@ -1,21 +1,31 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
+import { LineBadge } from '@/components/line-badge';
+import { stationKindOf } from '@/components/station-icon';
 import { Border, Icon, Radius, Space, Text, useColors } from '@/design-system';
 import { useSnapshotTracking } from '@/features/results/vehicle-marker-pin';
+import { STATION_PIN_HEIGHT, STATION_PIN_SOURCES, STATION_PIN_WIDTH } from '@/features/stations/station-map';
 
 import type { NearbyOption } from './nearby-options';
+
+/** The label's fixed height and its gap above the sign: fixed, so the pin's
+ *  hanging point (its pole's foot) can be offset exactly on iOS. */
+const LABEL_HEIGHT = 26;
+const LABEL_GAP = Space.xs;
 
 function minutesUntil(iso: string, nowMs: number): number {
   return Math.max(0, Math.round((Date.parse(iso) - nowMs) / 60_000));
 }
 
 /**
- * One stop around the station, as a pin the rider can tap: its best line and
- * how soon it leaves. The strong suggestion is the treasure on the map: filled
- * in the accent colour, with a star and the line to run for, so a rider
- * stepping out of the station sees where to go before reading anything.
+ * One stop around the station: the same sign on a pole every other map pins
+ * a stop with, and above it, when the stop has a run that makes the step, its
+ * best line and how soon it leaves. The strong suggestion's label is filled
+ * in the accent colour with a star, so a rider stepping out of the station
+ * sees where to go before reading anything.
  */
 function NearbyStopMarker({ option, strong, selected, nowMs, onPress }: {
   option: NearbyOption;
@@ -26,48 +36,51 @@ function NearbyStopMarker({ option, strong, selected, nowMs, onPress }: {
 }) {
   const { t } = useTranslation();
   const colors = useColors();
+  // The snapshot is only worth taking once the sign's image has loaded: one
+  // taken before is a blank marker that never repaints.
+  const [loaded, setLoaded] = useState(false);
   const best = option.best;
-  const line = best ? (best.route.shortName?.trim() || null) : null;
   const minutes = best ? minutesUntil(best.departs, nowMs) : null;
-  const label = best
-    ? line
-      ? t('customJourney.map.lineIn', { line, count: minutes ?? 0 })
-      : t('customJourney.map.in', { count: minutes ?? 0 })
-    : null;
-  // Re-snapshotted whenever what the pin shows changes; still otherwise, so
-  // a map of a few pins costs nothing between polls.
-  const look = `${strong}:${selected}:${label}:${colors.accent}:${colors.mapMarkerRing}`;
-  const tracksViewChanges = useSnapshotTracking(look);
-
   const highlighted = strong || selected;
-  const fill = highlighted ? colors.accent : colors.surfaceFloating;
-  const ink = highlighted ? 'onAccent' : best ? 'textPrimary' : 'textTertiary';
+  const look = `${loaded}:${highlighted}:${best?.key ?? ''}:${minutes}:${colors.accent}:${colors.surfaceFloating}`;
+  const tracksViewChanges = useSnapshotTracking(look) || !loaded;
+  const height = STATION_PIN_HEIGHT + (best ? LABEL_HEIGHT + LABEL_GAP : 0);
+  const ink = highlighted ? 'onAccent' : 'textPrimary';
 
   return (
     <Marker
       coordinate={{ latitude: option.lat, longitude: option.lon }}
+      // Hung from the pole's foot, like `StationMap`'s pin: `anchor` on
+      // Android (Google), the same point as a `centerOffset` on iOS.
       anchor={{ x: 0.5, y: 1 }}
+      centerOffset={{ x: 0, y: -height / 2 }}
       tracksViewChanges={tracksViewChanges}
       onPress={onPress}
       title={option.name ?? undefined}
     >
       <View style={styles.wrap}>
-        <View
-          style={[
-            styles.pill,
-            strong && styles.strongPill,
-            { backgroundColor: fill, borderColor: highlighted ? colors.mapMarkerRing : colors.controlEdge },
-          ]}
-        >
-          <Icon name={strong ? 'star' : 'bus'} size={strong ? 'sm' : 'xs'} color={ink} />
-          {label !== null && (
-            <Text variant={strong ? 'subheadline' : 'caption1'} emphasized numeric color={ink} numberOfLines={1}>
-              {label}
+        {best && (
+          <View
+            style={[
+              styles.label,
+              {
+                backgroundColor: highlighted ? colors.accent : colors.surfaceFloating,
+                borderColor: highlighted ? colors.mapMarkerRing : colors.controlEdge,
+              },
+            ]}
+          >
+            {strong && <Icon name="star" size="xs" color="onAccent" />}
+            <LineBadge route={{ ...best.route, shortName: best.route.shortName ?? '' }} size="small" />
+            <Text variant="caption1" emphasized numeric color={ink} numberOfLines={1}>
+              {t('customJourney.map.in', { count: minutes ?? 0 })}
             </Text>
-          )}
-        </View>
-        <View style={[styles.stem, { backgroundColor: highlighted ? colors.accent : colors.controlEdge }]} />
-        <View style={[styles.dot, { backgroundColor: highlighted ? colors.accent : colors.textTertiary, borderColor: colors.mapMarkerRing }]} />
+          </View>
+        )}
+        <Image
+          source={STATION_PIN_SOURCES[stationKindOf(option)]}
+          style={styles.pin}
+          onLoad={() => setLoaded(true)}
+        />
       </View>
     </Marker>
   );
@@ -104,29 +117,19 @@ export function NearbyStopMarkers({ options, strongStopId, selectedStopId, nowMs
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
+    gap: LABEL_GAP,
   },
-  pill: {
+  label: {
+    height: LABEL_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.xs,
-    paddingHorizontal: Space.sm,
-    paddingVertical: Space.xxs,
+    paddingHorizontal: Space.xs,
     borderRadius: Radius.full,
     borderWidth: Border.default,
   },
-  strongPill: {
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.xs,
-    borderWidth: Border.selected,
-  },
-  stem: {
-    width: Border.selected,
-    height: Space.sm,
-  },
-  dot: {
-    width: Space.md,
-    height: Space.md,
-    borderRadius: Radius.full,
-    borderWidth: Border.selected,
+  pin: {
+    width: STATION_PIN_WIDTH,
+    height: STATION_PIN_HEIGHT,
   },
 });

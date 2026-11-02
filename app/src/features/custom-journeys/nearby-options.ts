@@ -24,6 +24,9 @@ export type NearbyStopBoard = {
   name: string | null;
   lat: number;
   lon: number;
+  /** Which sign the map hangs on its pin (see `stationKindOf`). */
+  stationKind?: string;
+  rail?: boolean;
   departures: readonly Departure[];
 };
 
@@ -32,6 +35,8 @@ export type NearbyOption = {
   name: string | null;
   lat: number;
   lon: number;
+  stationKind?: string;
+  rail?: boolean;
   /** The planned boarding stop, whose own board the journey already follows. */
   current: boolean;
   walkSeconds: number;
@@ -84,7 +89,10 @@ function optionFor(
       bestReaches = reaches;
     }
   }
-  return { stopId: stop.stopId, name: stop.name, lat: stop.lat, lon: stop.lon, current, walkSeconds, best, reachesMs: bestReaches, runs: catchable };
+  return {
+    stopId: stop.stopId, name: stop.name, lat: stop.lat, lon: stop.lon, stationKind: stop.stationKind, rail: stop.rail,
+    current, walkSeconds, best, reachesMs: bestReaches, runs: catchable,
+  };
 }
 
 /**

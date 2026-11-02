@@ -99,7 +99,9 @@ export function useNearbyOptions(
     if (!enabled || !leg || !target) return EMPTY;
     const withBoards: NearbyStopBoard[] = stops.flatMap((stop, index) => {
       const data = boardData[index];
-      return data ? [{ stopId: stop.stopId, name: stop.name, lat: stop.lat, lon: stop.lon, departures: data.departures }] : [];
+      return data
+        ? [{ stopId: stop.stopId, name: stop.name, lat: stop.lat, lon: stop.lon, stationKind: stop.stationKind, rail: stop.rail, departures: data.departures }]
+        : [];
     });
     const from = position ?? { lat: leg.from.stop.lat, lon: leg.from.stop.lon };
     return rankNearby({ leg, target, currentRuns: board.runs, boards: withBoards, from, nowMs });

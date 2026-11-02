@@ -461,10 +461,6 @@
     "startFailedStep": "אין כרגע דרך להגיע אל {{name}}.",
     "startFailedGeneric": "כדאי לבדוק את החיבור ולנסות שוב.",
     "map": {
-      "lineIn_one": "{{line}} · דקה",
-      "lineIn_two": "{{line}} · {{count}} דק׳",
-      "lineIn_many": "{{line}} · {{count}} דק׳",
-      "lineIn_other": "{{line}} · {{count}} דק׳",
       "in_one": "דקה",
       "in_two": "{{count}} דק׳",
       "in_many": "{{count}} דק׳",
