@@ -129,6 +129,9 @@ module.exports = {
         }
       ],
       "./modules/live-journey/app.plugin.js",
+      // Moves the window into a scene delegate: an app built with the iOS 27
+      // SDK is killed at launch on iOS 27 without the UIScene lifecycle.
+      "./plugins/with-ios-scene-lifecycle.js",
       // Uploads source maps during the build, with SENTRY_AUTH_TOKEN from the
       // EAS environment. The organization is stored in Sentry's EU region, so
       // the upload must go to de.sentry.io, not the default sentry.io.
