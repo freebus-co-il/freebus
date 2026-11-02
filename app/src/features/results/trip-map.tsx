@@ -152,6 +152,10 @@ export type TripMapProps = {
    *  boarding stop is marked. Drawing one would show a line the rider may never
    *  take as if it were the trip. */
   guessedLegIndexes?: readonly number[];
+  /** More markers the screen draws on this map (the stops around a station,
+   *  on a journey the rider built). Placed before the buses, which must stay
+   *  last; give them no `zIndex` (see the note on the legs below). */
+  extraMarkers?: ReactNode;
 };
 
 const NO_LEGS: ReadonlySet<number> = new Set();
@@ -325,7 +329,7 @@ export function TripMap({
   selectedVehicleTripId = null, vehicleCard = null, onMapPress,
   edgePadding = DEFAULT_EDGE_PADDING, showCredit = true, focusLegIndex = null,
   navigationCamera = null, cameraPaused = false, onUserGesture, walkOverride = null, guessedLegIndexes,
-  vehiclePredictions, vehiclesTowardsAlighting = false,
+  vehiclePredictions, vehiclesTowardsAlighting = false, extraMarkers = null,
 }: TripMapProps) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -650,6 +654,7 @@ export function TripMap({
       {endPlace && (
         <Marker coordinate={{ latitude: endPlace.lat, longitude: endPlace.lon }} title={t('results.mapEnd')} />
       )}
+      {extraMarkers}
       {/* Last, and nothing after it: the buses are the only children with a
           `zIndex`, and they must stay in z-index order at the end of the list
           or the Android map loses track of its features (see

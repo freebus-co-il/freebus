@@ -375,6 +375,68 @@
       "stops_other": "stops"
     }
   },
+  "customJourney": {
+    "listTitle": "My journeys",
+    "new": "New journey",
+    "newChip": "Build a journey",
+    "chipHint": "Starts this journey. Long press to edit it.",
+    "emptyTitle": "No journeys yet",
+    "emptyMessage": "Pin the places you always pass through, like home, your station and work, then start the whole trip with one tap.",
+    "listFooter": "Each ride is chosen from the live boards when you start, and at every station you see all the lines that make the next step.",
+    "start": "Start",
+    "editHint": "Opens the journey to edit it",
+    "newTitle": "New journey",
+    "editTitle": "Edit journey",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. To work",
+    "pointsTitle": "Points on the way",
+    "pointsFooter": "Add places and stations in the order you pass them. Tap a point to choose how you get there.",
+    "addFirstPoint": "Add a starting point",
+    "addPoint": "Add a point",
+    "startPoint": "Starting point",
+    "howToGetHere": "How you get here",
+    "via": {
+      "any": "Any",
+      "walk": "Walk",
+      "bus": "Bus",
+      "train": "Train"
+    },
+    "viaHint": {
+      "any": "Whatever is fastest at the time.",
+      "walk": "On foot.",
+      "bus": "By bus only.",
+      "train": "By train or light rail only."
+    },
+    "changePlace": "Change place",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removePoint": "Remove point",
+    "makeReturn": "Create the way back",
+    "returnName": "{{name}}: way back",
+    "delete": "Delete journey",
+    "deleteConfirm": "Delete \"{{name}}\"?",
+    "startFailed": "Can't start this journey",
+    "startFailedStep": "No way to get to {{name}} right now.",
+    "startFailedGeneric": "Check your connection and try again.",
+    "map": {
+      "in_one": "{{count}} min",
+      "in_other": "{{count}} min"
+    },
+    "suggestion": {
+      "strongTitle": "Faster from {{name}}",
+      "unnamedStop": "A nearby stop",
+      "leavesIn_one": "Leaves in {{count}} min",
+      "leavesIn_other": "Leaves in {{count}} min",
+      "walk_one": "{{count}} min walk",
+      "walk_other": "{{count}} min walk",
+      "nothing": "Nothing from here makes this step soon.",
+      "sooner_one": "{{count}} min sooner",
+      "sooner_other": "{{count}} min sooner",
+      "onlyOption": "The only stop around with a ride soon",
+      "go": "Go there",
+      "stay": "Stay here"
+    }
+  },
   "run": {
     "error": "Couldn't load this line.",
     "stopCount_one": "{{count}} stop",

@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ShareIntentProvider } from 'expo-share-intent';
 
+import { CustomJourneysProvider } from '@/features/custom-journeys/custom-journeys-context';
 import { JourneyProvider } from '@/features/journey/journey-context';
 import { LeaveReminderGate } from '@/features/journey/leave-reminder-gate';
 import { UpdateSnackbar } from '@/features/updates/update-snackbar';
@@ -85,6 +86,7 @@ function App() {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <SearchProvider>
         <SavedLocationsProvider>
+          <CustomJourneysProvider>
           <RecentsProvider>
             {/* Above the navigator, not inside it: a running journey outlives the
                 screen that started it, so nothing about it may be owned by a
@@ -122,6 +124,10 @@ function App() {
                 <Stack.Screen name="map-picker" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="save-location" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="about" />
+                {/* The rider's own journeys: the list, and the editor that
+                    builds one point by point. */}
+                <Stack.Screen name="custom-journeys/index" />
+                <Stack.Screen name="custom-journeys/edit" options={{ animation: 'slide_from_bottom' }} />
                 {/* The Settings tab's pages, pushed over the tab bar like `about`. */}
                 <Stack.Screen name="settings/language" />
                 <Stack.Screen name="settings/appearance" />
@@ -142,6 +148,7 @@ function App() {
               <UpdateSnackbar />
             </JourneyProvider>
           </RecentsProvider>
+          </CustomJourneysProvider>
         </SavedLocationsProvider>
       </SearchProvider>
     </ThemeProvider>

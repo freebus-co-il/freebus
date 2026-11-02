@@ -1,4 +1,5 @@
 import type { Itinerary, TransitLeg } from '@/api/types';
+import type { CustomJourneyRef } from '@/features/custom-journeys/types';
 
 import type { LiveBusProgress } from './live-bus';
 import type { Backbone } from './replan/backbone';
@@ -51,6 +52,13 @@ export type ActiveJourney = {
    *  for a trip with no ride; optional so a journey stored before this existed
    *  still reads back (`withBackbone` fills it in). */
   backbone?: Backbone | null;
+  /** The saved journey this was started from, when the rider built it
+   *  themselves. Its pinned points are the trip: the live re-planner, which
+   *  plans straight to the destination, would route around them, so it
+   *  stands down, and the station boards (and the stops around them) carry
+   *  the journey instead. Optional so a journey stored before this existed
+   *  still reads back. */
+  custom?: CustomJourneyRef | null;
 };
 
 export type RiderPosition = {

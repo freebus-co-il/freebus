@@ -36,6 +36,7 @@ import {
   useColors,
   useReduceMotion,
 } from '@/design-system';
+import { leavePointPick } from '@/features/custom-journeys/point-pick-handoff';
 import { takeMapPick } from '@/features/map-picker/map-pick-handoff';
 import { RecentSearches } from '@/features/recents/recent-searches';
 import { SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
@@ -89,7 +90,7 @@ type Row =
     title: string; subtitle: string | null;
   };
 
-type Field = 'origin' | 'destination' | 'saved-home' | 'saved-work' | 'saved-new' | 'saved-edit';
+type Field = 'origin' | 'destination' | 'saved-home' | 'saved-work' | 'saved-new' | 'saved-edit' | 'journey-point';
 
 /** How far a row is from `here`. An address with no position yet uses the
  *  distance the server measured from the same fix; one with neither sorts
@@ -119,6 +120,10 @@ export default function LocationPickerScreen() {
   const { field, editId, andPlan, q } = useLocalSearchParams<{ field?: Field; editId?: string; andPlan?: string; q?: string }>();
   const { waitingForOrigin, originFailed, selectDestination } = useDestinationNavigation();
   const isSavedFlow = field === 'saved-home' || field === 'saved-work' || field === 'saved-new' || field === 'saved-edit';
+  // A point on a journey the rider is building is kept like a saved place
+  // (so "current location" is stored as a fixed address), though the saved
+  // places themselves are fine shortcuts to it.
+  const keepsPlace = isSavedFlow || field === 'journey-point';
   // Shortcuts, not management: only the saved places that HAVE an address are
   // offered, since the unset ones exist here purely as a prompt to go set one
   // and this screen deliberately hands out no way to do that. Withheld from
@@ -265,6 +270,12 @@ export default function LocationPickerScreen() {
       return;
     }
 
+    if (field === 'journey-point') {
+      leavePointPick(place);
+      router.back();
+      return;
+    }
+
     if (field === 'destination') {
       // Editing an existing trip's destination from the results screen --
       // that screen reads `search.destination` live, so going back is enough.
@@ -319,7 +330,7 @@ export default function LocationPickerScreen() {
     // opens the app afterward. Reverse-geocode to a real address instead;
     // if that lookup comes back empty it is saved as a pinned location.
     let title = t('search.currentLocation');
-    if (isSavedFlow) {
+    if (keepsPlace) {
       // Not "Current location" even when the lookup fails: what gets saved is
       // where the rider stands NOW, a fixed point, and that label would read
       // as live tracking on every screen the place is shown afterwards.
@@ -378,7 +389,7 @@ export default function LocationPickerScreen() {
             placeholder={t(
               field === 'origin'
                 ? 'search.originPlaceholder'
-                : field?.startsWith('saved-')
+                : field?.startsWith('saved-') || field === 'journey-point'
                   ? 'search.savedLocationPlaceholder'
                   : 'search.destinationPlaceholder',
             )}
