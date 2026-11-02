@@ -390,11 +390,10 @@
     "nameLabel": "Name",
     "namePlaceholder": "e.g. To work",
     "pointsTitle": "Points on the way",
-    "pointsFooter": "Add places and stations in the order you pass them. Tap a point to choose how you get there.",
+    "pointsFooter": "Add places and stations in the order you pass them. Between each two, choose how you travel: walk, bus or train.",
     "addFirstPoint": "Add a starting point",
     "addPoint": "Add a point",
     "startPoint": "Starting point",
-    "howToGetHere": "How you get here",
     "via": {
       "any": "Any",
       "walk": "Walk",
@@ -435,6 +434,14 @@
       "onlyOption": "The only stop around with a ride soon",
       "go": "Go there",
       "stay": "Stay here"
+    },
+    "destinationPoint": "Destination",
+    "stepTitle": "How you get to {{name}}",
+    "step": {
+      "any": "Any way, the fastest at the time",
+      "walk": "Walk",
+      "bus": "By bus",
+      "train": "By train"
     }
   },
   "run": {

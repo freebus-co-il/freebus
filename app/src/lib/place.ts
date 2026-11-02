@@ -3,7 +3,10 @@ export type SelectedPlace =
   // but because `SelectedPlace` is persisted to AsyncStorage: a stop saved
   // before these were carried through has no coordinates in storage, and must
   // still parse. Such a place simply cannot be pinned until it is re-picked.
-  | { kind: 'stop'; stopId: string; name: string; lat?: number; lon?: number }
+  // `rail` marks a railway or light-rail station, where the picker knew it:
+  // a journey's editor suggests the train between two of them. Optional for
+  // the same reason as the coordinates.
+  | { kind: 'stop'; stopId: string; name: string; lat?: number; lon?: number; rail?: boolean }
   | { kind: 'coordinate'; lat: number; lon: number; label: string };
 
 export function placeToQueryValue(place: SelectedPlace): string {

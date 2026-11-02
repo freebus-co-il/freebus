@@ -204,7 +204,10 @@ export default function LocationPickerScreen() {
       // Coordinates ride along even though `/plan` is queried by `stop:<id>`:
       // the results map needs somewhere to put the pin when a search returns
       // no journeys at all, and this is the only place they are in hand.
-      commitPlace({ kind: 'stop', stopId: row.stopId, name: row.title, lat: row.lat, lon: row.lon });
+      commitPlace({
+        kind: 'stop', stopId: row.stopId, name: row.title, lat: row.lat, lon: row.lon,
+        ...(stationKindOf(row) === 'bus' ? {} : { rail: true }),
+      });
       return;
     }
 
