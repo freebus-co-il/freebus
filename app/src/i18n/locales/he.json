@@ -230,6 +230,7 @@
     "phase": {
       "walkingToStop": "צאו עכשיו",
       "waiting": "{{line}} בעוד {{minutes}} דק'",
+      "riding_zero": "התחנה הבאה",
       "riding_one": "תחנה {{count}}",
       "riding_two": "{{count}} תחנות",
       "riding_other": "{{count}} תחנות",
@@ -356,6 +357,7 @@
       "rideStops_two": "{{count}} תחנות נסיעה",
       "rideStops_many": "{{count}} תחנות נסיעה",
       "rideStops_other": "{{count}} תחנות נסיעה",
+      "stopsLeft_zero": "התחנה הבאה",
       "stopsLeft_one": "עוד תחנה אחת",
       "stopsLeft_two": "עוד {{count}} תחנות",
       "stopsLeft_many": "עוד {{count}} תחנות",

@@ -216,6 +216,7 @@
     "phase": {
       "walkingToStop": "Leave now",
       "waiting": "{{line}} in {{minutes}} min",
+      "riding_zero": "Next stop",
       "riding_one": "{{count}} stop",
       "riding_other": "{{count}} stops",
       "ridingUntil": "Off at {{time}}",
@@ -323,6 +324,7 @@
       "alsoAt": "at {{time}}",
       "rideStops_one": "{{count}} stop ride",
       "rideStops_other": "{{count}} stop ride",
+      "stopsLeft_zero": "Next stop",
       "stopsLeft_one": "{{count}} more stop",
       "stopsLeft_other": "{{count}} more stops",
       "getOffAt": "Get off at {{name}}",
