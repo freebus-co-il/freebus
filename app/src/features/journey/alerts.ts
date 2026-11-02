@@ -4,6 +4,25 @@ import type { ActiveJourney, AlertSettings } from './types';
  *  alert, short enough to still be one stop of warning. */
 export const ALERT_REPEAT_DELAY_SECONDS = 30;
 
+/** How long one stop of warning may stand for at most. A bus stop is a minute
+ *  or two away; the next station on a train can be half an hour. */
+export const SECONDS_PER_LEAD_STOP = 5 * 60;
+
+/**
+ * Whether a count of stops left may say "get off" yet: only once the arrival
+ * is also within `SECONDS_PER_LEAD_STOP` for each stop of warning asked for
+ * (and never later than the rider's own minutes). Reported from the field: on
+ * the train, one station out, the Dynamic Island said "now" and the get-off
+ * alert went off 28 minutes before the station.
+ *
+ * A late run whose arrival has already passed counts as close, so a stop
+ * count is never held back by a timetable the run is behind.
+ */
+export function stopCountIsDue(arrival: string, nowMs: number, settings: AlertSettings): boolean {
+  const windowSeconds = Math.max(settings.leadSeconds, settings.leadStops * SECONDS_PER_LEAD_STOP);
+  return Date.parse(arrival) - nowMs <= windowSeconds * 1000;
+}
+
 /**
  * One scheduled local notification.
  *
