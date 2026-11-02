@@ -53,6 +53,8 @@ import { useStationBoard } from './use-station-board';
 import { countEvent } from '@/lib/analytics';
 import { formatClockTime } from '@/lib/format';
 import { hapticSucceeded, hapticWarned } from '@/lib/haptics';
+import { withBoardingElsewhere } from '@/features/custom-journeys/nearby-options';
+import type { CustomJourneyRef } from '@/features/custom-journeys/types';
 
 import type { ActiveJourney, AlertSettings, JourneyState, RiderPosition } from './types';
 import { useJourneyLive } from './use-journey-live';
@@ -986,7 +988,13 @@ function useJourneyState() {
   }, [arrivedHere, journey, state, pushSurface, copyFor, end]);
 
   const start = useCallback(
-    async (itinerary: Itinerary, signature: string, departure: string, destinationLabel: string) => {
+    async (
+      itinerary: Itinerary,
+      signature: string,
+      departure: string,
+      destinationLabel: string,
+      options: { custom?: CustomJourneyRef } = {},
+    ) => {
       // One journey at a time, per the spec. The old one is released BEFORE
       // the new one arms anything, or its geofences and pending alerts would
       // outlive it and shout about a stop the rider is no longer heading to.
@@ -1010,6 +1018,7 @@ function useJourneyState() {
         startedAt: new Date().toISOString(),
         destinationLabel,
         acknowledgedAlightLegIndex: null,
+        custom: options.custom ?? null,
       });
       const opening = resolveJourneyState(draft, position, new Date(), settings);
       // Placed by the fix the rider started with, if there is one: a rider
@@ -1201,6 +1210,9 @@ function useJourneyState() {
   );
 
   const replanTo = useMemo(() => {
+    // A journey the rider built runs through the points they pinned, and a
+    // re-plan straight to the destination would drop them.
+    if (journey?.custom) return null;
     const place = journey ? replanDestination(journey) : null;
     return place ? placeToQueryValue(place) : null;
   }, [journey]);
@@ -1267,6 +1279,45 @@ function useJourneyState() {
     );
     return true;
   }, [queryClient]);
+
+  /**
+   * Puts a run from a stop near the ride's station on the ride: the rider
+   * walks there instead (see `withBoardingElsewhere`). True when the journey
+   * now rides it. The rides before this one are kept; the walk to the new stop
+   * is where GPS picks the rider up again.
+   */
+  const boardElsewhere = useCallback(async (legIndex: number, run: StationRun): Promise<boolean> => {
+    const before = latestJourney.current;
+    const planned = before?.itinerary.legs[legIndex];
+    if (!before || planned?.type !== 'transit') return false;
+    if (planned.from.stop.stopId === run.boardStopId) return adoptRun(legIndex, run);
+    let trip: TripDetail;
+    try {
+      trip = await queryClient.fetchQuery({
+        queryKey: ['trip', run.tripId, i18n.language],
+        queryFn: () => apiGet<TripDetail>(`/trips/${run.tripId}`, { lang: i18n.language }),
+        staleTime: 5 * 60_000,
+      });
+    } catch {
+      return false;
+    }
+    const current = latestJourney.current;
+    if (!current || current.id !== before.id || current.itinerary !== before.itinerary) return false;
+    const leg = legFromRun(run, trip, planned);
+    if (!leg) return false;
+    const moved = withBoardingElsewhere(current.itinerary, legIndex, leg);
+    if (!moved) return false;
+    const backbone = current.backbone ?? null;
+    const isBackbone = backbone !== null
+      && sameStation(stationOf(planned.from.stop), backbone.board)
+      && sameStation(stationOf(planned.to.stop), backbone.alight);
+    await latestReplace.current(
+      moved.itinerary,
+      moved.walkIndex - 1,
+      isBackbone ? { backbone: { ...backbone, board: stationOf(leg.from.stop), alight: stationOf(leg.to.stop) } } : {},
+    );
+    return true;
+  }, [queryClient, adoptRun]);
 
   // Waiting at the station, the ride follows the board: when its run is no
   // longer on it (it left, or was never coming), whatever comes next takes
@@ -1496,7 +1547,7 @@ function useJourneyState() {
 
   return {
     journey, state, rail, position, live, hydrated, start, acknowledgeAlight, chooseLine, replaceItinerary, replan, replanFromHere, end,
-    board, adoptRun, pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
+    board, adoptRun, boardElsewhere, pendingLeave, setLeaveReminder, cancelLeaveReminder, startPending,
   };
 }
 

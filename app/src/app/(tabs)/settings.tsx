@@ -87,6 +87,10 @@ export default function SettingsScreen() {
             </ListSection>
 
             <ListSection>
+              <PageRow icon="navigate" title={t('customJourney.listTitle')} href="/custom-journeys" />
+            </ListSection>
+
+            <ListSection>
               <PageRow
                 icon="bell"
                 title={t('settings.alerts')}

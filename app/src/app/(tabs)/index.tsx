@@ -19,6 +19,8 @@ import {
   useColors,
   useScrollHeader,
 } from '@/design-system';
+import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
+import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { MapPickButton } from '@/features/map-picker/map-pick-button';
 import { NearbyStops } from '@/features/nearby/nearby-stops';
@@ -87,6 +89,8 @@ export default function SearchScreen() {
   const header = useScrollHeader();
   const dockInset = useJourneyDockInset();
   const savedLocations = useSavedLocations();
+  const customJourneys = useCustomJourneys();
+  const { startJourney, startingId } = useStartCustomJourney();
   const search = useSearch();
   // `push`, not the default `replace` -- a saved-location chip is tapped
   // directly on this screen with no transient search screen in between, so
@@ -231,13 +235,39 @@ export default function SearchScreen() {
           locations={savedLocations.locations}
           onSelect={selectSavedLocation}
           onLongPress={setActionsFor}
-          footer={
+          // The rider's own journeys lead the row: one tap and the whole way
+          // to work is running. A long press opens the journey to edit.
+          leading={customJourneys.journeys.map((journey) => (
             <Chip
-              icon="add"
-              label={t('savedLocations.add')}
-              muted
-              onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
+              key={journey.id}
+              icon="navigate"
+              label={journey.name}
+              filled
+              busy={startingId === journey.id}
+              accessibilityHint={t('customJourney.chipHint')}
+              onPress={() => startJourney(journey)}
+              onLongPress={() => router.push({ pathname: '/custom-journeys/edit', params: { id: journey.id } })}
             />
+          ))}
+          footer={
+            <>
+              <Chip
+                icon="add"
+                label={t('savedLocations.add')}
+                muted
+                onPress={() => router.push({ pathname: '/location-picker', params: { field: 'saved-new' } })}
+              />
+              {/* Until the rider has built one, the way to build one. After
+                  that, Settings lists them for managing. */}
+              {customJourneys.loaded && customJourneys.journeys.length === 0 && (
+                <Chip
+                  icon="navigate"
+                  label={t('customJourney.newChip')}
+                  muted
+                  onPress={() => router.push('/custom-journeys/edit')}
+                />
+              )}
+            </>
           }
         />
         </View>

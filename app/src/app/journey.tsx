@@ -9,6 +9,9 @@ import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
 import { Button, EmptyState, IconButton, Layout, MapStyle, Space, useColors } from '@/design-system';
+import { NearbyStopMarkers } from '@/features/custom-journeys/nearby-stop-markers';
+import { NearbySuggestionCard } from '@/features/custom-journeys/nearby-suggestion-card';
+import { useNearbyOptions } from '@/features/custom-journeys/use-nearby-options';
 import { canSwitchLine } from '@/features/journey/journey-card-model';
 import { useJourney } from '@/features/journey/journey-context';
 import { LineSwitchSheet } from '@/features/journey/line-switch-sheet';
@@ -78,7 +81,9 @@ function JourneyScreenContent() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
-  const { journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan, board, adoptRun } = useJourney();
+  const {
+    journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan, board, adoptRun, boardElsewhere,
+  } = useJourney();
   const { alertSettings } = usePreferences();
 
   const [sheetHeight, setSheetHeight] = useState(0);
@@ -105,6 +110,19 @@ function JourneyScreenContent() {
   // The station-board picker for the ride being ridden, when the board has
   // runs to offer for it.
   const [pickingRun, setPickingRun] = useState(false);
+
+  // On a journey the rider built: the stops around the ride's station that
+  // also make the step, with the one worth walking to lit up on the map.
+  const nearby = useNearbyOptions(journey, state, board, position, now);
+  // A stop the rider tapped on the map, and the suggestion they waved off
+  // (by stop and run, so a new and better one still gets through).
+  const [selectedNearbyStopId, setSelectedNearbyStopId] = useState<string | null>(null);
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
+  const [movingStop, setMovingStop] = useState(false);
+  const suggestionKey = nearby.strong ? `${nearby.strong.stopId}:${nearby.strong.best?.key ?? ''}` : null;
+  const selectedNearby = nearby.options.find((option) => option.stopId === selectedNearbyStopId && !option.current) ?? null;
+  if (selectedNearbyStopId !== null && selectedNearby === null) setSelectedNearbyStopId(null);
+  const shownNearby = selectedNearby ?? (suggestionKey !== null && suggestionKey !== dismissedSuggestion ? nearby.strong : null);
 
   // Every transit leg, not just the one being ridden: the rider watching for
   // their connection is watching this map too, and the whole chain is well
@@ -361,6 +379,18 @@ function JourneyScreenContent() {
           if (camera !== null) setCameraPaused(true);
         }}
         guessedLegIndexes={guessed}
+        extraMarkers={nearby.legIndex !== null && nearby.options.length > 0 ? (
+          <NearbyStopMarkers
+            options={nearby.options}
+            strongStopId={nearby.strong?.stopId ?? null}
+            selectedStopId={selectedNearby?.stopId ?? null}
+            nowMs={nowMs}
+            onSelect={(stopId) => {
+              setSelectedTripId(null);
+              setSelectedNearbyStopId((current) => (current === stopId ? null : stopId));
+            }}
+          />
+        ) : null}
         walkOverride={walkRoute?.reroutedGeometry
           ? { legIndex: state.legIndex, geometry: walkRoute.reroutedGeometry }
           : null}
@@ -404,6 +434,29 @@ function JourneyScreenContent() {
             -- in whatever phase that was found, above what the phase says. */}
         {replan.offer && (
           <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
+        )}
+        {shownNearby && !replan.offer && (
+          <NearbySuggestionCard
+            option={shownNearby}
+            strong={shownNearby.stopId === nearby.strong?.stopId}
+            gainSeconds={shownNearby.stopId === nearby.strong?.stopId ? nearby.gainSeconds : null}
+            nowMs={nowMs}
+            busy={movingStop}
+            onGo={nearby.legIndex !== null && shownNearby.best ? () => {
+              const legIndex = nearby.legIndex;
+              const run = shownNearby.best;
+              if (legIndex === null || !run) return;
+              setMovingStop(true);
+              void boardElsewhere(legIndex, run).finally(() => {
+                setMovingStop(false);
+                setSelectedNearbyStopId(null);
+              });
+            } : null}
+            onDismiss={() => {
+              if (selectedNearby) setSelectedNearbyStopId(null);
+              else setDismissedSuggestion(suggestionKey);
+            }}
+          />
         )}
         {body}
       </FloatingSheet>
