@@ -22,6 +22,7 @@ import {
 } from '@/design-system';
 import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
 import { expectPointPick, takePointPick } from '@/features/custom-journeys/point-pick-handoff';
+import { suggestVia } from '@/features/custom-journeys/suggest-via';
 import { newPointId, POINT_VIAS, reversedPoints, type JourneyPoint, type PointVia } from '@/features/custom-journeys/types';
 import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
 import { placeLabel } from '@/lib/place';
@@ -47,15 +48,31 @@ export default function EditCustomJourneyScreen() {
   const [points, setPoints] = useState<JourneyPoint[]>(() =>
     existing?.points ?? (reversing ? reversedPoints(reversing.points) : []));
   const [editingPointId, setEditingPointId] = useState<string | null>(null);
+  // The step INTO this point whose way of travel is being chosen.
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
 
   // A place chosen in the picker this screen opened (see `point-pick-handoff`).
   useFocusEffect(
     useCallback(() => {
       const pick = takePointPick();
       if (!pick) return;
-      setPoints((current) => (pick.replacing
-        ? current.map((point) => (point.id === pick.replacing ? { ...point, place: pick.place } : point))
-        : [...current, { id: newPointId(), place: pick.place, via: 'any' }]));
+      setPoints((current) => {
+        if (!pick.replacing) {
+          // A new point's step starts at the likely way there: a walk to a
+          // station nearby, the train between two stations, the bus beyond.
+          const last = current[current.length - 1];
+          const via = last ? suggestVia(last.place, pick.place) : 'any';
+          return [...current, { id: newPointId(), place: pick.place, via }];
+        }
+        const replaced = current.map((point) => (point.id === pick.replacing ? { ...point, place: pick.place } : point));
+        // The steps on either side of a moved point get a suggestion too, but
+        // only where the rider had not chosen one.
+        return replaced.map((point, index) => {
+          const before = replaced[index - 1];
+          const touches = point.id === pick.replacing || before?.id === pick.replacing;
+          return before && touches && point.via === 'any' ? { ...point, via: suggestVia(before.place, point.place) } : point;
+        });
+      });
     }, []),
   );
 
@@ -66,6 +83,8 @@ export default function EditCustomJourneyScreen() {
 
   const editingIndex = points.findIndex((point) => point.id === editingPointId);
   const editing = editingIndex >= 0 ? points[editingIndex]! : null;
+  const stepIndex = points.findIndex((point) => point.id === editingStepId);
+  const editingStep = stepIndex > 0 ? points[stepIndex]! : null;
   const canSave = name.trim().length > 0 && points.length >= 2;
 
   const update = (pointId: string, change: Partial<JourneyPoint>) =>
@@ -116,25 +135,51 @@ export default function EditCustomJourneyScreen() {
 
           <View style={styles.section}>
             <ListSection title={t('customJourney.pointsTitle')} footer={t('customJourney.pointsFooter')}>
-              {points.map((point, index) => (
-                <ListRow
-                  key={point.id}
-                  leading={
-                    <LeadingIcon tone={index === 0 || index === points.length - 1 ? 'accent' : 'nested'}>
-                      <Icon
-                        name={point.place.kind === 'stop' ? 'stations' : 'place'}
-                        size="sm"
-                        color={index === 0 || index === points.length - 1 ? 'onAccent' : 'textPrimary'}
-                      />
-                    </LeadingIcon>
-                  }
-                  title={placeLabel(point.place)}
-                  titleLines={1}
-                  subtitle={index === 0 ? t('customJourney.startPoint') : viaLabel(point.via)}
-                  accessory="chevron"
-                  onPress={() => setEditingPointId(point.id)}
-                />
-              ))}
+              {points.flatMap((point, index) => {
+                const ends = index === 0 || index === points.length - 1;
+                const rows = [];
+                if (index > 0) {
+                  // The step into this point, between it and the one before:
+                  // how the rider travels it, there to be seen and changed.
+                  rows.push(
+                    <ListRow
+                      key={`step:${point.id}`}
+                      dense
+                      leading={<Icon name={VIA_ICONS[point.via]} size="sm" color={point.via === 'any' ? 'textSecondary' : 'accent'} />}
+                      title={
+                        <Text variant="footnote" emphasized color={point.via === 'any' ? 'textSecondary' : 'accent'}>
+                          {t(`customJourney.step.${point.via}`)}
+                        </Text>
+                      }
+                      accessory="chevron"
+                      accessibilityLabel={`${t(`customJourney.step.${point.via}`)}, ${t('customJourney.stepTitle', { name: placeLabel(point.place) })}`}
+                      onPress={() => setEditingStepId(point.id)}
+                    />,
+                  );
+                }
+                rows.push(
+                  <ListRow
+                    key={point.id}
+                    leading={
+                      <LeadingIcon tone={ends ? 'accent' : 'nested'}>
+                        <Icon
+                          name={point.place.kind === 'stop' ? 'stations' : 'place'}
+                          size="sm"
+                          color={ends ? 'onAccent' : 'textPrimary'}
+                        />
+                      </LeadingIcon>
+                    }
+                    title={placeLabel(point.place)}
+                    titleLines={1}
+                    subtitle={index === 0
+                      ? t('customJourney.startPoint')
+                      : index === points.length - 1 ? t('customJourney.destinationPoint') : undefined}
+                    accessory="chevron"
+                    onPress={() => setEditingPointId(point.id)}
+                  />,
+                );
+                return rows;
+              })}
             </ListSection>
             <Button
               variant="secondary"
@@ -186,22 +231,6 @@ export default function EditCustomJourneyScreen() {
       >
         {editing && (
           <View style={styles.sheet}>
-            {editingIndex > 0 && (
-              <View style={styles.viaBlock}>
-                <Text variant="subheadline" emphasized color="textSecondary">{t('customJourney.howToGetHere')}</Text>
-                <SegmentedControl
-                  options={POINT_VIAS.map((via) => ({ value: via, label: viaLabel(via) }))}
-                  value={editing.via}
-                  onChange={(via) => update(editing.id, { via })}
-                />
-                <View style={styles.viaHint}>
-                  <Icon name={VIA_ICONS[editing.via]} size="sm" color="textSecondary" />
-                  <Text variant="footnote" color="textSecondary" style={styles.grow}>
-                    {t(`customJourney.viaHint.${editing.via}`)}
-                  </Text>
-                </View>
-              </View>
-            )}
             <ListSection variant="plain">
               <ListRow
                 leading={<Icon name="edit" />}
@@ -235,6 +264,29 @@ export default function EditCustomJourneyScreen() {
                 }}
               />
             </ListSection>
+          </View>
+        )}
+      </Sheet>
+
+      <Sheet
+        visible={editingStep !== null}
+        onClose={() => setEditingStepId(null)}
+        title={editingStep ? t('customJourney.stepTitle', { name: placeLabel(editingStep.place) }) : undefined}
+        closeLabel={t('common.done')}
+      >
+        {editingStep && (
+          <View style={styles.viaBlock}>
+            <SegmentedControl
+              options={POINT_VIAS.map((via) => ({ value: via, label: viaLabel(via) }))}
+              value={editingStep.via}
+              onChange={(via) => update(editingStep.id, { via })}
+            />
+            <View style={styles.viaHint}>
+              <Icon name={VIA_ICONS[editingStep.via]} size="sm" color="textSecondary" />
+              <Text variant="footnote" color="textSecondary" style={styles.grow}>
+                {t(`customJourney.viaHint.${editingStep.via}`)}
+              </Text>
+            </View>
           </View>
         )}
       </Sheet>
