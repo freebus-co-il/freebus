@@ -64,6 +64,8 @@ const GLYPHS = {
   share: { ios: 'square.and.arrow.up', android: 'share' },
   externalLink: { ios: 'arrow.up.right.square', android: 'open_in_new' },
   more: { ios: 'ellipsis', android: 'more_horiz' },
+  /** A row's drag handle, for lists the rider reorders by dragging. */
+  reorder: { ios: 'line.3.horizontal', android: 'drag_handle' },
   layers: { ios: 'square.3.layers.3d', android: 'layers' },
   history: { ios: 'clock.arrow.circlepath', android: 'history' },
   star: { ios: 'star', android: 'star' },

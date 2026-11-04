@@ -23,23 +23,15 @@ import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-co
 import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { MapPickButton } from '@/features/map-picker/map-pick-button';
-import { NearbyStops } from '@/features/nearby/nearby-stops';
+import { RegisteredHomeWidget, useHomeLayout } from '@/features/home-widgets';
 import { Chip, SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
 import type { SavedLocation } from '@/features/saved-locations/types';
 import { useSearch } from '@/features/search/search-context';
 import { onSearchMorph, setSearchMorphOrigin, type MorphFrame } from '@/features/search/search-morph';
 import { useDestinationNavigation } from '@/features/search/use-destination-navigation';
-import { SmartSuggestion } from '@/features/smart-suggestion/smart-suggestion';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { hapticWarned } from '@/lib/haptics';
-
-/** Which hero card leads the page: the closest station's peek, or the
- *  commute suggestion (which itself falls back to the peek when there is no
- *  commute to offer). Fixed for now; the rider will get to pick. */
-const HOME_CARD: 'nearby' | 'commute' = 'nearby';
-/** The closest station on the map, then ten more as rows under it. */
-const HOME_NEARBY_STOPS = 11;
 
 // No title: the "Where to?" capsule IS the top of the page. Still just the
 // one prompt, not the results screen's full origin+destination+swap layout,
@@ -92,6 +84,7 @@ export default function SearchScreen() {
   const customJourneys = useCustomJourneys();
   const { startJourney, startingId } = useStartCustomJourney();
   const search = useSearch();
+  const homeLayout = useHomeLayout();
   // `push`, not the default `replace` -- a saved-location chip is tapped
   // directly on this screen with no transient search screen in between, so
   // `replace`ing here would replace HOME ITSELF (see this hook's own doc
@@ -193,16 +186,30 @@ export default function SearchScreen() {
         scrollEventThrottle={header.scrollEventThrottle}
         showsVerticalScrollIndicator={false}
       >
-        {/* The commute card sits above Nearby stops on purpose: an answer
-            outranks a list of places to look. Without one, the nearby map
-            heads the stations it draws, as one group, rather than being a
-            card of its own that repeats the list's title and first row. */}
-        {HOME_CARD === 'nearby' ? (
-          <NearbyStops limit={HOME_NEARBY_STOPS} featureClosest />
+        {/* The rider's own cards, in the rider's own order (Settings, Home
+            screen). An empty page still says how to fill it. */}
+        {homeLayout.widgets.length === 0 ? (
+          <EmptyState
+            icon="layers"
+            title={t('homeWidgets.emptyTitle')}
+            message={t('homeWidgets.emptyMessage')}
+            action={{ label: t('homeWidgets.customize'), onPress: () => router.push('/settings/home') }}
+          />
         ) : (
           <>
-            <SmartSuggestion onSelect={selectDestination} />
-            <NearbyStops />
+            {homeLayout.widgets.map((widget) => (
+              <RegisteredHomeWidget
+                key={widget.id}
+                widget={widget}
+                context={{ layout: homeLayout.ids, onSelectDestination: selectDestination }}
+              />
+            ))}
+            <Button
+              variant="plain"
+              icon="edit"
+              label={t('homeWidgets.customize')}
+              onPress={() => router.push('/settings/home')}
+            />
           </>
         )}
       </ScrollView>

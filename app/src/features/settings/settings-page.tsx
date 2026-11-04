@@ -1,5 +1,9 @@
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import type { ReactNode, RefObject } from 'react';
+import { StyleSheet } from 'react-native';
+// Gesture Handler's, not React Native's: a drag inside the page (the Home
+// screen editor's grips) and the page's own scroll then settle which one
+// owns a touch, instead of the native scroll cancelling the drag.
+import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Layout, NativeHeader, Space, Surface } from '@/design-system';
@@ -9,13 +13,22 @@ import { Layout, NativeHeader, Space, Surface } from '@/design-system';
  * button, and grouped sections under it. Every settings page uses this, so
  * adding one is a route file with its sections and nothing else.
  */
-export function SettingsPage({ title, children }: { title: string; children: ReactNode }) {
+export function SettingsPage({ title, children, scrollEnabled = true, scrollRef }: {
+  title: string;
+  children: ReactNode;
+  /** Off while something on the page is being dragged, so the page does not
+   *  scroll out from under the finger. */
+  scrollEnabled?: boolean;
+  /** The page's scroll view, for a gesture inside the page that must win
+   *  over it (`blocksExternalGesture`). */
+  scrollRef?: RefObject<ScrollView | null>;
+}) {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={title} />
       {/* Bottom edge only: the native header already clears the top. */}
       <SafeAreaView edges={['bottom']} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>{children}</ScrollView>
       </SafeAreaView>
     </Surface>
   );

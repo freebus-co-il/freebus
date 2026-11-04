@@ -3,6 +3,7 @@ import { getLocales, useLocales } from 'expo-localization';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Appearance } from 'react-native';
 
+import { parseStoredLayout } from '@/features/home-widgets/layout';
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
 import i18n from '@/i18n';
 import { applyLayoutDirection, layoutMatchesLanguage, restartApp } from '@/i18n/direction';
@@ -38,6 +39,12 @@ type StoredState = {
    *  Off for a rider who finds it noisy or wants the battery; the get-off
    *  alarm does not depend on it. */
   liveSurface: boolean;
+  /** The home screen's widget ids, top to bottom; `null` until the rider
+   *  edits it. Raw: which ids are real is the widget registry's business
+   *  (see `home-widgets/registry`), not this store's. */
+  homeLayout: string[] | null;
+  /** Each widget's own options, under its id, as the widget stores them. */
+  homeWidgetOptions: Record<string, unknown>;
 };
 
 const DEFAULT_STATE: StoredState = {
@@ -47,6 +54,8 @@ const DEFAULT_STATE: StoredState = {
   timeFormat: 'countdown',
   alertSettings: DEFAULT_ALERT_SETTINGS,
   liveSurface: true,
+  homeLayout: null,
+  homeWidgetOptions: {},
 };
 
 /**
@@ -101,6 +110,11 @@ function parseStoredState(raw: string | null): StoredState {
       timeFormat: ['countdown', 'clock'].includes(parsed?.timeFormat) ? parsed.timeFormat : 'countdown',
       alertSettings: parseAlertSettings(parsed?.alertSettings),
       liveSurface: typeof parsed?.liveSurface === 'boolean' ? parsed.liveSurface : true,
+      homeLayout: parseStoredLayout(parsed?.homeLayout),
+      homeWidgetOptions:
+        typeof parsed?.homeWidgetOptions === 'object' && parsed.homeWidgetOptions !== null && !Array.isArray(parsed.homeWidgetOptions)
+          ? parsed.homeWidgetOptions
+          : {},
     };
   } catch {
     return DEFAULT_STATE;
@@ -237,6 +251,14 @@ function usePreferencesState() {
     setState((current) => ({ ...current, liveSurface: next }));
   }
 
+  function setHomeLayout(next: string[]) {
+    setState((current) => ({ ...current, homeLayout: next }));
+  }
+
+  function setHomeWidgetOptions(id: string, next: unknown) {
+    setState((current) => ({ ...current, homeWidgetOptions: { ...current.homeWidgetOptions, [id]: next } }));
+  }
+
   return {
     loaded: loaded && directionSettled,
     language,
@@ -246,12 +268,16 @@ function usePreferencesState() {
     timeFormat: state.timeFormat,
     alertSettings: state.alertSettings,
     liveSurface: state.liveSurface,
+    homeLayout: state.homeLayout,
+    homeWidgetOptions: state.homeWidgetOptions,
     setLanguage,
     setTheme,
     setMapStyle,
     setTimeFormat,
     setAlertSettings,
     setLiveSurface,
+    setHomeLayout,
+    setHomeWidgetOptions,
   };
 }
 
