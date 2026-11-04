@@ -2,13 +2,14 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, View } from 'react-native';
+import Animated, { FadeOutDown, Keyframe } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
-import { Button, EmptyState, IconButton, Layout, MapStyle, Space, useColors } from '@/design-system';
+import { Button, EmptyState, IconButton, Layout, MapStyle, Motion, Space, useColors } from '@/design-system';
 import { NearbyStopMarkers } from '@/features/custom-journeys/nearby-stop-markers';
 import { NearbySuggestionCard } from '@/features/custom-journeys/nearby-suggestion-card';
 import { useNearbyOptions } from '@/features/custom-journeys/use-nearby-options';
@@ -91,6 +92,9 @@ function JourneyScreenContent() {
   // The header grows with the navigation banner, so its real height -- not a
   // fixed allowance for the back chip -- is what the map keeps clear.
   const [headerHeight, setHeaderHeight] = useState(0);
+  // The nearby tip floats between the two, so the map keeps the stop it
+  // points at in view above it. Zero while there is none.
+  const [tipHeight, setTipHeight] = useState(0);
   // The back chip floats over the map's top edge and the cards over its
   // bottom, so the route frames between them. Memoized: the map re-fits
   // whenever this changes identity.
@@ -98,10 +102,10 @@ function JourneyScreenContent() {
     () => ({
       top: headerHeight > 0 ? headerHeight + Space.lg : insets.top + BACK_CHIP_CLEARANCE,
       right: MapStyle.edgePadding,
-      bottom: sheetHeight + Space.lg,
+      bottom: sheetHeight + (tipHeight > 0 ? tipHeight + TIP_GAP : 0) + Space.lg,
       left: MapStyle.edgePadding,
     }),
-    [headerHeight, insets.top, sheetHeight],
+    [headerHeight, insets.top, sheetHeight, tipHeight],
   );
 
   // The leg index whose line switcher is open, or null. By index rather than
@@ -124,6 +128,8 @@ function JourneyScreenContent() {
   const selectedNearby = nearby.options.find((option) => option.stopId === selectedNearbyStopId && !option.current) ?? null;
   if (selectedNearbyStopId !== null && selectedNearby === null) setSelectedNearbyStopId(null);
   const shownNearby = selectedNearby ?? (suggestionKey !== null && suggestionKey !== dismissedSuggestion ? nearby.strong : null);
+  const tipShown = shownNearby !== null && !replan.offer && sheetHeight > 0;
+  if (!tipShown && tipHeight !== 0) setTipHeight(0);
 
   // Every transit leg, not just the one being ridden: the rider watching for
   // their connection is watching this map too, and the whole chain is well
@@ -439,7 +445,18 @@ function JourneyScreenContent() {
         {replan.offer && (
           <OfferView offer={replan.offer} onAccept={replan.acceptOffer} onKeep={replan.dismissOffer} />
         )}
-        {shownNearby && !replan.offer && (
+        {body}
+      </FloatingSheet>
+
+      {/* Over the map, just above the sheet: an offer beside what the rider
+          is doing, never in place of it. */}
+      {tipShown && shownNearby && (
+        <Animated.View
+          entering={TIP_ENTERING}
+          exiting={TIP_EXITING}
+          style={[styles.tip, { bottom: sheetHeight + TIP_GAP }]}
+          onLayout={(event) => setTipHeight(Math.round(event.nativeEvent.layout.height))}
+        >
           <NearbySuggestionCard
             option={shownNearby}
             strong={shownNearby.stopId === nearby.strong?.stopId}
@@ -461,9 +478,8 @@ function JourneyScreenContent() {
               else setDismissedSuggestion(suggestionKey);
             }}
           />
-        )}
-        {body}
-      </FloatingSheet>
+        </Animated.View>
+      )}
 
       <RunPickerSheet
         runs={pickingRun ? boardedChoices : null}
@@ -489,7 +505,25 @@ function JourneyScreenContent() {
   );
 }
 
+/** Between the floating tip and the sheet under it. */
+const TIP_GAP = Space.sm;
+/** Slides up into place, with no fade: "Go there" is Liquid Glass on iOS 26,
+ *  and glass that starts at opacity 0 can stay blank (see `Glass`). Leaves on
+ *  a plain fade, when blank is fine. Reanimated drops both under Reduce Motion. */
+const TIP_RISE = 24;
+const TIP_ENTERING = new Keyframe({
+  0: { transform: [{ translateY: TIP_RISE }] },
+  100: { transform: [{ translateY: 0 }] },
+}).duration(Motion.smooth.duration);
+const TIP_EXITING = FadeOutDown.duration(Motion.fade.duration);
+
 const styles = StyleSheet.create({
+  // The sheet's own side inset, so the two line up.
+  tip: {
+    position: 'absolute',
+    start: Space.sm,
+    end: Space.sm,
+  },
   container: {
     flex: 1,
   },
