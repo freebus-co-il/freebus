@@ -86,6 +86,16 @@ npm --prefix app test
 
 (or `cd` into the project and run `npm test`, equivalently).
 
+`app` has a second suite for React components and screens: `*.test.tsx`
+files, rendered with React Native Testing Library under `jest-expo`. Run it
+with `cd app && npx jest`. `npm test` there stays the faster `node --test`
+suite for plain logic (`*.test.ts`). Component tests render through
+`app/src/test-utils/render.tsx`, which wraps the app's providers (and
+expo-router, for a whole screen). Keep test files out of `app/src/app`:
+expo-router turns every file there into a route. The Jest runner is not an npm script on
+purpose: the app's Expo fingerprint includes `package.json`'s `scripts`, so
+a new script would force a store release.
+
 `api` and `gtfs` also have `npm run test:live` (`npm --prefix api run
 test:live`, etc.), which runs against the real upstream (the live GTFS feed
 for `gtfs`, the live built database for `api`) instead of fixtures. It
