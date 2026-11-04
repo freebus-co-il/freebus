@@ -35,6 +35,12 @@ Journey planning lives in `src/transit/`:
   in the feed) from a straight-line prefilter, then Valhalla or a
   straight-line fallback.
 
+The `/plan` route itself is `src/routes/plan.ts` (validation, access stops,
+ranking, annotation) over `src/routes/plan/` (`search.ts` runs the passes,
+`transferRisk.ts` and `realtime.ts` annotate). The measurements behind its
+constants live in [`docs/planner-notes.md`](docs/planner-notes.md), not in
+code comments.
+
 The index is rebuilt from SQLite on every feed swap; there is deliberately
 no on-disk cache of it.
 
