@@ -10,7 +10,7 @@ import { buildIndex, attachFootpaths } from "../transit/index.js";
 import { buildFootpaths } from "../transit/footpaths.js";
 import { RequestDrain } from "../requestDrain.js";
 import { buildServer } from "../server.js";
-import { parsePlace } from "./plan.js";
+import { parsePlace } from "./plan/places.js";
 import { RealtimeStore } from "../realtime/store.js";
 import type { ResolvedJourney } from "../realtime/match.js";
 import type { RealtimeJourney } from "../realtime/types.js";

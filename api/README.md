@@ -255,7 +255,7 @@ last *transit* leg. A `WalkLeg` carries no timestamp of its own, so these
 are the only fields a client can read to learn when the chain begins and
 ends. They will differ from `legs[0].from.departureTime` whenever the
 itinerary begins or ends with a walk. See the schema `description` on
-`/plan` in [`src/routes/plan.ts`](src/routes/plan.ts) for the full reasoning;
+`/plan` in [`src/routes/plan/schema.ts`](src/routes/plan/schema.ts) for the full reasoning;
 this was an explicit, adjudicated design call, not an oversight (the plan
 originally anchored on the transit legs, which is a real bug: it cannot
 report a door departure time when the itinerary starts with a walk).
@@ -781,7 +781,7 @@ consumer's point of view):
 `delaySeconds` is predicted minus scheduled at the leg's own alight stop
 (negative means running early); `predictedDeparture` is derived from the
 board stop's predicted arrival, not a separate SIRI field (see
-`realtimeForLeg` in [`src/routes/plan.ts`](src/routes/plan.ts) for why). A
+`realtimeForLeg` in [`src/routes/plan/realtime.ts`](src/routes/plan/realtime.ts) for why). A
 departures-board entry carries the same six fields under its own
 `realtime`, except `predictedArrival` is always `null` there: a board entry
 is a single stop visit, not a leg with a separate arrival to report.
@@ -1511,6 +1511,7 @@ src/
   routes/
     health.ts  meta.ts  admin.ts  agencies.ts  stops.ts  lines.ts  trips.ts
     departures.ts  plan.ts  geocode.ts
+    plan/                      /plan's pieces: places, search, transferRisk, realtime, schema
     reload.test.ts             regression test: db/translator/calendar/routes stay in sync across a swap
     reload-footpaths.test.ts   regression test: footpaths survive a swap too, not just the RAPTOR schedule
 ```
