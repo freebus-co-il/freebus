@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { resolveRealtimeConfig, resolveGeocoderConfig, floatEnv } from "./config.js";
 
 // config.ts validates at MODULE LOAD time and throws. The only faithful way

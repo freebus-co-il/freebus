@@ -311,7 +311,7 @@ test("reoptimiseBounded reoptimises within the bound and re-anchors past it", ()
 test("reoptimiseBounded still re-anchors when the bound is zero", () => {
   const ix = buildIx(3, [{ stops: [0, 2], dep: [3600, 4200], arr: [3600, 4200] }]);
   const days = oneDay(1);
-  const { itinerary, build } = planOn(ix, days, BASE + 600);
+  const { itinerary } = planOn(ix, days, BASE + 600);
   const out = reoptimiseBounded(0, 0, itinerary, {
     ix, tz: TZ,
     reverseQuery: {

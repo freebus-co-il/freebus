@@ -985,7 +985,7 @@ export const planRoutes: FastifyPluginAsync = async (app) => {
     // rate-limit` reads per-route settings from `config.rateLimit` because
     // the plugin is registered globally in `server.ts`.
     config: { rateLimit: { max: routeRateLimits.planPerMinute, timeWindow: "1 minute" } },
-  }, async (req, reply) => {
+  }, async (req) => {
     const q = req.query as {
       from: string; to: string; departAfter?: string; arriveBy?: string;
       maxWalkMeters?: number; maxTransfers: number; results: number;

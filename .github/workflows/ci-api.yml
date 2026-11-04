@@ -32,6 +32,7 @@ jobs:
           cache-dependency-path: api/package-lock.json
       - run: npm --prefix api ci
       - run: npm --prefix api run typecheck
+      - run: npm --prefix api run lint
       # `test`, not `test:live` -- the live suites need network and real
       # upstreams, and a CI run that depends on a third party is a CI run
       # that fails for reasons the contributor cannot fix.

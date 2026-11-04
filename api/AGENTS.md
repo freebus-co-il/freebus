@@ -135,3 +135,12 @@ reachability problems with a separate process, not malformed config. Don't
 conflate the two: a new *env var* validation belongs in the fail-at-boot
 category; a new *upstream service* failure belongs in the degrade
 category. When in doubt, follow the existing split in `src/config.ts`.
+
+## Lint is oxlint, not ESLint
+
+`npm run lint` runs [oxlint](https://oxc.rs/docs/guide/usage/linter)
+(config in `.oxlintrc.json`), and CI fails on any warning. ESLint with
+typescript-eslint is not an option here: this package is on TypeScript 7,
+which ships the native compiler only and no JavaScript compiler API for
+typescript-eslint's parser to load. `app/` stays on TypeScript 6 for the
+same reason (`expo lint` is ESLint).

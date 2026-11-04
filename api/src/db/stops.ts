@@ -79,6 +79,7 @@ function ftsQuery(q: string): string {
     // recover from, so this has to happen pre-quoting, not be replaced by
     // quoting. A control character in a search box is noise, not a client
     // error, so it is silently dropped rather than rejected.
+    // oxlint-disable-next-line no-control-regex -- matching control characters is the point
     .map((t) => t.replace(/[\u0000-\u001f\u007f]/g, ""))
     .filter((t) => t.length > 0)
     .map((t) => `"${t.replace(/"/g, '""')}"`);

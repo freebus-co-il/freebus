@@ -34,7 +34,7 @@ import {
   ApiError, codeForFrameworkError, codeForStatus, type ErrorBody,
 } from "./errors.js";
 import type { RealtimeStore } from "./realtime/store.js";
-import type { SiriPoller, StreamFilter, StreamStatus } from "./realtime/poller.js";
+import type { StreamFilter, StreamStatus } from "./realtime/poller.js";
 
 export interface ServerDeps {
   index: IndexManager;
