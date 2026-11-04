@@ -351,6 +351,8 @@
       "afterIt": "After it",
       "otherRuns": "Also from this stop",
       "comesFirst": "Comes first",
+      "showRuns": "Shows each line's details",
+      "hideRuns": "Hides each line's details",
       "offAt": "Off at {{name}}",
       "rideMinutes_one": "{{count}} min ride",
       "rideMinutes_other": "{{count}} min ride",

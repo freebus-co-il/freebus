@@ -428,6 +428,8 @@
       "afterIt": "بعده",
       "otherRuns": "خطوط أخرى من المحطة",
       "comesFirst": "يصل أولاً",
+      "showRuns": "يعرض تفاصيل كل خط",
+      "hideRuns": "يخفي تفاصيل كل خط",
       "offAt": "النزول في {{name}}",
       "rideMinutes_zero": "{{count}} د ركوبًا",
       "rideMinutes_one": "دقيقة ركوبًا",

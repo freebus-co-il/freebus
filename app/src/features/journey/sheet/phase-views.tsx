@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Itinerary, Place, TransitLeg } from '@/api/types';
+import { Collapsible } from '@/components/collapsible';
 import { LineBadge } from '@/components/line-badge';
 import { LiveIndicator } from '@/components/live-indicator';
 import { Border, Button, Icon, Opacity, Radius, Size, Space, Text, useColors } from '@/design-system';
@@ -154,7 +155,6 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
 }) {
   const { t } = useTranslation();
   const { timeFormat } = usePreferences();
-  const colors = useColors();
   const minutes = minutesLeft(state.timer);
   const hero = runs.find((run) => run.tripId === leg.tripId) ?? null;
   const others = runs.filter((run) => run.tripId !== leg.tripId).slice(0, MORE_RUNS);
@@ -186,9 +186,72 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
         {[where, hero ? runDetail(hero, final, t) : null].filter(Boolean).join(' · ')}
       </Text>
       {others.length > 0 && (
+        <OtherRuns runs={others} anyFirst={anyFirst} comesFirst={comesFirst} final={final} nowMs={nowMs} />
+      )}
+    </View>
+  );
+}
+
+/** A run's departure in as few characters as the strip can afford. */
+function shortDeparts(iso: string, nowMs: number, timeFormat: string, t: TFunction): string {
+  if (timeFormat === 'clock') return formatClockTime(iso);
+  const minutes = minutesUntil(iso, nowMs);
+  return minutes <= 0 ? t('journey.sheet.now') : t('units.minutes', { value: minutes });
+}
+
+/**
+ * The rest of the board, folded by default into one strip of badges and
+ * times: enough to see that a 59 leaves in 5 without reading three rows of
+ * detail. A tap opens the full rows (where each sets the rider down, the walk,
+ * the ride, the arrival) for when "first" has to be weighed against "faster".
+ */
+function OtherRuns({ runs, anyFirst, comesFirst, final, nowMs }: {
+  runs: readonly StationRun[]; anyFirst: boolean; comesFirst: (run: StationRun) => boolean; final: boolean; nowMs: number;
+}) {
+  const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
+  const colors = useColors();
+  const [open, setOpen] = useState(false);
+  const firstKey = runs.find(comesFirst)?.key ?? null;
+
+  return (
+    <View style={styles.runs}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint={t(open ? 'journey.sheet.hideRuns' : 'journey.sheet.showRuns')}
+        onPress={() => setOpen((was) => !was)}
+        hitSlop={Space.xs}
+        style={({ pressed }) => [styles.runs, pressed && { opacity: Opacity.pressed }]}
+      >
+        <View style={styles.row}>
+          <View style={styles.grow}>
+            <Kicker>{t(anyFirst ? 'journey.sheet.otherRuns' : 'journey.sheet.afterIt')}</Kicker>
+          </View>
+          <Icon name={open ? 'chevronUp' : 'chevronDown'} size="xs" color="textSecondary" weight="semibold" />
+        </View>
+        {!open && (
+          <View style={styles.wrapRow}>
+            {runs.map((run) => (
+              <View key={run.key} style={styles.runChip}>
+                <LineBadge route={{ ...run.route, shortName: run.route.shortName ?? '' }} size="small" />
+                {run.live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
+                <Text variant="subheadline" emphasized numeric color={comesFirst(run) ? 'accent' : undefined}>
+                  {shortDeparts(run.departs, nowMs, timeFormat, t)}
+                </Text>
+                {run.key === firstKey && (
+                  <Text variant="caption1" emphasized color="accent" numberOfLines={1}>
+                    {t('journey.sheet.comesFirst')}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+      </Pressable>
+      <Collapsible open={open}>
         <View style={styles.runs}>
-          <Kicker>{t(anyFirst ? 'journey.sheet.otherRuns' : 'journey.sheet.afterIt')}</Kicker>
-          {others.map((run) => (
+          {runs.map((run) => (
             <View key={run.key} style={styles.runRow}>
               <LineBadge route={{ ...run.route, shortName: run.route.shortName ?? '' }} size="small" />
               <View style={styles.grow}>
@@ -217,7 +280,7 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
             </View>
           ))}
         </View>
-      )}
+      </Collapsible>
     </View>
   );
 }
@@ -411,6 +474,7 @@ const styles = StyleSheet.create({
   runs: { gap: Space.sm, marginTop: Space.xs },
   runRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   runTime: { alignItems: 'flex-end', gap: Space.xxs },
+  runChip: { flexDirection: 'row', alignItems: 'center', gap: Space.xs, marginEnd: Space.sm },
   ladder: { marginTop: Space.xs, gap: Space.sm, paddingStart: Space.xs },
   rail: { position: 'absolute', start: Space.xs + DOT / 2 - 2, top: Space.sm, bottom: Space.sm, width: 4, borderRadius: Radius.xs },
   ladderRow: { flexDirection: 'row', alignItems: 'center', gap: Space.md },

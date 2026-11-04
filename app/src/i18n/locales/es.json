@@ -371,6 +371,8 @@
       "afterIt": "Después de este",
       "otherRuns": "Otras líneas desde esta parada",
       "comesFirst": "Llega antes",
+      "showRuns": "Muestra los detalles de cada línea",
+      "hideRuns": "Oculta los detalles de cada línea",
       "offAt": "Bajas en {{name}}",
       "rideMinutes_one": "{{count}} min de viaje",
       "rideMinutes_many": "{{count}} min de viaje",

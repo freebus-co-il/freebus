@@ -389,6 +389,8 @@
       "afterIt": "אחריו",
       "otherRuns": "קווים נוספים מהתחנה",
       "comesFirst": "מגיע קודם",
+      "showRuns": "הצגת פרטי הקווים",
+      "hideRuns": "הסתרת פרטי הקווים",
       "offAt": "ירידה ב{{name}}",
       "rideMinutes_one": "דקת נסיעה",
       "rideMinutes_two": "{{count}} דק׳ נסיעה",

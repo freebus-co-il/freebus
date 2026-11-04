@@ -24,7 +24,7 @@ export function BusSign({ route, headsign, tripNumber = null }: Pick<TransitLeg,
       accessibilityRole="text"
       accessibilityLabel={`${label} ${formatHeadsign(headsign)}`}
     >
-      <Text variant="largeTitle" emphasized numeric color="busSign" numberOfLines={1}>
+      <Text variant="title1" emphasized numeric color="busSign" numberOfLines={1}>
         {label}
       </Text>
       <Text variant="headline" color="busSign" numberOfLines={2} style={styles.headsign}>
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Space.md,
     paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
+    paddingVertical: Space.xs,
     borderRadius: Radius.md,
   },
   headsign: {
