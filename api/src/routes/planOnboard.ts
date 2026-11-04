@@ -21,9 +21,10 @@ import { resolveWalkGeometry } from "./walkGeometry.js";
 import { refineAccessByWalking } from "./accessRefine.js";
 import {
   parsePlace, parseModes, accessStops, nearestStops, NEAREST_STOP_FALLBACK_COUNT,
-  buildWalkLeg, annotateRealtime, annotateTransferRisk, requiredMarginFor,
-  type ParsedPlace,
-} from "./plan.js";
+  buildWalkLeg, type ParsedPlace,
+} from "./plan/places.js";
+import { annotateTransferRisk, requiredMarginFor } from "./plan/transferRisk.js";
+import { annotateRealtime } from "./plan/realtime.js";
 import { dayFor } from "./journeyCheck.js";
 import type { RealtimeStore } from "../realtime/store.js";
 

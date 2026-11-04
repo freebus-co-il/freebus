@@ -8,7 +8,7 @@ import type { TransitLeg } from "../transit/itinerary.js";
 import { toIso } from "../transit/calendar.js";
 import { ApiError } from "../errors.js";
 import type { RealtimeStore } from "../realtime/store.js";
-import { requiredMarginFor, type MarginBoardingLeg } from "./plan.js";
+import { requiredMarginFor, type MarginBoardingLeg } from "./plan/transferRisk.js";
 
 /**
  * The most legs a rider's remaining chain may name in one request -- the
