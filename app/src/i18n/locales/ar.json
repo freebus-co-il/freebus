@@ -517,7 +517,6 @@
       "in_other": "{{count}} د"
     },
     "suggestion": {
-      "tip": "نصيحة",
       "walkTo": "{{walk}} إلى {{name}}",
       "unnamedStop": "محطة قريبة",
       "leavesIn_zero": "يغادر بعد {{count}} د",
@@ -540,8 +539,19 @@
       "sooner_many": "الوصول أبكر بـ {{count}} دقيقة",
       "sooner_other": "الوصول أبكر بـ {{count}} دقيقة",
       "onlyOption": "المحطة الوحيدة في المنطقة التي فيها رحلة قريبة",
-      "go": "اذهب إلى هناك",
-      "stay": "ابقَ هنا"
+      "hint_zero": "محطة قريبة توفّر {{count}} د",
+      "hint_one": "محطة قريبة توفّر دقيقة",
+      "hint_two": "محطة قريبة توفّر دقيقتين",
+      "hint_few": "محطة قريبة توفّر {{count}} دقائق",
+      "hint_many": "محطة قريبة توفّر {{count}} دقيقة",
+      "hint_other": "محطة قريبة توفّر {{count}} دقيقة",
+      "hintOnly": "في محطة قريبة رحلة قريبة",
+      "switch": "تبديل المحطة",
+      "showWalk": "عرض المشي",
+      "hideWalk": "إخفاء المشي",
+      "notNow": "ليس الآن",
+      "expand": "يعرض التفاصيل",
+      "collapse": "يخفي التفاصيل"
     },
     "destinationPoint": "الوجهة",
     "stepTitle": "كيف تصل إلى {{name}}",

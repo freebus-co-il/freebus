@@ -469,7 +469,6 @@
       "in_other": "{{count}} דק׳"
     },
     "suggestion": {
-      "tip": "טיפ",
       "walkTo": "{{walk}} אל {{name}}",
       "unnamedStop": "תחנה סמוכה",
       "leavesIn_one": "יוצא בעוד דקה",
@@ -486,8 +485,17 @@
       "sooner_many": "הגעה {{count}} דק׳ מוקדם יותר",
       "sooner_other": "הגעה {{count}} דק׳ מוקדם יותר",
       "onlyOption": "התחנה היחידה בסביבה עם נסיעה קרובה",
-      "go": "הולכים לשם",
-      "stay": "נשארים כאן"
+      "hint_one": "תחנה סמוכה חוסכת דקה",
+      "hint_two": "תחנה סמוכה חוסכת {{count}} דק׳",
+      "hint_many": "תחנה סמוכה חוסכת {{count}} דק׳",
+      "hint_other": "תחנה סמוכה חוסכת {{count}} דק׳",
+      "hintOnly": "בתחנה סמוכה יש נסיעה קרובה",
+      "switch": "מעבר לתחנה",
+      "showWalk": "הצגת ההליכה",
+      "hideWalk": "הסתרת ההליכה",
+      "notNow": "לא עכשיו",
+      "expand": "מציג את הפרטים",
+      "collapse": "מסתיר את הפרטים"
     },
     "destinationPoint": "יעד",
     "stepTitle": "איך מגיעים אל {{name}}",

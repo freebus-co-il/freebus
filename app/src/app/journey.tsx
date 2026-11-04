@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, View } from 'react-native';
+import { Polyline } from 'react-native-maps';
 import Animated, { FadeOutDown, Keyframe } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +12,8 @@ import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
 import { Button, EmptyState, IconButton, Layout, MapStyle, Motion, Space, useColors } from '@/design-system';
 import { NearbyStopMarkers } from '@/features/custom-journeys/nearby-stop-markers';
+import { useWalkPreview, type WalkPreview } from '@/features/custom-journeys/use-walk-preview';
+import { withMinimumSpan } from '@/features/results/map-focus';
 import { NearbySuggestionCard } from '@/features/custom-journeys/nearby-suggestion-card';
 import { useNearbyOptions } from '@/features/custom-journeys/use-nearby-options';
 import { canSwitchLine } from '@/features/journey/journey-card-model';
@@ -130,6 +133,11 @@ function JourneyScreenContent() {
   const shownNearby = selectedNearby ?? (suggestionKey !== null && suggestionKey !== dismissedSuggestion ? nearby.strong : null);
   const tipShown = shownNearby !== null && !replan.offer && sheetHeight > 0;
   if (!tipShown && tipHeight !== 0) setTipHeight(0);
+  // The walk to the shown stop, on the map while the rider weighs it. Gone
+  // with the tip, or when the tip moves on to another stop.
+  const [walkPreview, setWalkPreview] = useState<WalkPreview | null>(null);
+  if (walkPreview !== null && (!tipShown || walkPreview.stopId !== shownNearby?.stopId)) setWalkPreview(null);
+  const previewPath = useWalkPreview(walkPreview);
 
   // Every transit leg, not just the one being ridden: the rider watching for
   // their connection is watching this map too, and the whole chain is well
@@ -185,7 +193,10 @@ function JourneyScreenContent() {
   const currentVehicle = currentLeg?.type === 'transit'
     ? live?.vehicles.find((vehicle) => vehicle.tripId === currentLeg.tripId) ?? null
     : null;
-  const camera = journey && state && guiding
+  // Seeing the walk to another stop frames that walk, over whatever the
+  // map was doing; following picks up again when the preview closes.
+  const previewCamera = previewPath ? { kind: 'frame' as const, coordinates: withMinimumSpan(previewPath) } : null;
+  const camera = previewCamera ?? (journey && state && guiding
     ? navigationCamera({
         itinerary: journey.itinerary,
         state,
@@ -195,7 +206,7 @@ function JourneyScreenContent() {
         bus: currentVehicle ? { lat: currentVehicle.lat, lon: currentVehicle.lon } : null,
         walkGeometry: walkRoute?.reroutedGeometry ?? null,
       })
-    : null;
+    : null);
 
   // Each line's whole path, faded under the legs, so the rider can see where
   // their bus is coming from and where it carries on to. Once per line and
@@ -381,12 +392,21 @@ function JourneyScreenContent() {
         )}
         edgePadding={mapEdgePadding}
         navigationCamera={camera}
-        cameraPaused={cameraPaused}
+        cameraPaused={cameraPaused && previewCamera === null}
         onUserGesture={() => {
           if (camera !== null) setCameraPaused(true);
         }}
         guessedLegIndexes={guessed}
         extraMarkers={nearby.legIndex !== null && nearby.options.length > 0 ? (
+          <>
+          {previewPath && (
+            <Polyline
+              coordinates={previewPath}
+              strokeColor={colors.walk}
+              strokeWidth={MapStyle.routeWidthSecondary}
+              lineDashPattern={[...MapStyle.dashPattern]}
+            />
+          )}
           <NearbyStopMarkers
             options={nearby.options}
             strongStopId={nearby.strong?.stopId ?? null}
@@ -397,6 +417,7 @@ function JourneyScreenContent() {
               setSelectedNearbyStopId((current) => (current === stopId ? null : stopId));
             }}
           />
+          </>
         ) : null}
         walkOverride={walkRoute?.reroutedGeometry
           ? { legIndex: state.legIndex, geometry: walkRoute.reroutedGeometry }
@@ -458,6 +479,7 @@ function JourneyScreenContent() {
           onLayout={(event) => setTipHeight(Math.round(event.nativeEvent.layout.height))}
         >
           <NearbySuggestionCard
+            key={shownNearby.stopId}
             option={shownNearby}
             strong={shownNearby.stopId === nearby.strong?.stopId}
             gainSeconds={shownNearby.stopId === nearby.strong?.stopId ? nearby.gainSeconds : null}
@@ -472,6 +494,12 @@ function JourneyScreenContent() {
                 setMovingStop(false);
                 setSelectedNearbyStopId(null);
               });
+            } : null}
+            previewing={walkPreview !== null}
+            onPreview={riderFix ? () => {
+              setWalkPreview((current) => (current
+                ? null
+                : { stopId: shownNearby.stopId, from: { lat: riderFix.lat, lon: riderFix.lon }, to: { lat: shownNearby.lat, lon: shownNearby.lon } }));
             } : null}
             onDismiss={() => {
               if (selectedNearby) setSelectedNearbyStopId(null);

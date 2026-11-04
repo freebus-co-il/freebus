@@ -448,7 +448,6 @@
       "in_other": "{{count}} min"
     },
     "suggestion": {
-      "tip": "Consejo",
       "walkTo": "{{walk}} hasta {{name}}",
       "unnamedStop": "Una parada cercana",
       "leavesIn_one": "Sale en {{count}} min",
@@ -462,8 +461,16 @@
       "sooner_many": "Llegas {{count}} min antes",
       "sooner_other": "Llegas {{count}} min antes",
       "onlyOption": "La única parada cercana con un viaje pronto",
-      "go": "Ir allí",
-      "stay": "Quedarse aquí"
+      "hint_one": "Una parada cercana ahorra {{count}} min",
+      "hint_many": "Una parada cercana ahorra {{count}} min",
+      "hint_other": "Una parada cercana ahorra {{count}} min",
+      "hintOnly": "Una parada cercana tiene un viaje pronto",
+      "switch": "Cambiar parada",
+      "showWalk": "Ver camino",
+      "hideWalk": "Ocultar camino",
+      "notNow": "Ahora no",
+      "expand": "Muestra los detalles",
+      "collapse": "Oculta los detalles"
     },
     "destinationPoint": "Destino",
     "stepTitle": "Cómo llegas a {{name}}",

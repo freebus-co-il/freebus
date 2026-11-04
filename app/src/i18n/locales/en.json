@@ -424,7 +424,6 @@
       "in_other": "{{count}} min"
     },
     "suggestion": {
-      "tip": "Tip",
       "walkTo": "{{walk}} to {{name}}",
       "unnamedStop": "A nearby stop",
       "leavesIn_one": "Leaves in {{count}} min",
@@ -435,8 +434,15 @@
       "sooner_one": "Arriving {{count}} min sooner",
       "sooner_other": "Arriving {{count}} min sooner",
       "onlyOption": "The only stop around with a ride soon",
-      "go": "Go there",
-      "stay": "Stay here"
+      "hint_one": "A nearby stop saves {{count}} min",
+      "hint_other": "A nearby stop saves {{count}} min",
+      "hintOnly": "A nearby stop has a ride soon",
+      "switch": "Switch stop",
+      "showWalk": "Show walk",
+      "hideWalk": "Hide walk",
+      "notNow": "Not now",
+      "expand": "Shows the details",
+      "collapse": "Hides the details"
     },
     "destinationPoint": "Destination",
     "stepTitle": "How you get to {{name}}",
