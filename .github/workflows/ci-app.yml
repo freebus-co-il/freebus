@@ -48,3 +48,10 @@ jobs:
       - run: npm --prefix app run typecheck
       - run: npm --prefix app run lint
       - run: npm --prefix app test
+
+      # Component tests (`*.test.tsx`, jest-expo). Run directly rather than
+      # through an npm script: the app's Expo fingerprint includes
+      # package.json's `scripts`, so adding one would count as a native change
+      # and force a store release.
+      - run: npx jest
+        working-directory: app
