@@ -3,6 +3,8 @@ import { getLocales, useLocales } from 'expo-localization';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Appearance } from 'react-native';
 
+import { DEFAULT_COMMUTE_SOURCE, parseCommuteSource, type CommuteSource } from '@/features/home-widgets/commute-source';
+import { DEFAULT_HOME_WIDGETS, parseHomeWidgets, type HomeWidgetId } from '@/features/home-widgets/widgets';
 import { DEFAULT_ALERT_SETTINGS, type AlertSettings } from '@/features/journey/types';
 import i18n from '@/i18n';
 import { applyLayoutDirection, layoutMatchesLanguage, restartApp } from '@/i18n/direction';
@@ -38,6 +40,10 @@ type StoredState = {
    *  Off for a rider who finds it noisy or wants the battery; the get-off
    *  alarm does not depend on it. */
   liveSurface: boolean;
+  /** The home screen's cards, top to bottom (see `home-widgets/widgets`). */
+  homeWidgets: HomeWidgetId[];
+  /** What the commute widget plans (see `home-widgets/commute-source`). */
+  commuteSource: CommuteSource;
 };
 
 const DEFAULT_STATE: StoredState = {
@@ -47,6 +53,8 @@ const DEFAULT_STATE: StoredState = {
   timeFormat: 'countdown',
   alertSettings: DEFAULT_ALERT_SETTINGS,
   liveSurface: true,
+  homeWidgets: [...DEFAULT_HOME_WIDGETS],
+  commuteSource: DEFAULT_COMMUTE_SOURCE,
 };
 
 /**
@@ -101,6 +109,8 @@ function parseStoredState(raw: string | null): StoredState {
       timeFormat: ['countdown', 'clock'].includes(parsed?.timeFormat) ? parsed.timeFormat : 'countdown',
       alertSettings: parseAlertSettings(parsed?.alertSettings),
       liveSurface: typeof parsed?.liveSurface === 'boolean' ? parsed.liveSurface : true,
+      homeWidgets: parseHomeWidgets(parsed?.homeWidgets),
+      commuteSource: parseCommuteSource(parsed?.commuteSource),
     };
   } catch {
     return DEFAULT_STATE;
@@ -237,6 +247,14 @@ function usePreferencesState() {
     setState((current) => ({ ...current, liveSurface: next }));
   }
 
+  function setHomeWidgets(next: HomeWidgetId[]) {
+    setState((current) => ({ ...current, homeWidgets: next }));
+  }
+
+  function setCommuteSource(next: CommuteSource) {
+    setState((current) => ({ ...current, commuteSource: next }));
+  }
+
   return {
     loaded: loaded && directionSettled,
     language,
@@ -246,12 +264,16 @@ function usePreferencesState() {
     timeFormat: state.timeFormat,
     alertSettings: state.alertSettings,
     liveSurface: state.liveSurface,
+    homeWidgets: state.homeWidgets,
+    commuteSource: state.commuteSource,
     setLanguage,
     setTheme,
     setMapStyle,
     setTimeFormat,
     setAlertSettings,
     setLiveSurface,
+    setHomeWidgets,
+    setCommuteSource,
   };
 }
 

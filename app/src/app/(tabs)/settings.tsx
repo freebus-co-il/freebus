@@ -86,7 +86,10 @@ export default function SettingsScreen() {
               />
             </ListSection>
 
+            {/* What home shows and the journeys it can show: the rider's own
+                set-up, together. */}
             <ListSection>
+              <PageRow icon="layers" title={t('homeWidgets.title')} href="/settings/home" />
               <PageRow icon="navigate" title={t('customJourney.listTitle')} href="/custom-journeys" />
             </ListSection>
 

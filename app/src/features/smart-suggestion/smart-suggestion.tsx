@@ -1,12 +1,13 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { usePlanTrip } from '@/api/plan';
-import type { PlanQuery } from '@/api/types';
+import type { Itinerary, PlanQuery } from '@/api/types';
 import { DataCredit } from '@/components/data-credit';
 import { LineBadge } from '@/components/line-badge';
-import { Card, Glass, Icon, LeadingIcon, Loading, Radius, Space, Text, type ColorRole } from '@/design-system';
+import { Card, Glass, Icon, LeadingIcon, Loading, Radius, Space, Text, type ColorRole, type IconName } from '@/design-system';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { firstTransitLeg, leaveState } from '@/features/results/itinerary-facts';
 import { TripMap, type EdgePadding } from '@/features/results/trip-map';
@@ -50,6 +51,10 @@ export type SmartSuggestionProps = {
    *  flow down, so this card lands on results the same way a saved-location
    *  chip does. */
   onSelect: (place: SelectedPlace) => void;
+  /** Drawn when there is no commute to offer right now. The closest
+   *  station's peek by default; `null` when home already shows that peek as
+   *  a widget of its own, so the page never draws it twice. */
+  fallback?: ReactNode;
 };
 
 /**
@@ -70,18 +75,16 @@ export type SmartSuggestionProps = {
  *
  * Painted in the map's scheme (`MapSchemeScope`): it sits on the map.
  */
-export function SmartSuggestion({ onSelect }: SmartSuggestionProps) {
+export function SmartSuggestion({ onSelect, fallback = <NearbySuggestion /> }: SmartSuggestionProps) {
   return (
     <MapSchemeScope>
-      <SmartSuggestionCard onSelect={onSelect} />
+      <SmartSuggestionCard onSelect={onSelect} fallback={fallback} />
     </MapSchemeScope>
   );
 }
 
-function SmartSuggestionCard({ onSelect }: SmartSuggestionProps) {
-  const { t, i18n } = useTranslation();
-  const { timeFormat } = usePreferences();
-  const now = useNow();
+function SmartSuggestionCard({ onSelect, fallback }: SmartSuggestionProps) {
+  const { i18n } = useTranslation();
   const { originState } = useSearch();
   const savedLocations = useSavedLocations();
 
@@ -112,20 +115,49 @@ function SmartSuggestionCard({ onSelect }: SmartSuggestionProps) {
   // in front of them.
   const best = data?.itineraries[0] ?? null;
 
-  if (target === null) return <NearbySuggestion />;
+  if (target === null) return fallback;
+  if (isLoading) return <TripPreviewLoading />;
+  if (best === null) return fallback;
 
-  if (isLoading) {
-    return (
-      <Card variant="hero" padded={false} style={[styles.hero, styles.centered]}>
-        <Loading />
-      </Card>
-    );
-  }
+  return (
+    <TripPreviewCard
+      itinerary={best}
+      icon={LOCATION_ICON_NAMES[target.preset === 'home' ? 'home' : 'briefcase']}
+      label={(target.preset === 'home' ? home?.label : work?.label) ?? ''}
+      onPress={() => onSelect(target.place)}
+    />
+  );
+}
 
-  if (best === null) return <NearbySuggestion />;
+/** The card's shape while its trip is being planned, so the page does not
+ *  jump when the answer lands. */
+export function TripPreviewLoading() {
+  return (
+    <Card variant="hero" padded={false} style={[styles.hero, styles.centered]}>
+      <Loading />
+    </Card>
+  );
+}
 
-  const icon = LOCATION_ICON_NAMES[target.preset === 'home' ? 'home' : 'briefcase'];
-  const label = (target.preset === 'home' ? home?.label : work?.label) ?? '';
+/**
+ * One planned trip as a hero card: the route drawn on a map clipped inside
+ * the card, and a glass panel over its lower stretch with where it goes,
+ * when to leave, and what to catch. Every commute source draws through this,
+ * so the card reads the same whichever way it was chosen.
+ *
+ * Paint it inside a `MapSchemeScope`: it sits on the map.
+ */
+export function TripPreviewCard({ itinerary: best, icon, label, onPress, busy = false }: {
+  itinerary: Itinerary;
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  /** A tap is being acted on (a journey being planned to start). */
+  busy?: boolean;
+}) {
+  const { t } = useTranslation();
+  const { timeFormat } = usePreferences();
+  const now = useNow();
 
   const leave = leaveState(best.departureTime, now);
   const leaveLabel =
@@ -157,7 +189,7 @@ function SmartSuggestionCard({ onSelect }: SmartSuggestionProps) {
     <Card
       variant="hero"
       padded={false}
-      onPress={() => onSelect(target.place)}
+      onPress={busy ? undefined : onPress}
       accessibilityLabel={[label, leaveLabel, detail].join(', ')}
       style={styles.hero}
     >
@@ -179,7 +211,9 @@ function SmartSuggestionCard({ onSelect }: SmartSuggestionProps) {
           <Text variant="headline" numberOfLines={1} style={styles.grow}>
             {label}
           </Text>
-          <Icon name="chevronForward" size="sm" color="textSecondary" weight="semibold" />
+          {busy
+            ? <Loading />
+            : <Icon name="chevronForward" size="sm" color="textSecondary" weight="semibold" />}
         </View>
 
         <Text variant="countdown" color={leaveColor} numberOfLines={1} adjustsFontSizeToFit>
