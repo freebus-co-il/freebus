@@ -3,29 +3,27 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { LineBadge } from '@/components/line-badge';
-import { Border, Button, Icon, IconButton, Opacity, Radius, Size, Space, Text, useColors, withAlpha } from '@/design-system';
+import { Button, Glass, Icon, IconButton, Radius, Size, Space, Text, useColors } from '@/design-system';
 import { formatHeadsign } from '@/features/results/itinerary-facts';
 
 import type { NearbyOption } from './nearby-options';
 
-/** The tip's tint: the walk legs' amber, so the hint reads as the same idea
- *  as the walk the map draws to the stop. */
-const TIP_FILL = 0.14;
-const TIP_EDGE = 0.5;
-/** The walk dot that leads the hint and the card. */
+/** The walk dot that leads the hint and the card: the walk legs' amber, so
+ *  it reads as the same idea as the walk the map draws to the stop. */
 const DOT = 28;
 
 /**
  * The stop worth walking to instead (or the one the rider tapped on the map),
  * floating over the map just above the sheet: the sheet keeps saying what the
- * rider is doing now, and this is an offer beside it.
+ * rider is doing now, and this is an offer beside it. Liquid Glass, like the
+ * map's other floating chrome; only its walk dot carries a colour.
  *
  * The app's own suggestion (`strong`) starts as a one-line hint, so it costs
  * the map almost nothing; a tap opens it into the card with the line, the
  * walk, and the three answers: switch to that stop, see the walk there on the
  * map, or not now (the corner's close button). A tap on the card's head folds
  * it back into the hint. A stop the rider tapped opens straight into the card,
- * neutral rather than amber, since they asked for it.
+ * with a neutral dot, since they asked for it.
  */
 export function NearbySuggestionCard({ option, strong, gainSeconds, nowMs, busy, previewing, onGo, onPreview, onDismiss, style }: {
   option: NearbyOption;
@@ -52,21 +50,6 @@ export function NearbySuggestionCard({ option, strong, gainSeconds, nowMs, busy,
   const name = option.name ?? t('customJourney.suggestion.unnamedStop');
   const walk = t('customJourney.suggestion.walk', { count: walkMinutes });
 
-  const surface = {
-    backgroundColor: colors.surfaceFloating,
-    borderColor: strong ? withAlpha(colors.walk, TIP_EDGE) : colors.controlEdge,
-  };
-  // Rounded itself rather than clipped by its parent: the card must not clip,
-  // because the prominent button is glass, which stretches under a touch.
-  const tint = strong && (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.tint,
-        { backgroundColor: withAlpha(colors.walk, TIP_FILL), borderRadius: expanded ? Radius.xl - Border.default : Radius.full },
-      ]}
-    />
-  );
   const dot = (
     <View style={[styles.dot, { backgroundColor: strong ? colors.walk : colors.trackFill }]}>
       <Icon name="walk" size="sm" color={strong ? 'onStatus' : 'textPrimary'} weight="semibold" />
@@ -83,12 +66,14 @@ export function NearbySuggestionCard({ option, strong, gainSeconds, nowMs, busy,
         accessibilityLabel={hint}
         accessibilityHint={t('customJourney.suggestion.expand')}
         onPress={() => setExpanded(true)}
-        style={({ pressed }) => [styles.hint, surface, pressed && styles.pressed, style]}
+        style={[styles.hintTarget, style]}
       >
-        {tint}
-        {dot}
-        <Text variant="subheadline" emphasized numberOfLines={1} style={styles.shrink}>{hint}</Text>
-        <Icon name="chevronUp" size="sm" color="textSecondary" weight="semibold" />
+        {/* Interactive: the glass itself answers the touch, so nothing dims. */}
+        <Glass interactive shape="capsule" style={styles.hint}>
+          {dot}
+          <Text variant="subheadline" emphasized numberOfLines={1} style={styles.shrink}>{hint}</Text>
+          <Icon name="chevronUp" size="sm" color="textSecondary" weight="semibold" />
+        </Glass>
       </Pressable>
     );
   }
@@ -101,9 +86,7 @@ export function NearbySuggestionCard({ option, strong, gainSeconds, nowMs, busy,
   const subtitle = strong ? t('customJourney.suggestion.walkTo', { walk, name }) : walk;
 
   return (
-    <View style={[styles.card, surface, style]}>
-      {tint}
-
+    <Glass shape="rounded" style={[styles.card, style]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={[title, subtitle].join(', ')}
@@ -155,32 +138,29 @@ export function NearbySuggestionCard({ option, strong, gainSeconds, nowMs, busy,
           />
         )}
       </View>
-    </View>
+    </Glass>
   );
 }
 
 const styles = StyleSheet.create({
   // Hugs its text and sits at the line's start, like a chip, not a banner.
+  hintTarget: { alignSelf: 'flex-start', maxWidth: '100%' },
   hint: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
     minHeight: Size.touchMin,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.sm,
     paddingStart: Space.sm,
     paddingEnd: Space.md,
-    borderRadius: Radius.full,
-    borderWidth: Border.default,
   },
-  pressed: { opacity: Opacity.pressed },
   card: {
     borderRadius: Radius.xl,
-    borderWidth: Border.default,
     padding: Space.md,
     gap: Space.md,
+    // Glass clips by default; "Switch stop" is glass too and stretches past
+    // its frame under a touch.
+    overflow: 'visible',
   },
-  tint: { position: 'absolute', top: 0, bottom: 0, start: 0, end: 0 },
   dot: {
     width: DOT,
     height: DOT,
