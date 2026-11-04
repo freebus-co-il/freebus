@@ -108,7 +108,7 @@ the MOT feed has no `shapes.txt` rows for rail. `npm run bake:rail`
 (`src/rail/bakeMain.ts`) rebuilds it from OpenStreetMap via Overpass. Do
 not hand-edit the JSON. If you change the bake, the pitfalls that cost
 real detours to work out (see `src/rail/bake.ts` and `README.md`'s
-[Train track lines](README.md#train-track-lines) section for the measured
+[Train track lines](docs/how-it-works.md#train-track-lines) section for the measured
 numbers):
 
 1. **Junction tracks matter.** `service=crossover/siding/spur/yard` ways
