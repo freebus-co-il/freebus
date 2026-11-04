@@ -158,6 +158,12 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
   const minutes = minutesLeft(state.timer);
   const hero = runs.find((run) => run.tripId === leg.tripId) ?? null;
   const others = runs.filter((run) => run.tripId !== leg.tripId).slice(0, MORE_RUNS);
+  // The hero is the planned run (the one that gets there first), not always
+  // the one that comes first. A run that leaves before it is said so, and the
+  // list is not titled "after it" when some of it comes before.
+  const heroDeparts = hero ? Date.parse(hero.departs) : null;
+  const comesFirst = (run: StationRun) => heroDeparts !== null && Date.parse(run.departs) < heroDeparts;
+  const anyFirst = others.some(comesFirst);
   const where = state.busStopsAway !== null ? t('journey.sheet.busStopsAway', { count: state.busStopsAway }) : null;
 
   return (
@@ -181,7 +187,7 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
       </Text>
       {others.length > 0 && (
         <View style={styles.runs}>
-          <Kicker>{t('journey.sheet.afterIt')}</Kicker>
+          <Kicker>{t(anyFirst ? 'journey.sheet.otherRuns' : 'journey.sheet.afterIt')}</Kicker>
           {others.map((run) => (
             <View key={run.key} style={styles.runRow}>
               <LineBadge route={{ ...run.route, shortName: run.route.shortName ?? '' }} size="small" />
@@ -197,9 +203,16 @@ export function WaitingView({ state, leg, runs, final, nowMs, onSwitchLine }: {
                   {runDetail(run, final, t)}
                 </Text>
               </View>
-              <View style={styles.row}>
-                {run.live && <LiveIndicator color={colors.live} size={Size.icon.sm} />}
-                <Text variant="callout" emphasized numeric>{departsLabel(run.departs, nowMs, timeFormat, t)}</Text>
+              <View style={styles.runTime}>
+                <View style={styles.row}>
+                  {run.live && <LiveIndicator color={colors.live} size={Size.icon.sm} />}
+                  <Text variant="callout" emphasized numeric>{departsLabel(run.departs, nowMs, timeFormat, t)}</Text>
+                </View>
+                {comesFirst(run) && (
+                  <Text variant="caption1" emphasized color="accent" numberOfLines={1}>
+                    {t('journey.sheet.comesFirst')}
+                  </Text>
+                )}
               </View>
             </View>
           ))}
@@ -397,6 +410,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', gap: Space.sm, flexWrap: 'wrap', marginTop: Space.xs },
   runs: { gap: Space.sm, marginTop: Space.xs },
   runRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
+  runTime: { alignItems: 'flex-end', gap: Space.xxs },
   ladder: { marginTop: Space.xs, gap: Space.sm, paddingStart: Space.xs },
   rail: { position: 'absolute', start: Space.xs + DOT / 2 - 2, top: Space.sm, bottom: Space.sm, width: 4, borderRadius: Radius.xs },
   ladderRow: { flexDirection: 'row', alignItems: 'center', gap: Space.md },

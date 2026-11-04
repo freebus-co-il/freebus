@@ -387,6 +387,8 @@
       "stuck": "לא נמצא מסלול כרגע. ממשיך לחפש…",
       "boardFrom": "היציאות הבאות מ{{name}}",
       "afterIt": "אחריו",
+      "otherRuns": "קווים נוספים מהתחנה",
+      "comesFirst": "מגיע קודם",
       "offAt": "ירידה ב{{name}}",
       "rideMinutes_one": "דקת נסיעה",
       "rideMinutes_two": "{{count}} דק׳ נסיעה",
