@@ -517,7 +517,8 @@
       "in_other": "{{count}} د"
     },
     "suggestion": {
-      "strongTitle": "أسرع من {{name}}",
+      "tip": "نصيحة",
+      "walkTo": "{{walk}} إلى {{name}}",
       "unnamedStop": "محطة قريبة",
       "leavesIn_zero": "يغادر بعد {{count}} د",
       "leavesIn_one": "يغادر بعد دقيقة",
@@ -532,12 +533,12 @@
       "walk_many": "{{count}} دقيقة مشيًا",
       "walk_other": "{{count}} دقيقة مشيًا",
       "nothing": "لا توجد من هنا رحلة قريبة لهذه الخطوة.",
-      "sooner_zero": "أبكر بـ {{count}} د",
-      "sooner_one": "أبكر بدقيقة",
-      "sooner_two": "أبكر بدقيقتين",
-      "sooner_few": "أبكر بـ {{count}} دقائق",
-      "sooner_many": "أبكر بـ {{count}} دقيقة",
-      "sooner_other": "أبكر بـ {{count}} دقيقة",
+      "sooner_zero": "الوصول أبكر بـ {{count}} د",
+      "sooner_one": "الوصول أبكر بدقيقة",
+      "sooner_two": "الوصول أبكر بدقيقتين",
+      "sooner_few": "الوصول أبكر بـ {{count}} دقائق",
+      "sooner_many": "الوصول أبكر بـ {{count}} دقيقة",
+      "sooner_other": "الوصول أبكر بـ {{count}} دقيقة",
       "onlyOption": "المحطة الوحيدة في المنطقة التي فيها رحلة قريبة",
       "go": "اذهب إلى هناك",
       "stay": "ابقَ هنا"

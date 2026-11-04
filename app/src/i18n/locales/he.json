@@ -469,7 +469,8 @@
       "in_other": "{{count}} דק׳"
     },
     "suggestion": {
-      "strongTitle": "מהר יותר מ{{name}}",
+      "tip": "טיפ",
+      "walkTo": "{{walk}} אל {{name}}",
       "unnamedStop": "תחנה סמוכה",
       "leavesIn_one": "יוצא בעוד דקה",
       "leavesIn_two": "יוצא בעוד {{count}} דק׳",
@@ -480,10 +481,10 @@
       "walk_many": "{{count}} דק׳ הליכה",
       "walk_other": "{{count}} דק׳ הליכה",
       "nothing": "אין מכאן נסיעה קרובה לשלב הזה.",
-      "sooner_one": "דקה אחת מוקדם יותר",
-      "sooner_two": "{{count}} דק׳ מוקדם יותר",
-      "sooner_many": "{{count}} דק׳ מוקדם יותר",
-      "sooner_other": "{{count}} דק׳ מוקדם יותר",
+      "sooner_one": "הגעה דקה מוקדם יותר",
+      "sooner_two": "הגעה {{count}} דק׳ מוקדם יותר",
+      "sooner_many": "הגעה {{count}} דק׳ מוקדם יותר",
+      "sooner_other": "הגעה {{count}} דק׳ מוקדם יותר",
       "onlyOption": "התחנה היחידה בסביבה עם נסיעה קרובה",
       "go": "הולכים לשם",
       "stay": "נשארים כאן"

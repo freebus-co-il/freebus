@@ -472,7 +472,8 @@
       "in_other": "{{count}} мин"
     },
     "suggestion": {
-      "strongTitle": "Быстрее от {{name}}",
+      "tip": "Совет",
+      "walkTo": "{{walk}} до остановки «{{name}}»",
       "unnamedStop": "Ближайшая остановка",
       "leavesIn_one": "Отправление через {{count}} мин",
       "leavesIn_few": "Отправление через {{count}} мин",
@@ -483,10 +484,10 @@
       "walk_many": "{{count}} мин пешком",
       "walk_other": "{{count}} мин пешком",
       "nothing": "Отсюда ничего не идёт на этот этап в ближайшее время.",
-      "sooner_one": "на {{count}} мин раньше",
-      "sooner_few": "на {{count}} мин раньше",
-      "sooner_many": "на {{count}} мин раньше",
-      "sooner_other": "на {{count}} мин раньше",
+      "sooner_one": "Прибытие на {{count}} мин раньше",
+      "sooner_few": "Прибытие на {{count}} мин раньше",
+      "sooner_many": "Прибытие на {{count}} мин раньше",
+      "sooner_other": "Прибытие на {{count}} мин раньше",
       "onlyOption": "Единственная остановка поблизости с ближайшим рейсом",
       "go": "Идти туда",
       "stay": "Остаться здесь"

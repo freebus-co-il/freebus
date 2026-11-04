@@ -448,7 +448,8 @@
       "in_other": "{{count}} min"
     },
     "suggestion": {
-      "strongTitle": "Más rápido desde {{name}}",
+      "tip": "Consejo",
+      "walkTo": "{{walk}} hasta {{name}}",
       "unnamedStop": "Una parada cercana",
       "leavesIn_one": "Sale en {{count}} min",
       "leavesIn_many": "Sale en {{count}} min",
@@ -457,9 +458,9 @@
       "walk_many": "{{count}} min a pie",
       "walk_other": "{{count}} min a pie",
       "nothing": "Nada desde aquí hace este tramo pronto.",
-      "sooner_one": "{{count}} min antes",
-      "sooner_many": "{{count}} min antes",
-      "sooner_other": "{{count}} min antes",
+      "sooner_one": "Llegas {{count}} min antes",
+      "sooner_many": "Llegas {{count}} min antes",
+      "sooner_other": "Llegas {{count}} min antes",
       "onlyOption": "La única parada cercana con un viaje pronto",
       "go": "Ir allí",
       "stay": "Quedarse aquí"

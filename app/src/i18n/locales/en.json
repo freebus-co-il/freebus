@@ -424,15 +424,16 @@
       "in_other": "{{count}} min"
     },
     "suggestion": {
-      "strongTitle": "Faster from {{name}}",
+      "tip": "Tip",
+      "walkTo": "{{walk}} to {{name}}",
       "unnamedStop": "A nearby stop",
       "leavesIn_one": "Leaves in {{count}} min",
       "leavesIn_other": "Leaves in {{count}} min",
       "walk_one": "{{count}} min walk",
       "walk_other": "{{count}} min walk",
       "nothing": "Nothing from here makes this step soon.",
-      "sooner_one": "{{count}} min sooner",
-      "sooner_other": "{{count}} min sooner",
+      "sooner_one": "Arriving {{count}} min sooner",
+      "sooner_other": "Arriving {{count}} min sooner",
       "onlyOption": "The only stop around with a ride soon",
       "go": "Go there",
       "stay": "Stay here"
