@@ -6,7 +6,7 @@ import {
   departuresAt, nextDepartureAfter, tripStopVisit, type Departure,
 } from "../db/departures.js";
 import { destinationReach, reachKey, type Reach } from "../db/destinationReach.js";
-import { destinationStops, DESTINATION_RADIUS_METERS, type DestinationStop } from "../db/destinationArea.js";
+import { destinationStops, type DestinationStop } from "../db/destinationArea.js";
 import { config } from "../config.js";
 import { toIso } from "../transit/calendar.js";
 import type { TimetableIndex } from "../transit/index.js";

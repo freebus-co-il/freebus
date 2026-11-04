@@ -70,7 +70,7 @@ it's bypassable with `--no-verify`. The real enforcement is the
   harder to review and to revert.
 - Fill in the PR template: what changed and why, how you verified it, and
   the checklist.
-- CI runs `typecheck`, `lint` (app only), and `test` for each project your
+- CI runs `typecheck`, `lint` (app and api), and `test` for each project your
   PR touches, plus the commit-message check. All of it needs to pass before
   a merge.
 
