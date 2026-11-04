@@ -596,8 +596,6 @@
     "commuteSetupTitle": "Indica tu casa",
     "commuteSetupMessage": "Guarda dónde vives y aquí aparecerá tu próximo viaje a casa o al trabajo.",
     "commuteSetupAction": "Indicar casa",
-    "moveUp": "Subir {{name}}",
-    "moveDown": "Bajar {{name}}",
     "remove": "Quitar {{name}}",
     "add": "Añadir {{name}}",
     "emptyTitle": "Tu pantalla de inicio está vacía",
@@ -625,6 +623,16 @@
     "journeysSetupTitle": "Elige un trayecto",
     "journeysSetupMessage": "Elige el trayecto que muestra la tarjeta y su camino de vuelta.",
     "setUp": "Configurar",
-    "optionsHint": "Abre las opciones de este widget"
+    "optionsHint": "Abre las opciones de este widget",
+    "nearbyStyleTitle": "Mostrar",
+    "nearbyStyle": {
+      "map": "Mapa y lista",
+      "mapHint": "La estación más cercana en un mapa y las demás en una lista debajo",
+      "list": "Solo lista",
+      "listHint": "Todas las estaciones en filas, la más cercana primero"
+    },
+    "reorder": "Reordenar {{name}}",
+    "position": "{{index}} de {{count}}",
+    "unknown": "Este widget no tiene opciones."
   }
 }

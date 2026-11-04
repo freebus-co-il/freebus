@@ -4,19 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { Icon, LeadingIcon, ListRow, ListSection, type IconName } from '@/design-system';
 import { pointsSummary } from '@/features/custom-journeys/journey-summary';
 import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
+import { ChoiceSection } from '@/features/settings/choice-section';
+import { LOCATION_ICON_NAMES } from '@/features/saved-locations/location-icons';
+import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
+import { placeLabel } from '@/lib/place';
+import { hapticSelected } from '@/lib/haptics';
+
 import {
   COMMUTE_SOURCE_KINDS,
   emptyCommuteSource,
   type CommuteSource,
   type CommuteSourceKind,
-} from '@/features/home-widgets/commute-source';
-import { usePreferences } from '@/features/preferences/preferences-context';
-import { ChoiceSection } from '@/features/settings/choice-section';
-import { SettingsPage } from '@/features/settings/settings-page';
-import { LOCATION_ICON_NAMES } from '@/features/saved-locations/location-icons';
-import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
-import { placeLabel } from '@/lib/place';
-import { hapticSelected } from '@/lib/haptics';
+} from './commute-source';
 
 const KIND_OPTIONS: { value: CommuteSourceKind; labelKey: string }[] = COMMUTE_SOURCE_KINDS.map((kind) => ({
   value: kind,
@@ -59,9 +58,11 @@ function PickRow({ icon, title, subtitle, selected, disabled, onPick }: {
  * still shows one trip at a time, the one that fits where the rider is
  * standing, which is what each kind's footer explains.
  */
-export default function CommuteSettingsScreen() {
+export function CommuteOptions({ value: source, onChange: setCommuteSource }: {
+  value: CommuteSource;
+  onChange: (next: CommuteSource) => void;
+}) {
   const { t } = useTranslation();
-  const { commuteSource: source, setCommuteSource } = usePreferences();
   const { locations } = useSavedLocations();
   const { journeys } = useCustomJourneys();
   const places = locations.filter((location) => location.place !== null);
@@ -75,7 +76,7 @@ export default function CommuteSettingsScreen() {
   }
 
   return (
-    <SettingsPage title={t('homeWidgets.commuteTitle')}>
+    <>
       <ChoiceSection
         title={t('homeWidgets.sourceTitle')}
         options={KIND_OPTIONS}
@@ -166,6 +167,6 @@ export default function CommuteSettingsScreen() {
           )}
         </>
       )}
-    </SettingsPage>
+    </>
   );
 }

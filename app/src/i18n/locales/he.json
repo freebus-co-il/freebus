@@ -622,8 +622,6 @@
     "commuteSetupTitle": "הגדרת הבית",
     "commuteSetupMessage": "שמרו את כתובת הבית, והנסיעה הבאה הביתה או לעבודה תופיע כאן.",
     "commuteSetupAction": "הגדרת הבית",
-    "moveUp": "הזזת {{name}} למעלה",
-    "moveDown": "הזזת {{name}} למטה",
     "remove": "הסרת {{name}}",
     "add": "הוספת {{name}}",
     "emptyTitle": "מסך הבית ריק",
@@ -651,6 +649,16 @@
     "journeysSetupTitle": "בחירת מסלול",
     "journeysSetupMessage": "בחרו את המסלול שהכרטיס מציג, ואת הדרך חזרה.",
     "setUp": "הגדרה",
-    "optionsHint": "פותח את האפשרויות של הווידג׳ט"
+    "optionsHint": "פותח את האפשרויות של הווידג׳ט",
+    "nearbyStyleTitle": "תצוגה",
+    "nearbyStyle": {
+      "map": "מפה ורשימה",
+      "mapHint": "התחנה הקרובה על מפה, והשאר ברשימה מתחתיה",
+      "list": "רשימה בלבד",
+      "listHint": "כל התחנות בשורות, הקרובה ראשונה"
+    },
+    "reorder": "שינוי הסדר של {{name}}",
+    "position": "{{index}} מתוך {{count}}",
+    "unknown": "לווידג׳ט הזה אין אפשרויות."
   }
 }

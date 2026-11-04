@@ -13,13 +13,15 @@ import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-co
 import { planCustomJourney } from '@/features/custom-journeys/plan-custom-journey';
 import { reversedPoints, type CustomJourney } from '@/features/custom-journeys/types';
 import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
-import { usePreferences } from '@/features/preferences/preferences-context';
 import { LOCATION_ICON_NAMES } from '@/features/saved-locations/location-icons';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
 import { useSearch } from '@/features/search/search-context';
 import { NearbySuggestion } from '@/features/smart-suggestion/nearby-suggestion';
 import { SmartSuggestion, TripPreviewCard, TripPreviewLoading } from '@/features/smart-suggestion/smart-suggestion';
 import { placeToQueryValue, type SelectedPlace } from '@/lib/place';
+
+import type { HomeWidgetContext } from '../../registry';
+import { homeWidgetOptionsHref } from '../../use-home-widgets';
 
 import { closestStartIndex, placeDestinationIndex, type CommuteSource } from './commute-source';
 
@@ -39,15 +41,11 @@ const REVERSED_SUFFIX = '~back';
  * nothing to offer right now, it falls back to the closest station's peek,
  * unless the nearby widget is already on the page.
  */
-export function CommuteWidget({ showsNearby, onSelect }: {
-  showsNearby: boolean;
-  onSelect: (place: SelectedPlace) => void;
-}) {
-  const { commuteSource } = usePreferences();
+export function CommuteWidget({ options, context }: { options: CommuteSource; context: HomeWidgetContext }) {
   // Map cards are painted in the map's scheme; the set-up banners are page
   // content and stay in the app's.
-  const fallback = showsNearby ? null : <MapSchemeScope><NearbySuggestion /></MapSchemeScope>;
-  return <CommuteCard source={commuteSource} fallback={fallback} onSelect={onSelect} />;
+  const fallback = context.layout.includes('nearby') ? null : <MapSchemeScope><NearbySuggestion /></MapSchemeScope>;
+  return <CommuteCard source={options} fallback={fallback} onSelect={context.onSelectDestination} />;
 }
 
 function MapCard(props: Parameters<typeof TripPreviewCard>[0]) {
@@ -93,7 +91,7 @@ function SetupBanner({ icon, titleKey, messageKey, actionKey, onPress }: {
   return <Banner icon={icon} title={t(titleKey)} message={t(messageKey)} action={{ label: t(actionKey), onPress }} />;
 }
 
-const openOptions = () => router.push('/settings/commute');
+const openOptions = () => router.push(homeWidgetOptionsHref('commute'));
 
 function SmartCard({ fallback, onSelect }: { fallback: ReactNode; onSelect: (place: SelectedPlace) => void }) {
   const { locations } = useSavedLocations();

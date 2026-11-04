@@ -566,8 +566,6 @@
     "commuteSetupTitle": "Set your home",
     "commuteSetupMessage": "Save where you live and your next trip home or to work shows here.",
     "commuteSetupAction": "Set home",
-    "moveUp": "Move {{name}} up",
-    "moveDown": "Move {{name}} down",
     "remove": "Remove {{name}}",
     "add": "Add {{name}}",
     "emptyTitle": "Your home screen is empty",
@@ -595,6 +593,16 @@
     "journeysSetupTitle": "Pick a journey",
     "journeysSetupMessage": "Choose the journey this card shows, and its way back.",
     "setUp": "Set up",
-    "optionsHint": "Opens this widget's options"
+    "optionsHint": "Opens this widget's options",
+    "nearbyStyleTitle": "Show",
+    "nearbyStyle": {
+      "map": "Map and list",
+      "mapHint": "The closest station on a map, the others listed under it",
+      "list": "List only",
+      "listHint": "Every station as a row, the closest first"
+    },
+    "reorder": "Reorder {{name}}",
+    "position": "{{index}} of {{count}}",
+    "unknown": "This widget has no options."
   }
 }

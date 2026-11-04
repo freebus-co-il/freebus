@@ -683,8 +683,6 @@
     "commuteSetupTitle": "حدّد منزلك",
     "commuteSetupMessage": "احفظ مكان سكنك لتظهر هنا رحلتك التالية إلى البيت أو إلى العمل.",
     "commuteSetupAction": "تحديد المنزل",
-    "moveUp": "نقل {{name}} إلى الأعلى",
-    "moveDown": "نقل {{name}} إلى الأسفل",
     "remove": "إزالة {{name}}",
     "add": "إضافة {{name}}",
     "emptyTitle": "شاشتك الرئيسية فارغة",
@@ -712,6 +710,16 @@
     "journeysSetupTitle": "اختر رحلة",
     "journeysSetupMessage": "اختر الرحلة التي تعرضها البطاقة، وطريق العودة منها.",
     "setUp": "إعداد",
-    "optionsHint": "يفتح خيارات هذه الأداة"
+    "optionsHint": "يفتح خيارات هذه الأداة",
+    "nearbyStyleTitle": "العرض",
+    "nearbyStyle": {
+      "map": "خريطة وقائمة",
+      "mapHint": "أقرب محطة على الخريطة، والبقية في قائمة تحتها",
+      "list": "قائمة فقط",
+      "listHint": "كل المحطات في صفوف، الأقرب أولًا"
+    },
+    "reorder": "إعادة ترتيب {{name}}",
+    "position": "{{index}} من {{count}}",
+    "unknown": "لا توجد خيارات لهذه الأداة."
   }
 }

@@ -23,8 +23,7 @@ import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-co
 import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { MapPickButton } from '@/features/map-picker/map-pick-button';
-import { HomeWidget } from '@/features/home-widgets/home-widget';
-import { usePreferences } from '@/features/preferences/preferences-context';
+import { RegisteredHomeWidget, useHomeLayout } from '@/features/home-widgets';
 import { Chip, SavedLocationChips } from '@/features/saved-locations/saved-location-chips';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
 import type { SavedLocation } from '@/features/saved-locations/types';
@@ -85,7 +84,7 @@ export default function SearchScreen() {
   const customJourneys = useCustomJourneys();
   const { startJourney, startingId } = useStartCustomJourney();
   const search = useSearch();
-  const { homeWidgets } = usePreferences();
+  const homeLayout = useHomeLayout();
   // `push`, not the default `replace` -- a saved-location chip is tapped
   // directly on this screen with no transient search screen in between, so
   // `replace`ing here would replace HOME ITSELF (see this hook's own doc
@@ -189,7 +188,7 @@ export default function SearchScreen() {
       >
         {/* The rider's own cards, in the rider's own order (Settings, Home
             screen). An empty page still says how to fill it. */}
-        {homeWidgets.length === 0 ? (
+        {homeLayout.widgets.length === 0 ? (
           <EmptyState
             icon="layers"
             title={t('homeWidgets.emptyTitle')}
@@ -198,8 +197,12 @@ export default function SearchScreen() {
           />
         ) : (
           <>
-            {homeWidgets.map((id) => (
-              <HomeWidget key={id} id={id} layout={homeWidgets} onSelectDestination={selectDestination} />
+            {homeLayout.widgets.map((widget) => (
+              <RegisteredHomeWidget
+                key={widget.id}
+                widget={widget}
+                context={{ layout: homeLayout.ids, onSelectDestination: selectDestination }}
+              />
             ))}
             <Button
               variant="plain"
