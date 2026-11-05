@@ -369,6 +369,8 @@
       "stuck": "Ahora no hay ninguna forma, seguimos buscando",
       "boardFrom": "Próximos desde {{name}}",
       "afterIt": "Después de este",
+      "otherRuns": "Otras líneas desde esta parada",
+      "comesFirst": "Llega antes",
       "offAt": "Bajas en {{name}}",
       "rideMinutes_one": "{{count}} min de viaje",
       "rideMinutes_many": "{{count}} min de viaje",

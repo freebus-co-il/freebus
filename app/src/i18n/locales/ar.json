@@ -426,6 +426,8 @@
       "stuck": "لم يتم العثور على طريق حاليًا، ما زلنا نبحث",
       "boardFrom": "التالي من {{name}}",
       "afterIt": "بعده",
+      "otherRuns": "خطوط أخرى من المحطة",
+      "comesFirst": "يصل أولاً",
       "offAt": "النزول في {{name}}",
       "rideMinutes_zero": "{{count}} د ركوبًا",
       "rideMinutes_one": "دقيقة ركوبًا",

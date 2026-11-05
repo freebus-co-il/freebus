@@ -389,6 +389,8 @@
       "stuck": "Сейчас путь не найден, продолжаем искать",
       "boardFrom": "Ближайшие от {{name}}",
       "afterIt": "После него",
+      "otherRuns": "Другие маршруты с остановки",
+      "comesFirst": "Придёт раньше",
       "offAt": "Выход на {{name}}",
       "rideMinutes_one": "{{count}} мин в пути",
       "rideMinutes_few": "{{count}} мин в пути",

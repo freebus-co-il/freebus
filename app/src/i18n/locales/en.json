@@ -349,6 +349,8 @@
       "stuck": "No way found right now, still looking",
       "boardFrom": "Next from {{name}}",
       "afterIt": "After it",
+      "otherRuns": "Also from this stop",
+      "comesFirst": "Comes first",
       "offAt": "Off at {{name}}",
       "rideMinutes_one": "{{count}} min ride",
       "rideMinutes_other": "{{count}} min ride",
