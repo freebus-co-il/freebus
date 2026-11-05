@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactElement } from 'react';
 import { FlatList, StyleSheet, View, useWindowDimensions, type ListViewToken } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Layout, Space } from '@/design-system';
 import { hapticSelected } from '@/lib/haptics';
@@ -52,7 +53,10 @@ function SnapCarouselInner<T>(
   ref: React.ForwardedRef<SnapCarouselHandle>,
 ) {
   const { width } = useWindowDimensions();
-  const cardWidth = width - SIDE_INSET * 2 - PEEK;
+  // The carousel sits inside the side safe-area insets (a system bar down
+  // one side on iPhone Duo), so the cards size to what is left between them.
+  const insets = useSafeAreaInsets();
+  const cardWidth = width - insets.left - insets.right - SIDE_INSET * 2 - PEEK;
   const interval = cardWidth + GAP;
   const listRef = useRef<FlatList<T>>(null);
 

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '../theme';
 import { Layout, Motion, Radius, Space } from '../tokens';
+import { useSideInsets } from '../safe-area';
 import { IconButton } from './icon-button';
 import { Text } from './text';
 
@@ -32,6 +33,7 @@ export type SheetProps = {
 export function Sheet({ visible, onClose, title, footer, children, closeLabel }: SheetProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const ios = Platform.OS === 'ios';
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
@@ -43,7 +45,7 @@ export function Sheet({ visible, onClose, title, footer, children, closeLabel }:
           // The grouped page, so a grouped list inside reads as a group.
           { backgroundColor: colors.bgGrouped },
           ios
-            ? { marginHorizontal: Space.sm, marginBottom: Math.max(insets.bottom, Space.sm), borderRadius: Radius.xxl + Space.sm }
+            ? { marginStart: Space.sm + side.start, marginEnd: Space.sm + side.end, marginBottom: Math.max(insets.bottom, Space.sm), borderRadius: Radius.xxl + Space.sm }
             : { paddingBottom: insets.bottom + Space.lg, borderTopLeftRadius: Radius.xxl, borderTopRightRadius: Radius.xxl },
         ]}
       >

@@ -59,9 +59,9 @@ export default function SettingsScreen() {
 
   return (
     <Surface level="bgGrouped" style={styles.container}>
-      {/* Top edge only: a tab root has no native header, and the tab bar
-          already clears the home indicator. */}
-      <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Not the bottom edge: a tab root has no native header, but the tab
+          bar already clears the home indicator. */}
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         {/* The screen's first scrollable view, so the native tab bar on iOS
             finds it and applies its automatic content insets. The title
             scrolls with the content, as a large title does. */}

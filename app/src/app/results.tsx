@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { ApiError } from '@/api/client';
@@ -96,16 +96,17 @@ function ResultsScreenContent() {
   // object identity is stable across unrelated re-renders -- `fitToItinerary`
   // depends on it, and a fresh object every render would re-run (and
   // re-animate) the fit on every render, not just on real changes.
+  const insets = useSafeAreaInsets();
   const [topBarHeight, setTopBarHeight] = useState(0);
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
   const mapEdgePadding = useMemo(
     () => ({
       top: topBarHeight + Space.lg,
-      right: MapStyle.edgePadding,
+      right: insets.right + MapStyle.edgePadding,
       bottom: bottomBarHeight + Space.lg,
-      left: MapStyle.edgePadding,
+      left: insets.left + MapStyle.edgePadding,
     }),
-    [topBarHeight, bottomBarHeight],
+    [topBarHeight, bottomBarHeight, insets.left, insets.right],
   );
 
   const { data, isLoading, isError, error, refetch, isFetching } = usePlanTrip(planQuery);
@@ -216,7 +217,7 @@ function ResultsScreenContent() {
 
       <SafeAreaView
         style={styles.topBar}
-        edges={['top']}
+        edges={['top', 'left', 'right']}
         pointerEvents="box-none"
         onLayout={(event) => setTopBarHeight(event.nativeEvent.layout.height)}
       >
@@ -284,7 +285,7 @@ function ResultsScreenContent() {
           this block is only ever as tall as its own content. */}
       <SafeAreaView
         style={styles.bottomBar}
-        edges={['bottom']}
+        edges={['bottom', 'left', 'right']}
         pointerEvents="box-none"
         onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
       >

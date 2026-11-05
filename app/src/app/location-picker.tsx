@@ -35,6 +35,7 @@ import {
   Text,
   useColors,
   useReduceMotion,
+  useSideInsets,
 } from '@/design-system';
 import { leavePointPick } from '@/features/custom-journeys/point-pick-handoff';
 import { takeMapPick } from '@/features/map-picker/map-pick-handoff';
@@ -104,6 +105,7 @@ export default function LocationPickerScreen() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const morph = useSearchMorph();
   const search = useSearch();
   const savedLocations = useSavedLocations();
@@ -375,10 +377,14 @@ export default function LocationPickerScreen() {
       {/* No title: the field's own prompt ("Where to?", "Where from?") already
           says what this picker is for. The back button sits beside the field
           as one row of glass, the way a search screen reads on iOS 26. */}
-      {/* Top inset from the hook, not `SafeAreaView`: presented transparent
-          (the morph), the view reports no top inset and the field would sit
-          under the status bar. */}
-      <SafeAreaView edges={['bottom']} style={[styles.safeArea, { paddingTop: insets.top }]}>
+      {/* Top and side insets from the hooks, not `SafeAreaView`: presented
+          transparent (the morph), the view reports none of them and the field
+          would sit under the status bar. `useSearchMorph` lands the field
+          with the same insets. */}
+      <SafeAreaView
+        edges={['bottom']}
+        style={[styles.safeArea, { paddingTop: insets.top, paddingStart: side.start, paddingEnd: side.end }]}
+      >
         <View style={styles.top}>
           <SearchHeader
             ref={morph.inputRef}
@@ -826,12 +832,13 @@ function useSearchMorph() {
 
   // Where the field sits, worked out rather than measured: measuring mid-
   // transition returned frames from before the safe-area inset applied. The
-  // header's geometry is fixed -- page inset, back button, gap -- so the
-  // field's frame follows from it. Physical x, like the origin.
+  // header's geometry is fixed -- side safe-area insets, page inset, back
+  // button, gap -- so the field's frame follows from it. Physical x, like the
+  // origin.
   const field: MorphFrame = {
-    x: I18nManager.isRTL ? Layout.pageInset : Layout.pageInset + Size.control.md + Space.sm,
+    x: insets.left + (I18nManager.isRTL ? Layout.pageInset : Layout.pageInset + Size.control.md + Space.sm),
     y: insets.top + Space.sm,
-    width: windowWidth - Layout.pageInset * 2 - Size.control.md - Space.sm,
+    width: windowWidth - insets.left - insets.right - Layout.pageInset * 2 - Size.control.md - Space.sm,
     height: Size.control.md,
   };
   // The field's own map button: a small circle at its end edge.

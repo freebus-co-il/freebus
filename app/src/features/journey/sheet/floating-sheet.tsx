@@ -3,12 +3,15 @@ import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, GlassInk, Radius, Space, useColors, useGlassEnabled } from '@/design-system';
+import { Border, Glass, GlassInk, Radius, Space, useColors, useGlassEnabled, useSideInsets } from '@/design-system';
 
 /** How much of the screen the sheet may grow to before its content scrolls:
  *  the map above it stays the larger part of the screen at rest, but a long
  *  step list can still be read whole. */
 const MAX_HEIGHT_RATIO = 0.72;
+/** The gap between the sheet and the screen's sides, inside the side
+ *  safe-area insets. The journey's nearby tip lines up with it. */
+const SIDE_GAP = Space.sm;
 
 /**
  * The one sheet the trip preview and the running journey share: floating
@@ -29,6 +32,7 @@ export function FloatingSheet({
 }) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const colors = useColors();
   const glass = useGlassEnabled();
   const bottomInset = Math.max(insets.bottom, Space.sm);
@@ -53,7 +57,7 @@ export function FloatingSheet({
       index={0}
       detached
       bottomInset={bottomInset}
-      style={styles.sheet}
+      style={{ marginStart: SIDE_GAP + side.start, marginEnd: SIDE_GAP + side.end }}
       enableDynamicSizing
       maxDynamicContentSize={Math.round(height * MAX_HEIGHT_RATIO)}
       enablePanDownToClose={false}
@@ -73,9 +77,6 @@ export function FloatingSheet({
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    marginHorizontal: Space.sm,
-  },
   shape: {
     borderRadius: Radius.xxl,
     overflow: 'hidden',

@@ -28,8 +28,8 @@ export function SettingsPage({ title, children, scrollEnabled = true, scrollRef 
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={title} />
-      {/* Bottom edge only: the native header already clears the top. */}
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      {/* Not the top edge: the native header already clears it. */}
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <LegacyScrollView ref={scrollRef} contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>{children}</LegacyScrollView>
       </SafeAreaView>
     </Surface>

@@ -52,7 +52,7 @@ export default function SaveLocationScreen() {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={t('savedLocations.screenTitle')} />
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {place && (
             <ListSection>
