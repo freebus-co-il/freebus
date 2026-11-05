@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { router } from 'expo-router';
 import * as TaskManager from 'expo-task-manager';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -396,7 +397,7 @@ async function scheduleAlightAlerts(
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(ALERT_CHANNEL_ID, {
         name: i18n.t('journey.alert.getOffNow'),
-        importance: Notifications.AndroidImportance.MAX,
+        importance: AndroidImportance.MAX,
         sound: settings.sound ? 'default' : null,
         vibrationPattern: ALERT_VIBRATION_PATTERN,
         enableVibrate: settings.vibrate,

@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputInstance, type TextInputProps, type ViewInstance, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { INPUT_ALIGN_START } from '@/i18n/direction';
@@ -25,7 +25,7 @@ export type SearchFieldProps = Omit<TextInputProps, 'style'> & {
 };
 
 /** An editable search capsule. Body text, leading magnifier, optional clear. */
-export const SearchField = forwardRef<TextInput, SearchFieldProps>(function SearchField(
+export const SearchField = forwardRef<TextInputInstance, SearchFieldProps>(function SearchField(
   { onClear, clearLabel, trailing, glass = false, style, value, ...input },
   ref,
 ) {
@@ -72,7 +72,7 @@ function GlassShell({ style, children }: { style: StyleProp<ViewStyle>; children
  * A page's search bar: the back button and the field side by side, the way a
  * search screen reads on iOS 26 -- one row of glass at the top of the page.
  */
-export const SearchHeader = forwardRef<TextInput, SearchFieldProps & {
+export const SearchHeader = forwardRef<TextInputInstance, SearchFieldProps & {
   onBack: () => void;
   backLabel: string;
   /** Style for the field's slot. */
@@ -84,7 +84,7 @@ export const SearchHeader = forwardRef<TextInput, SearchFieldProps & {
   /** Style for the back button (faded in alongside a morph); may be animated. */
   backStyle?: React.ComponentProps<typeof Animated.View>['style'];
   /** The field's slot, for measuring where it sits. */
-  fieldSlotRef?: React.Ref<View>;
+  fieldSlotRef?: React.Ref<ViewInstance>;
   /** Fired when the field's slot is laid out (and so can be measured). */
   onFieldLayout?: () => void;
 }>(function SearchHeader({ onBack, backLabel, fieldStyle, fieldHidden = false, backStyle, fieldSlotRef, onFieldLayout, style, ...field }, ref) {
@@ -104,7 +104,7 @@ export const SearchHeader = forwardRef<TextInput, SearchFieldProps & {
  * The search field as a button: Home's "Where to?". Glass on iOS 26, because
  * it floats at the top of the page as the screen's main control.
  */
-export const SearchButton = forwardRef<View, { label: string; onPress: () => void; accessibilityHint?: string; style?: StyleProp<ViewStyle> }>(function SearchButton(
+export const SearchButton = forwardRef<ViewInstance, { label: string; onPress: () => void; accessibilityHint?: string; style?: StyleProp<ViewStyle> }>(function SearchButton(
   { label, onPress, accessibilityHint, style },
   ref,
 ) {
@@ -130,7 +130,7 @@ export const SearchButton = forwardRef<View, { label: string; onPress: () => voi
 export type TextFieldProps = Omit<TextInputProps, 'style'> & { label?: string; style?: StyleProp<ViewStyle> };
 
 /** A single-line text input on a nested surface. */
-export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField({ label, style, ...input }, ref) {
+export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function TextField({ label, style, ...input }, ref) {
   const colors = useColors();
   return (
     <View style={[styles.textFieldWrap, style]}>

@@ -1,6 +1,6 @@
 import { init, trackEvent } from '@aptabase/react-native';
 import Constants from 'expo-constants';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 /**
  * Usage counting, and deliberately nothing more.
@@ -80,7 +80,7 @@ export function initAnalytics(): void {
 
   // From `background` only: iOS passes through `inactive` for a pulled-down
   // notification shade or Control Center, which is not an open either.
-  let previous: AppStateStatus = AppState.currentState;
+  let previous = AppState.currentState;
   AppState.addEventListener('change', (next) => {
     if (previous === 'background' && next === 'active') countEvent('app_opened');
     previous = next;
