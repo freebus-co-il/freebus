@@ -39,7 +39,9 @@ The `/plan` route itself is `src/routes/plan.ts` (validation, access stops,
 ranking, annotation) over `src/routes/plan/` (`search.ts` runs the passes,
 `transferRisk.ts` and `realtime.ts` annotate). The measurements behind its
 constants live in [`docs/planner-notes.md`](docs/planner-notes.md), not in
-code comments.
+code comments. A change anywhere on `/plan`'s path needs the old/new
+differential run described under "Refactors and PRs" in the root
+[`AGENTS.md`](../AGENTS.md#refactors-and-prs), not just the test suite.
 
 The index is rebuilt from SQLite on every feed swap; there is deliberately
 no on-disk cache of it.
