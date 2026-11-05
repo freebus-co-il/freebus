@@ -22,6 +22,7 @@ import {
   Text,
   useGroupedItemStyle,
   useScrollHeader,
+  useSideInsets,
 } from '@/design-system';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
@@ -105,6 +106,7 @@ export default function StationsScreen() {
   // The end of the content scrolls clear of the tab bar (see the hook).
   const tabBarInset = useTabBarInset();
   const scrollHeader = useScrollHeader();
+  const side = useSideInsets();
   const { stations: recents, recordStation } = useRecents();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -176,7 +178,12 @@ export default function StationsScreen() {
           ListHeaderComponent={header}
           // The journey bar docks above the tab bar, so the list has to end
           // clear of both or its last row is unreachable mid-journey.
-          contentContainerStyle={{ paddingTop: scrollHeader.height, paddingBottom: Layout.sectionGap + dockInset + tabBarInset }}
+          contentContainerStyle={{
+            paddingTop: scrollHeader.height,
+            paddingBottom: Layout.sectionGap + dockInset + tabBarInset,
+            paddingStart: side.start,
+            paddingEnd: side.end,
+          }}
           ItemSeparatorComponent={GroupedItemSeparator}
           onEndReachedThreshold={0.5}
           onEndReached={() => {

@@ -18,6 +18,7 @@ import {
   Space,
   useColors,
   useScrollHeader,
+  useSideInsets,
 } from '@/design-system';
 import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
 import { useStartCustomJourney } from '@/features/custom-journeys/use-start-custom-journey';
@@ -79,6 +80,7 @@ export default function SearchScreen() {
   const colors = useColors();
   const tabBarInset = useTabBarInset();
   const header = useScrollHeader();
+  const side = useSideInsets();
   const dockInset = useJourneyDockInset();
   const savedLocations = useSavedLocations();
   const customJourneys = useCustomJourneys();
@@ -180,7 +182,12 @@ export default function SearchScreen() {
         contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[
           styles.pageContent,
-          { paddingTop: header.height + Space.sm, paddingBottom: Layout.sectionGap + dockInset + tabBarInset },
+          {
+            paddingTop: header.height + Space.sm,
+            paddingBottom: Layout.sectionGap + dockInset + tabBarInset,
+            paddingStart: Layout.pageInset + side.start,
+            paddingEnd: Layout.pageInset + side.end,
+          },
         ]}
         onScroll={header.onScroll}
         scrollEventThrottle={header.scrollEventThrottle}

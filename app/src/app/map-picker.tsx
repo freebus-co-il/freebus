@@ -25,6 +25,7 @@ import {
   Surface,
   Text,
   useColors,
+  useSideInsets,
 } from '@/design-system';
 import { leaveMapPick } from '@/features/map-picker/map-pick-handoff';
 import { insideBox, regionBox, stationUnderPin, tilesForRegion, type MapRegion } from '@/features/map-picker/map-tiles';
@@ -77,6 +78,8 @@ function MapPickerScreenContent() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
+  const sides = { start: Layout.pageInset + side.start, end: Layout.pageInset + side.end };
   const search = useSearch();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const { waitingForOrigin, originFailed, selectDestination } = useDestinationNavigation();
@@ -213,7 +216,7 @@ function MapPickerScreenContent() {
         </View>
       </View>
 
-      <View pointerEvents="box-none" style={[styles.topBar, { top: insets.top + Space.sm }]}>
+      <View pointerEvents="box-none" style={[styles.topBar, sides, { top: insets.top + Space.sm }]}>
         <GlassGroup spacing={Space.sm} style={styles.topRow}>
           <IconButton icon="chevronBack" variant="glass" accessibilityLabel={t('common.back')} onPress={() => router.back()} />
           {/* What the pin is on, as a glass capsule in the search field's
@@ -258,7 +261,7 @@ function MapPickerScreenContent() {
           Android. No card around it -- a panel holding one button was a
           frame around a frame. Only the location notice, which is content,
           gets a solid card, and only when there is something to say. */}
-      <View pointerEvents="box-none" style={[styles.bottomPanel, { bottom: insets.bottom + Space.md }]}>
+      <View pointerEvents="box-none" style={[styles.bottomPanel, sides, { bottom: insets.bottom + Space.md }]}>
         {originFailed && (
           <Card variant="floating" style={styles.notice}>
             <Text variant="subheadline" color="textSecondary">
@@ -360,10 +363,9 @@ const styles = StyleSheet.create({
   pinSpacer: {
     height: PIN_HEAD + PIN_STEM - 1,
   },
+  // Sided inline: the page inset plus the side safe-area insets.
   topBar: {
     position: 'absolute',
-    start: Layout.pageInset,
-    end: Layout.pageInset,
     gap: Space.sm,
   },
   // Top-aligned: a station's line badges make the field taller, and the back
@@ -398,8 +400,6 @@ const styles = StyleSheet.create({
   },
   bottomPanel: {
     position: 'absolute',
-    start: Layout.pageInset,
-    end: Layout.pageInset,
     gap: Space.md,
   },
   notice: {

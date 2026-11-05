@@ -39,7 +39,7 @@ export function MapScreen({ map, children, onBack }: {
       {/* After the drawer, so the chip is drawn -- and takes touches -- above
           it. The drawer stops just below the chip at full height, but the
           way back must never be covered, even mid-drag. */}
-      <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={styles.topBar} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <IconButton icon="chevronBack" accessibilityLabel={t('common.back')} onPress={back} variant="glass" />
       </SafeAreaView>
     </Surface>

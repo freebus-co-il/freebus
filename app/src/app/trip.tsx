@@ -89,11 +89,11 @@ function TripScreenContent() {
   const mapEdgePadding = useMemo(
     () => ({
       top: insets.top + BACK_CHIP_CLEARANCE,
-      right: MapStyle.edgePadding,
+      right: insets.right + MapStyle.edgePadding,
       bottom: sheetHeight + Space.lg,
-      left: MapStyle.edgePadding,
+      left: insets.left + MapStyle.edgePadding,
     }),
-    [insets.top, sheetHeight],
+    [insets.top, insets.left, insets.right, sheetHeight],
   );
 
   /**
@@ -183,7 +183,7 @@ function TripScreenContent() {
         vehiclePredictions={vehiclePredictions}
       />
 
-      <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={styles.header} edges={['top', 'left', 'right']} pointerEvents="box-none">
         {back('glass')}
         {/* The reminder is the second way to use a future trip, so it is a
             corner control, not a second big button: filled once armed, and

@@ -5,7 +5,7 @@ import { StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Layout, Motion, Toast } from '@/design-system';
+import { Layout, Motion, Toast, useSideInsets } from '@/design-system';
 import { hapticSelected } from '@/lib/haptics';
 
 /**
@@ -50,6 +50,7 @@ const EXITING = FadeOutDown.duration(Motion.fade.duration);
 export function UpdateSnackbar() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const { isUpdatePending } = Updates.useUpdates();
   const [hidden, setHidden] = useState(false);
 
@@ -67,7 +68,10 @@ export function UpdateSnackbar() {
     <Animated.View
       entering={ENTERING}
       exiting={EXITING}
-      style={[styles.bar, { bottom: insets.bottom + TAB_BAR_CLEARANCE }]}
+      style={[
+        styles.bar,
+        { bottom: insets.bottom + TAB_BAR_CLEARANCE, start: Layout.pageInset + side.start, end: Layout.pageInset + side.end },
+      ]}
     >
       <Toast
         icon="refresh"
@@ -97,7 +101,5 @@ const styles = StyleSheet.create({
   // whatever screen is up, the way the tab bar does.
   bar: {
     position: 'absolute',
-    left: Layout.pageInset,
-    right: Layout.pageInset,
   },
 });
