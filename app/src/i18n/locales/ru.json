@@ -391,6 +391,8 @@
       "afterIt": "После него",
       "otherRuns": "Другие маршруты с остановки",
       "comesFirst": "Придёт раньше",
+      "showRuns": "Показывает подробности маршрутов",
+      "hideRuns": "Скрывает подробности маршрутов",
       "offAt": "Выход на {{name}}",
       "rideMinutes_one": "{{count}} мин в пути",
       "rideMinutes_few": "{{count}} мин в пути",
