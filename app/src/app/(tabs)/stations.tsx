@@ -132,7 +132,7 @@ export default function StationsScreen() {
 
   // Only while browsing: a search is a list of answers, and prefixing it with
   // recents and nearby would bury the ones the rider actually asked for.
-  const header = searching ? null : (
+  const header = searching ? undefined : (
     <View style={styles.header}>
       {recents.length > 0 && (
         <ListSection title={t('stations.recent')} style={styles.groupedSection}>
@@ -183,7 +183,7 @@ export default function StationsScreen() {
             if (hasNextPage && !isFetching) fetchNextPage();
           }}
           ListEmptyComponent={
-            !searching ? null : isFetching ? (
+            !searching ? undefined : isFetching ? (
               <Loading />
             ) : (
               <EmptyState icon="search" title={t('stations.empty')} />

@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewInstance, type ViewStyle } from 'react-native';
 
 import { useColors } from '../theme';
 import { Opacity, Radius, Size, type ColorRole } from '../tokens';
@@ -23,7 +23,7 @@ export type IconButtonProps = {
 };
 
 /** A round, icon-only control. Its hit area is never smaller than `Size.touchMin`. */
-export const IconButton = forwardRef<View, IconButtonProps>(function IconButton({
+export const IconButton = forwardRef<ViewInstance, IconButtonProps>(function IconButton({
   icon,
   accessibilityLabel,
   onPress,
