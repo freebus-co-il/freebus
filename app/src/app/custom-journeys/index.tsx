@@ -36,7 +36,7 @@ export default function CustomJourneysScreen() {
         title={t('customJourney.listTitle')}
         actions={[{ icon: 'add', accessibilityLabel: t('customJourney.new'), onPress: create }]}
       />
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         {loaded && journeys.length === 0 ? (
           <EmptyState
             icon="navigate"

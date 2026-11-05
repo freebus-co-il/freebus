@@ -147,7 +147,7 @@ export default function DestinationPickerScreen() {
       {/* No title: the field's prompt says what is being picked. */}
       {/* The back button beside the field, one row of glass -- the same
           search bar as the location picker. */}
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.safeArea}>
         <View style={styles.top}>
           <SearchHeader
             onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}

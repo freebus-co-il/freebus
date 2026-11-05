@@ -123,7 +123,7 @@ export default function EditCustomJourneyScreen() {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={t(existing ? 'customJourney.editTitle' : 'customJourney.newTitle')} />
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <TextField
             label={t('customJourney.nameLabel')}
