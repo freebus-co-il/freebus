@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MAP_BACK_CHIP_GAP, MapSheet } from '@/components/map-sheet';
-import { IconButton, Layout, Surface } from '@/design-system';
+import { IconButton, Layout, Surface, useSideInsets } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -24,6 +24,7 @@ export function MapScreen({ map, children, onBack }: {
   onBack?: () => boolean;
 }) {
   const { t } = useTranslation();
+  const side = useSideInsets();
 
   function back() {
     if (onBack?.()) return;
@@ -39,7 +40,7 @@ export function MapScreen({ map, children, onBack }: {
       {/* After the drawer, so the chip is drawn -- and takes touches -- above
           it. The drawer stops just below the chip at full height, but the
           way back must never be covered, even mid-drag. */}
-      <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={[styles.topBar, { marginStart: side.start, marginEnd: side.end }]} edges={['top']} pointerEvents="box-none">
         <IconButton icon="chevronBack" accessibilityLabel={t('common.back')} onPress={back} variant="glass" />
       </SafeAreaView>
     </Surface>

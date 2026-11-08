@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors, useGlassEnabled } from '../theme';
 import { Border } from '../tokens';
+import { useSideInsets } from '../safe-area';
 import { Glass } from './glass';
 
 /** How far the content has to move before the header's backing mounts. */
@@ -47,8 +48,8 @@ export function useScrollHeader() {
  * page; once the content scrolls under it, it fades in a Liquid Glass backing on
  * iOS 26, and the page's own solid colour with a hairline everywhere else.
  *
- * Takes the top safe-area inset itself, so the screen must not. Render it
- * AFTER the list, so it draws on top.
+ * Takes the top and side safe-area insets itself, so the screen must not.
+ * Render it AFTER the list, so it draws on top.
  */
 export function ScrollHeader({ scrolled, progress, onLayout, children, style }: {
   scrolled: boolean;
@@ -59,12 +60,13 @@ export function ScrollHeader({ scrolled, progress, onLayout, children, style }: 
   style?: StyleProp<ViewStyle>;
 }) {
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const colors = useColors();
   const glass = useGlassEnabled();
   const fade = useAnimatedStyle(() => ({ opacity: progress.get() }));
 
   return (
-    <View pointerEvents="box-none" onLayout={onLayout} style={[styles.header, { paddingTop: insets.top }, style]}>
+    <View pointerEvents="box-none" onLayout={onLayout} style={[styles.header, { paddingTop: insets.top, paddingStart: side.start, paddingEnd: side.end }, style]}>
       {/* Mounted only while scrolled, and faded through a wrapper rather
           than the glass itself: glass faded to nothing never draws again
           (see `Glass`). */}

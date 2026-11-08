@@ -19,6 +19,7 @@ import {
   Text,
   TextField,
   type IconName,
+  useSideInsets,
 } from '@/design-system';
 import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
 import { expectPointPick, takePointPick } from '@/features/custom-journeys/point-pick-handoff';
@@ -37,6 +38,7 @@ const VIA_ICONS: Record<PointVia, IconName> = { any: 'navigate', walk: 'walk', b
  */
 export default function EditCustomJourneyScreen() {
   const { t } = useTranslation();
+  const side = useSideInsets();
   const store = useCustomJourneys();
   const { id, reverseOf } = useLocalSearchParams<{ id?: string; reverseOf?: string }>();
   const existing = store.find(id);
@@ -123,7 +125,7 @@ export default function EditCustomJourneyScreen() {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={t(existing ? 'customJourney.editTitle' : 'customJourney.newTitle')} />
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <SafeAreaView edges={['bottom']} style={[styles.container, { marginStart: side.start, marginEnd: side.end }]}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <TextField
             label={t('customJourney.nameLabel')}

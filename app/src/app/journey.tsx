@@ -10,7 +10,7 @@ import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useRouteShapes } from '@/api/lines';
 import type { TransitLeg } from '@/api/types';
 import { useVehicles } from '@/api/vehicles';
-import { Button, EmptyState, IconButton, Layout, MapStyle, Motion, Space, useColors } from '@/design-system';
+import { Button, EmptyState, IconButton, Layout, MapStyle, Motion, Space, useColors, useSideInsets } from '@/design-system';
 import { NearbyStopMarkers } from '@/features/custom-journeys/nearby-stop-markers';
 import { useWalkPreview, type WalkPreview } from '@/features/custom-journeys/use-walk-preview';
 import { withMinimumSpan } from '@/features/results/map-focus';
@@ -86,6 +86,7 @@ function JourneyScreenContent() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const {
     journey, state, rail, hydrated, position, live: liveJourney, acknowledgeAlight, chooseLine, end, replan, board, adoptRun, boardElsewhere,
   } = useJourney();
@@ -104,11 +105,11 @@ function JourneyScreenContent() {
   const mapEdgePadding = useMemo(
     () => ({
       top: headerHeight > 0 ? headerHeight + Space.lg : insets.top + BACK_CHIP_CLEARANCE,
-      right: MapStyle.edgePadding,
+      right: insets.right + MapStyle.edgePadding,
       bottom: sheetHeight + (tipHeight > 0 ? tipHeight + TIP_GAP : 0) + Space.lg,
-      left: MapStyle.edgePadding,
+      left: insets.left + MapStyle.edgePadding,
     }),
-    [headerHeight, insets.top, sheetHeight, tipHeight],
+    [headerHeight, insets.top, insets.left, insets.right, sheetHeight, tipHeight],
   );
 
   // The leg index whose line switcher is open, or null. By index rather than
@@ -425,7 +426,7 @@ function JourneyScreenContent() {
       />
 
       <SafeAreaView
-        style={styles.header}
+        style={[styles.header, { marginStart: side.start, marginEnd: side.end }]}
         edges={['top']}
         pointerEvents="box-none"
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
@@ -475,7 +476,7 @@ function JourneyScreenContent() {
         <Animated.View
           entering={TIP_ENTERING}
           exiting={TIP_EXITING}
-          style={[styles.tip, { bottom: sheetHeight + TIP_GAP }]}
+          style={[styles.tip, { bottom: sheetHeight + TIP_GAP, start: Space.sm + side.start, end: Space.sm + side.end }]}
           onLayout={(event) => setTipHeight(Math.round(event.nativeEvent.layout.height))}
         >
           <NearbySuggestionCard
@@ -546,11 +547,10 @@ const TIP_ENTERING = new Keyframe({
 const TIP_EXITING = FadeOutDown.duration(Motion.fade.duration);
 
 const styles = StyleSheet.create({
-  // The sheet's own side inset, so the two line up.
+  // Sided inline with the sheet's own inset (see `FloatingSheet`), so the
+  // two line up.
   tip: {
     position: 'absolute',
-    start: Space.sm,
-    end: Space.sm,
   },
   container: {
     flex: 1,

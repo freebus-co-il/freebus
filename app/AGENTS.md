@@ -22,6 +22,21 @@ screen once, in start/end terms, and let React Native mirror it:
   `arrowForward`, `arrowBack`), never a `scaleX: -1` flip.
 - A lint rule (`eslint.config.js`) enforces the above; check new screens in both languages.
 
+# Safe areas on the sides
+
+iPhone Duo runs its system bars down one side of the screen (about 84pt), so a screen's side
+insets are not zero. Anything a rider reads or taps sits inside them; a map or a glass backing
+may run under them.
+
+- Take them from `useSideInsets()` (`@/design-system`), as start/end padding, margin or offset.
+  It returns start/end, so it mirrors in Hebrew.
+- Never through a `SafeAreaView`'s `'left'`/`'right'` edges: they do not take effect in Hebrew.
+  Give the `SafeAreaView` a `marginStart`/`marginEnd` instead, never a start/end padding (its own
+  left/right padding overrides that in Hebrew).
+- A map's camera `edgePadding` adds `insets.left`/`insets.right`, so a framed route is not under
+  the bar.
+- `ScrollHeader` already takes the side insets; the list under it pads its content by them.
+
 # Design system
 
 Everything visual comes from `src/design-system` (import from `@/design-system`). The spec,

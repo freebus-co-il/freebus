@@ -13,6 +13,7 @@ import {
   Surface,
   Text,
   type IconName,
+  useSideInsets,
 } from '@/design-system';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
@@ -51,6 +52,7 @@ function PageRow({ icon, title, value, href }: { icon: IconName; title: string; 
  */
 export default function SettingsScreen() {
   const { t } = useTranslation();
+  const side = useSideInsets();
   const { languagePreference, themePreference, alertSettings } = usePreferences();
 
   const dockInset = useJourneyDockInset();
@@ -60,8 +62,9 @@ export default function SettingsScreen() {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       {/* Top edge only: a tab root has no native header, and the tab bar
-          already clears the home indicator. */}
-      <SafeAreaView style={styles.container} edges={['top']}>
+          already clears the home indicator. The sides are margins (see
+          `useSideInsets`). */}
+      <SafeAreaView style={[styles.container, { marginStart: side.start, marginEnd: side.end }]} edges={['top']}>
         {/* The screen's first scrollable view, so the native tab bar on iOS
             finds it and applies its automatic content insets. The title
             scrolls with the content, as a large title does. */}

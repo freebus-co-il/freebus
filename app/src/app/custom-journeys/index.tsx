@@ -14,6 +14,7 @@ import {
   NativeHeader,
   Space,
   Surface,
+  useSideInsets,
 } from '@/design-system';
 import { useCustomJourneys } from '@/features/custom-journeys/custom-journeys-context';
 import { pointsSummary } from '@/features/custom-journeys/journey-summary';
@@ -25,6 +26,7 @@ import { useStartCustomJourney } from '@/features/custom-journeys/use-start-cust
  */
 export default function CustomJourneysScreen() {
   const { t } = useTranslation();
+  const side = useSideInsets();
   const { journeys, loaded } = useCustomJourneys();
   const { startJourney, startingId } = useStartCustomJourney();
 
@@ -36,7 +38,7 @@ export default function CustomJourneysScreen() {
         title={t('customJourney.listTitle')}
         actions={[{ icon: 'add', accessibilityLabel: t('customJourney.new'), onPress: create }]}
       />
-      <SafeAreaView edges={['bottom']} style={styles.container}>
+      <SafeAreaView edges={['bottom']} style={[styles.container, { marginStart: side.start, marginEnd: side.end }]}>
         {loaded && journeys.length === 0 ? (
           <EmptyState
             icon="navigate"

@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { usePlanTrip } from '@/api/plan';
-import { EmptyState, IconButton, Layout, MapStyle, Size, Space, useColors } from '@/design-system';
+import { EmptyState, IconButton, Layout, MapStyle, Size, Space, useColors, useSideInsets } from '@/design-system';
 import { FloatingSheet } from '@/features/journey/sheet/floating-sheet';
 import { useJourney } from '@/features/journey/journey-context';
 import { shouldOfferReminder } from '@/features/journey/leave-reminder';
@@ -57,6 +57,7 @@ function TripScreenContent() {
   const colors = useColors();
   const now = useNow();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const { planQuery, destination } = useSearch();
   const { journey, start, pendingLeave, setLeaveReminder, cancelLeaveReminder } = useJourney();
   const { signature, departure } = useLocalSearchParams<{ signature?: string; departure?: string }>();
@@ -89,11 +90,11 @@ function TripScreenContent() {
   const mapEdgePadding = useMemo(
     () => ({
       top: insets.top + BACK_CHIP_CLEARANCE,
-      right: MapStyle.edgePadding,
+      right: insets.right + MapStyle.edgePadding,
       bottom: sheetHeight + Space.lg,
-      left: MapStyle.edgePadding,
+      left: insets.left + MapStyle.edgePadding,
     }),
-    [insets.top, sheetHeight],
+    [insets.top, insets.left, insets.right, sheetHeight],
   );
 
   /**
@@ -183,7 +184,7 @@ function TripScreenContent() {
         vehiclePredictions={vehiclePredictions}
       />
 
-      <SafeAreaView style={styles.header} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={[styles.header, { marginStart: side.start, marginEnd: side.end }]} edges={['top']} pointerEvents="box-none">
         {back('glass')}
         {/* The reminder is the second way to use a future trip, so it is a
             corner control, not a second big button: filled once armed, and

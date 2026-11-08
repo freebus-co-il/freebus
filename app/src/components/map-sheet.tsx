@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Border, Glass, GlassInk, Radius, Size, Space, useColors, useGlassEnabled, withAlpha } from '@/design-system';
+import { Border, Glass, GlassInk, Radius, Size, Space, useColors, useGlassEnabled, withAlpha, useSideInsets } from '@/design-system';
 import type { EdgePadding } from '@/features/results/trip-map';
 
 /** How much of the screen the drawer covers at rest: enough for a page's
@@ -32,11 +32,11 @@ export function useMapSheetEdgePadding(): EdgePadding {
   return useMemo(
     () => ({
       top: insets.top + MAP_BACK_CHIP_SIZE + Space.lg,
-      right: Space.xxl,
+      right: insets.right + Space.xxl,
       bottom: peek + Space.lg,
-      left: Space.xxl,
+      left: insets.left + Space.xxl,
     }),
-    [insets.top, peek],
+    [insets.top, insets.left, insets.right, peek],
   );
 }
 
@@ -56,6 +56,7 @@ export function MapSheet({ children }: { children: ReactNode }) {
   const colors = useColors();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const peek = useMapSheetPeekHeight();
   const glass = useGlassEnabled();
   const snapPoints = useMemo(
@@ -102,6 +103,9 @@ export function MapSheet({ children }: { children: ReactNode }) {
       snapPoints={snapPoints}
       enableDynamicSizing={false}
       enablePanDownToClose={false}
+      // Clear of the side safe-area insets, so no row sits under a system
+      // bar down the screen's side (iPhone Duo).
+      style={{ marginStart: side.start, marginEnd: side.end }}
       backgroundComponent={Background}
       handleIndicatorStyle={{ backgroundColor: colors.textTertiary, width: Size.grabber.width, height: Size.grabber.height }}
     >
