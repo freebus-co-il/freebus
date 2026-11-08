@@ -14,6 +14,8 @@ const SIDE_INSET = Layout.pageInset;
  *  thing that tells a rider there is more to swipe to. */
 const PEEK = Space.xxl;
 const GAP = Space.sm;
+/** How far past its frame a pressed glass card may grow, top and bottom. */
+const PRESS_GROWTH = Space.lg;
 
 export type SnapCarouselHandle = {
   /** Brings a card on screen, animated. */
@@ -128,6 +130,18 @@ function SnapCarouselInner<T>(
   const laidOut = useRef(false);
   const pendingIndex = useRef<number | null>(null);
 
+  // A resize (iPhone Duo unfolding, a rotation) changes every card's width
+  // while the list keeps its old offset, which leaves the card the rider was
+  // on cut off at the edge. Land back on it at the new width.
+  const settledInterval = useRef(interval);
+  useEffect(() => {
+    if (settledInterval.current === interval) return;
+    settledInterval.current = interval;
+    if (!laidOut.current || data.length === 0) return;
+    const index = Math.min(lastIndex.current ?? 0, data.length - 1);
+    listRef.current?.scrollToIndex({ index, animated: false });
+  }, [interval, data.length]);
+
   useImperativeHandle(ref, () => ({
     scrollToIndex: (index: number) => {
       if (index < 0 || index >= data.length) return;
@@ -152,38 +166,40 @@ function SnapCarouselInner<T>(
   }, []);
 
   return (
-    <FlatList
-      ref={listRef}
-      horizontal
-      data={data}
-      keyExtractor={keyExtractor}
-      showsHorizontalScrollIndicator={false}
-      snapToOffsets={snapToOffsets}
-      decelerationRate="fast"
-      // One card per swipe, however hard the fling: a rider reading a journey
-      // step by step should never skip past the step they meant to read.
-      disableIntervalMomentum
-      style={styles.list}
-      contentContainerStyle={styles.content}
-      onViewableItemsChanged={handleViewableChanged}
-      viewabilityConfig={viewabilityConfig}
-      getItemLayout={getItemLayout}
-      initialScrollIndex={initialIndex > 0 && initialIndex < data.length ? initialIndex : undefined}
-      onScrollBeginDrag={() => {
-        userDriven.current = true;
-        onUserSwipe?.();
-      }}
-      onMomentumScrollEnd={() => {
-        userDriven.current = false;
-      }}
-      onContentSizeChange={handleContentSizeChange}
-      renderItem={({ item, index }) => (
-        // Fixed width, stretched height: the content row sizes itself to the
-        // tallest card and every other card matches it, so one taller card
-        // doesn't leave its neighbours looking clipped.
-        <View style={{ width: cardWidth }}>{renderItem(item, index)}</View>
-      )}
-    />
+    <View style={styles.clip}>
+      <FlatList
+        ref={listRef}
+        horizontal
+        data={data}
+        keyExtractor={keyExtractor}
+        showsHorizontalScrollIndicator={false}
+        snapToOffsets={snapToOffsets}
+        decelerationRate="fast"
+        // One card per swipe, however hard the fling: a rider reading a journey
+        // step by step should never skip past the step they meant to read.
+        disableIntervalMomentum
+        style={styles.list}
+        contentContainerStyle={styles.content}
+        onViewableItemsChanged={handleViewableChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={getItemLayout}
+        initialScrollIndex={initialIndex > 0 && initialIndex < data.length ? initialIndex : undefined}
+        onScrollBeginDrag={() => {
+          userDriven.current = true;
+          onUserSwipe?.();
+        }}
+        onMomentumScrollEnd={() => {
+          userDriven.current = false;
+        }}
+        onContentSizeChange={handleContentSizeChange}
+        renderItem={({ item, index }) => (
+          // Fixed width, stretched height: the content row sizes itself to the
+          // tallest card and every other card matches it, so one taller card
+          // doesn't leave its neighbours looking clipped.
+          <View style={{ width: cardWidth }}>{renderItem(item, index)}</View>
+        )}
+      />
+    </View>
   );
 }
 
@@ -192,6 +208,15 @@ export const SnapCarousel = forwardRef(SnapCarouselInner) as <T>(
 ) => ReactElement;
 
 const styles = StyleSheet.create({
+  // The cards stop at the side safe-area insets (a system bar down one side on
+  // iPhone Duo) the way they stop at the screen's edge on a phone, so the next
+  // card shows only its sliver. The vertical slack leaves room for the growth
+  // below, which the clip would otherwise cut off.
+  clip: {
+    overflow: 'hidden',
+    marginVertical: -PRESS_GROWTH,
+    paddingVertical: PRESS_GROWTH,
+  },
   // A scroll view clips to its bounds, and a pressable glass card grows past
   // its frame under a touch.
   list: {
