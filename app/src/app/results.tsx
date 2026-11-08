@@ -20,6 +20,7 @@ import {
   Space,
   Text,
   useColors,
+  useSideInsets,
 } from '@/design-system';
 import { groupItineraries } from '@/features/results/group-itineraries';
 import { ModeFilterChip } from '@/features/results/mode-filter-chip';
@@ -97,6 +98,7 @@ function ResultsScreenContent() {
   // depends on it, and a fresh object every render would re-run (and
   // re-animate) the fit on every render, not just on real changes.
   const insets = useSafeAreaInsets();
+  const side = useSideInsets();
   const [topBarHeight, setTopBarHeight] = useState(0);
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
   const mapEdgePadding = useMemo(
@@ -216,8 +218,8 @@ function ResultsScreenContent() {
       />
 
       <SafeAreaView
-        style={styles.topBar}
-        edges={['top', 'left', 'right']}
+        style={[styles.topBar, { marginStart: side.start, marginEnd: side.end }]}
+        edges={['top']}
         pointerEvents="box-none"
         onLayout={(event) => setTopBarHeight(event.nativeEvent.layout.height)}
       >
@@ -284,8 +286,8 @@ function ResultsScreenContent() {
           fixed slice of the screen: the map is now full-bleed behind it, and
           this block is only ever as tall as its own content. */}
       <SafeAreaView
-        style={styles.bottomBar}
-        edges={['bottom', 'left', 'right']}
+        style={[styles.bottomBar, { marginStart: side.start, marginEnd: side.end }]}
+        edges={['bottom']}
         pointerEvents="box-none"
         onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
       >

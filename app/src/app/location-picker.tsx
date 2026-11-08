@@ -380,210 +380,211 @@ export default function LocationPickerScreen() {
       {/* Top and side insets from the hooks, not `SafeAreaView`: presented
           transparent (the morph), the view reports none of them and the field
           would sit under the status bar. `useSearchMorph` lands the field
-          with the same insets. */}
-      <SafeAreaView
-        edges={['bottom']}
-        style={[styles.safeArea, { paddingTop: insets.top, paddingStart: side.start, paddingEnd: side.end }]}
-      >
-        <View style={styles.top}>
-          <SearchHeader
-            ref={morph.inputRef}
-            fieldHidden={morph.fieldHidden}
-            backStyle={morph.backStyle}
-            onBack={morph.goBack}
-            backLabel={t('common.back')}
-            // Focused once the morph lands, not while the capsule is still
-            // flying: the keyboard rising mid-morph shoves the page around.
-            autoFocus={!morph.active}
-            placeholder={t(
-              field === 'origin'
-                ? 'search.originPlaceholder'
-                : field?.startsWith('saved-') || field === 'journey-point'
-                  ? 'search.savedLocationPlaceholder'
-                  : 'search.destinationPlaceholder',
-            )}
-            value={query}
-            onChangeText={(text) => {
-              setQuery(text);
-              // A failed pick's message is about the list it was picked from.
-              setResolveFailed(false);
-            }}
-            onClear={() => {
-              setQuery('');
-              setResolveFailed(false);
-            }}
-            clearLabel={t('common.clear')}
-            // The way into choosing on the map, inside the field it is an
-            // alternative to.
-            trailing={(
-              <IconButton
-                icon="map"
-                variant="plain"
-                size="sm"
-                accessibilityLabel={t('mapPicker.open')}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  router.push({ pathname: '/map-picker', params: { from: 'picker' } });
-                }}
+          with the same insets. The side insets go on a plain view: a
+          `SafeAreaView` writes its own left and right padding, which in
+          Hebrew overrides a start/end padding set on it. */}
+      <View style={[styles.safeArea, { paddingStart: side.start, paddingEnd: side.end }]}>
+        <SafeAreaView edges={['bottom']} style={[styles.safeArea, { paddingTop: insets.top }]}>
+          <View style={styles.top}>
+            <SearchHeader
+              ref={morph.inputRef}
+              fieldHidden={morph.fieldHidden}
+              backStyle={morph.backStyle}
+              onBack={morph.goBack}
+              backLabel={t('common.back')}
+              // Focused once the morph lands, not while the capsule is still
+              // flying: the keyboard rising mid-morph shoves the page around.
+              autoFocus={!morph.active}
+              placeholder={t(
+                field === 'origin'
+                  ? 'search.originPlaceholder'
+                  : field?.startsWith('saved-') || field === 'journey-point'
+                    ? 'search.savedLocationPlaceholder'
+                    : 'search.destinationPlaceholder',
+              )}
+              value={query}
+              onChangeText={(text) => {
+                setQuery(text);
+                // A failed pick's message is about the list it was picked from.
+                setResolveFailed(false);
+              }}
+              onClear={() => {
+                setQuery('');
+                setResolveFailed(false);
+              }}
+              clearLabel={t('common.clear')}
+              // The way into choosing on the map, inside the field it is an
+              // alternative to.
+              trailing={(
+                <IconButton
+                  icon="map"
+                  variant="plain"
+                  size="sm"
+                  accessibilityLabel={t('mapPicker.open')}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    router.push({ pathname: '/map-picker', params: { from: 'picker' } });
+                  }}
+                />
+              )}
+            />
+
+          </View>
+
+          <View style={styles.body}>
+          {/* Not faded with the rest of the page during the morph: the row
+              rises from the home screen's own chips, drawn as they were there,
+              and turns into this screen's row on the way (see `useSearchMorph`). */}
+          <Animated.View style={[styles.chips, morph.chipsStyle]}>
+            {/* "Current location" leads the same row as the saved shortcuts
+                rather than sitting under it as a row of its own: the three are
+                one kind of thing -- a place the rider can pick without typing
+                -- and splitting them put a full-width row between the chips and
+                the list for what is the shortest answer of the lot. First,
+                because it needs no setting up and is the likeliest of them. */}
+            {morph.chipsFlying ? (
+              <ChipsFlight
+                progress={morph.progress}
+                locations={savedLocations.locations}
+                currentLocationLabel={showCurrentLocation ? t('search.currentLocation') : null}
+                addLabel={t('savedLocations.add')}
+              />
+            ) : (showCurrentLocation || savedShortcuts.length > 0) && (
+              <SavedLocationChips
+                locations={savedShortcuts}
+                // Non-null by construction: `savedShortcuts` is filtered on it.
+                onSelect={(location) => location.place && commitPlace(location.place)}
+                leading={showCurrentLocation ? (
+                  <Chip
+                    icon="currentLocation"
+                    label={t('search.currentLocation')}
+                    busy={resolvingCurrentLocation}
+                    onPress={() => void selectCurrentLocation()}
+                  />
+                ) : null}
               />
             )}
-          />
+          </Animated.View>
 
-        </View>
+          <Animated.View style={[styles.body, morph.contentStyle]}>
 
-        <View style={styles.body}>
-        {/* Not faded with the rest of the page during the morph: the row
-            rises from the home screen's own chips, drawn as they were there,
-            and turns into this screen's row on the way (see `useSearchMorph`). */}
-        <Animated.View style={[styles.chips, morph.chipsStyle]}>
-          {/* "Current location" leads the same row as the saved shortcuts
-              rather than sitting under it as a row of its own: the three are
-              one kind of thing -- a place the rider can pick without typing
-              -- and splitting them put a full-width row between the chips and
-              the list for what is the shortest answer of the lot. First,
-              because it needs no setting up and is the likeliest of them. */}
-          {morph.chipsFlying ? (
-            <ChipsFlight
-              progress={morph.progress}
-              locations={savedLocations.locations}
-              currentLocationLabel={showCurrentLocation ? t('search.currentLocation') : null}
-              addLabel={t('savedLocations.add')}
-            />
-          ) : (showCurrentLocation || savedShortcuts.length > 0) && (
-            <SavedLocationChips
-              locations={savedShortcuts}
-              // Non-null by construction: `savedShortcuts` is filtered on it.
-              onSelect={(location) => location.place && commitPlace(location.place)}
-              leading={showCurrentLocation ? (
-                <Chip
-                  icon="currentLocation"
-                  label={t('search.currentLocation')}
-                  busy={resolvingCurrentLocation}
-                  onPress={() => void selectCurrentLocation()}
-                />
-              ) : null}
-            />
+          {originFailed ? (
+            <View style={styles.centered}>
+              <EmptyState
+                icon="currentLocation"
+                title={originMessage}
+                action={{ label: t('search.retryLocation'), onPress: search.retryOrigin }}
+              />
+              <Button
+                variant="plain"
+                size="md"
+                label={t('search.chooseOrigin')}
+                onPress={() =>
+                  router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
+                }
+                style={styles.centeredAction}
+              />
+            </View>
+          ) : waitingForOrigin ? (
+            <View style={styles.centered}>
+              <Loading />
+              {search.originState.status === 'error' && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={search.retryOrigin}
+                  android_ripple={{ color: colors.fillPressed }}
+                  style={({ pressed }) => [styles.retry, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }]}
+                >
+                  <Text variant="subheadline" color="textSecondary" align="center">
+                    {originMessage}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.content}
+              // The field above is autofocused, so the keyboard is up: the
+              // default would spend the first tap on dismissing it and never
+              // fire the row underneath.
+              keyboardShouldPersistTaps="handled"
+            >
+              {resolveFailed && <Banner tone="danger" icon="error" title={t('search.placeUnavailable')} />}
+              {/* At most eight stops and eight places (`limit: 8` each), so a
+                  plain group rather than a virtualised list. */}
+              {showResults && rows.length > 0 && (
+                <View style={styles.results}>
+                  <ListSection>
+                    {rows.map((item) => (
+                      <ListRow
+                        key={item.key}
+                        // Ignored rather than `disabled` while one address is
+                        // being positioned: disabling would dim the whole list.
+                        onPress={() => {
+                          if (resolvingKey === null) void selectRow(item);
+                        }}
+                        leading={
+                          item.key === resolvingKey ? (
+                            <LeadingIcon>
+                              <Loading style={styles.rowSpinner} />
+                            </LeadingIcon>
+                          ) : item.kind === 'stop' ? (
+                            // A stop's sign is a square of its own, so it goes
+                            // without the tile; the slot stays, keeping every
+                            // row's text on one edge.
+                            <StationIcon kind={stationKindOf(item)} />
+                          ) : (
+                            <LeadingIcon>
+                              <Icon name="place" size="sm" weight="medium" />
+                            </LeadingIcon>
+                          )
+                        }
+                        title={item.title}
+                        subtitle={
+                          item.kind === 'address'
+                            ? item.subtitle ?? undefined
+                            : item.routes.length > 0
+                              ? (
+                                <View style={styles.lineRow}>
+                                  {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
+                                    <LineBadge key={route.shortName} route={route} size="small" />
+                                  ))}
+                                  {item.routes.length > MAX_LINE_BADGES && (
+                                    <Text variant="footnote" color="textSecondary" numeric>
+                                      {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
+                                    </Text>
+                                  )}
+                                </View>
+                              )
+                              : undefined
+                        }
+                      />
+                    ))}
+                  </ListSection>
+                  {credit && <DataCredit source={credit} />}
+                </View>
+              )}
+              {showResults && !isFetching && rows.length === 0 && (
+                <EmptyState icon="search" title={t('search.noMatches')} />
+              )}
+              {/* What fills this screen before the rider types. Gated on
+                  `showResults` rather than on `query`, so it does not blink
+                  out during the debounce pause and back in again when a
+                  one-character query turns out not to search anything.
+                  Straight into `commitPlace`, exactly where a tapped search
+                  result ends up -- which is what lets these rows stand in
+                  every mode this screen has. As a destination, as an origin,
+                  or as the address being pinned to a saved location,
+                  somewhere the rider looked up before is a reasonable answer,
+                  and each mode already knows what to do with a place. */}
+              {!showResults && <RecentSearches onSelect={commitPlace} />}
+            </ScrollView>
           )}
-        </Animated.View>
-
-        <Animated.View style={[styles.body, morph.contentStyle]}>
-
-        {originFailed ? (
-          <View style={styles.centered}>
-            <EmptyState
-              icon="currentLocation"
-              title={originMessage}
-              action={{ label: t('search.retryLocation'), onPress: search.retryOrigin }}
-            />
-            <Button
-              variant="plain"
-              size="md"
-              label={t('search.chooseOrigin')}
-              onPress={() =>
-                router.push({ pathname: '/location-picker', params: { field: 'origin', andPlan: '1' } })
-              }
-              style={styles.centeredAction}
-            />
+          </Animated.View>
           </View>
-        ) : waitingForOrigin ? (
-          <View style={styles.centered}>
-            <Loading />
-            {search.originState.status === 'error' && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={search.retryOrigin}
-                android_ripple={{ color: colors.fillPressed }}
-                style={({ pressed }) => [styles.retry, pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed }]}
-              >
-                <Text variant="subheadline" color="textSecondary" align="center">
-                  {originMessage}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        ) : (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.content}
-            // The field above is autofocused, so the keyboard is up: the
-            // default would spend the first tap on dismissing it and never
-            // fire the row underneath.
-            keyboardShouldPersistTaps="handled"
-          >
-            {resolveFailed && <Banner tone="danger" icon="error" title={t('search.placeUnavailable')} />}
-            {/* At most eight stops and eight places (`limit: 8` each), so a
-                plain group rather than a virtualised list. */}
-            {showResults && rows.length > 0 && (
-              <View style={styles.results}>
-                <ListSection>
-                  {rows.map((item) => (
-                    <ListRow
-                      key={item.key}
-                      // Ignored rather than `disabled` while one address is
-                      // being positioned: disabling would dim the whole list.
-                      onPress={() => {
-                        if (resolvingKey === null) void selectRow(item);
-                      }}
-                      leading={
-                        item.key === resolvingKey ? (
-                          <LeadingIcon>
-                            <Loading style={styles.rowSpinner} />
-                          </LeadingIcon>
-                        ) : item.kind === 'stop' ? (
-                          // A stop's sign is a square of its own, so it goes
-                          // without the tile; the slot stays, keeping every
-                          // row's text on one edge.
-                          <StationIcon kind={stationKindOf(item)} />
-                        ) : (
-                          <LeadingIcon>
-                            <Icon name="place" size="sm" weight="medium" />
-                          </LeadingIcon>
-                        )
-                      }
-                      title={item.title}
-                      subtitle={
-                        item.kind === 'address'
-                          ? item.subtitle ?? undefined
-                          : item.routes.length > 0
-                            ? (
-                              <View style={styles.lineRow}>
-                                {item.routes.slice(0, MAX_LINE_BADGES).map((route) => (
-                                  <LineBadge key={route.shortName} route={route} size="small" />
-                                ))}
-                                {item.routes.length > MAX_LINE_BADGES && (
-                                  <Text variant="footnote" color="textSecondary" numeric>
-                                    {t('search.moreLines', { count: item.routes.length - MAX_LINE_BADGES })}
-                                  </Text>
-                                )}
-                              </View>
-                            )
-                            : undefined
-                      }
-                    />
-                  ))}
-                </ListSection>
-                {credit && <DataCredit source={credit} />}
-              </View>
-            )}
-            {showResults && !isFetching && rows.length === 0 && (
-              <EmptyState icon="search" title={t('search.noMatches')} />
-            )}
-            {/* What fills this screen before the rider types. Gated on
-                `showResults` rather than on `query`, so it does not blink
-                out during the debounce pause and back in again when a
-                one-character query turns out not to search anything.
-                Straight into `commitPlace`, exactly where a tapped search
-                result ends up -- which is what lets these rows stand in
-                every mode this screen has. As a destination, as an origin,
-                or as the address being pinned to a saved location,
-                somewhere the rider looked up before is a reasonable answer,
-                and each mode already knows what to do with a place. */}
-            {!showResults && <RecentSearches onSelect={commitPlace} />}
-          </ScrollView>
-        )}
-        </Animated.View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
       {morph.overlay(
         t(
           field === 'origin'

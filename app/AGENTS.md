@@ -28,9 +28,11 @@ iPhone Duo runs its system bars down one side of the screen (about 84pt), so a s
 insets are not zero. Anything a rider reads or taps sits inside them; a map or a glass backing
 may run under them.
 
-- A `SafeAreaView` lists `'left'` and `'right'` in `edges` along with the edges it already takes.
-- Anything positioned by hand (`start`/`end`, a floating sheet's margins) adds `useSideInsets()`
-  from `@/design-system` to its offset. It returns start/end, so it mirrors in Hebrew.
+- Take them from `useSideInsets()` (`@/design-system`), as start/end padding, margin or offset.
+  It returns start/end, so it mirrors in Hebrew.
+- Never through a `SafeAreaView`'s `'left'`/`'right'` edges: they do not take effect in Hebrew.
+  Give the `SafeAreaView` a `marginStart`/`marginEnd` instead, never a start/end padding (its own
+  left/right padding overrides that in Hebrew).
 - A map's camera `edgePadding` adds `insets.left`/`insets.right`, so a framed route is not under
   the bar.
 - `ScrollHeader` already takes the side insets; the list under it pads its content by them.

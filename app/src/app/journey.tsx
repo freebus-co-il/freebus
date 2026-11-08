@@ -426,8 +426,8 @@ function JourneyScreenContent() {
       />
 
       <SafeAreaView
-        style={styles.header}
-        edges={['top', 'left', 'right']}
+        style={[styles.header, { marginStart: side.start, marginEnd: side.end }]}
+        edges={['top']}
         pointerEvents="box-none"
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
       >

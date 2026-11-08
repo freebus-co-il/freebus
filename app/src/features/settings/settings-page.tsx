@@ -8,7 +8,7 @@ import { StyleSheet } from 'react-native';
 import { LegacyScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Layout, NativeHeader, Space, Surface } from '@/design-system';
+import { Layout, NativeHeader, Space, Surface, useSideInsets } from '@/design-system';
 
 /**
  * A page pushed from the Settings tab: a native header with the system back
@@ -25,11 +25,13 @@ export function SettingsPage({ title, children, scrollEnabled = true, scrollRef 
    *  over it (`blocksExternalGesture`). */
   scrollRef?: RefObject<LegacyScrollView | null>;
 }) {
+  const side = useSideInsets();
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={title} />
-      {/* Not the top edge: the native header already clears it. */}
-      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
+      {/* Bottom edge only: the native header already clears the top. The
+          sides are margins (see `useSideInsets`). */}
+      <SafeAreaView edges={['bottom']} style={[styles.container, { marginStart: side.start, marginEnd: side.end }]}>
         <LegacyScrollView ref={scrollRef} contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>{children}</LegacyScrollView>
       </SafeAreaView>
     </Surface>

@@ -18,6 +18,7 @@ import {
   Surface,
   TextField,
   useColors,
+  useSideInsets,
 } from '@/design-system';
 import { LOCATION_ICON_NAMES as LOCATION_ICON_GLYPHS } from '@/features/saved-locations/location-icons';
 import { useSavedLocations } from '@/features/saved-locations/saved-locations-context';
@@ -34,6 +35,7 @@ const DEFAULT_ICON: LocationIconName = 'star';
  */
 export default function SaveLocationScreen() {
   const { t } = useTranslation();
+  const side = useSideInsets();
   const colors = useColors();
   const savedLocations = useSavedLocations();
   const params = useLocalSearchParams<Partial<PlaceRouteParams>>();
@@ -52,7 +54,7 @@ export default function SaveLocationScreen() {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={t('savedLocations.screenTitle')} />
-      <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
+      <SafeAreaView edges={['bottom']} style={[styles.container, { marginStart: side.start, marginEnd: side.end }]}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {place && (
             <ListSection>

@@ -12,6 +12,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  *
  * Safe-area insets are physical (left and right) and the app's layout is
  * logical, so in Hebrew the start side is the right one.
+ *
+ * Apply them as start/end padding or margin, never through a `SafeAreaView`:
+ * its `'left'`/`'right'` edges do not take effect in Hebrew, and the left and
+ * right padding it writes overrides a start/end padding set on the same view.
+ * A margin on a `SafeAreaView` is fine.
  */
 export function useSideInsets(): { start: number; end: number } {
   const insets = useSafeAreaInsets();

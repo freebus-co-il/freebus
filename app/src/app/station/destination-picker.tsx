@@ -23,6 +23,7 @@ import {
   Space,
   Surface,
   Text,
+  useSideInsets,
 } from '@/design-system';
 import { leaveDestination } from '@/features/stations/destination-handoff';
 import { addressCredit } from '@/lib/attribution';
@@ -62,6 +63,7 @@ type Row =
  */
 export default function DestinationPickerScreen() {
   const { t, i18n } = useTranslation();
+  const side = useSideInsets();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [debouncedAddress, setDebouncedAddress] = useState('');
@@ -147,7 +149,7 @@ export default function DestinationPickerScreen() {
       {/* No title: the field's prompt says what is being picked. */}
       {/* The back button beside the field, one row of glass -- the same
           search bar as the location picker. */}
-      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={[styles.safeArea, { marginStart: side.start, marginEnd: side.end }]}>
         <View style={styles.top}>
           <SearchHeader
             onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
