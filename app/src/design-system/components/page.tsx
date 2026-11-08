@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useCanGoBack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -37,12 +37,13 @@ export function NativeHeader({ title, actions = [], transparent = false }: { tit
   const colors = useColors();
   const ios = Platform.OS === 'ios';
   const { t } = useTranslation();
-  // The hook, not the module-level `router`: that one throws until the first
-  // render has finished, and this runs during it.
+  // Hooks, not the module-level `router`: that one throws until the first
+  // render has finished, and its `canGoBack()` reads focus state that is only
+  // settled after render. `useCanGoBack` re-renders when the answer changes.
   const router = useRouter();
   // A deep link straight into a pushed page has no history to pop, and the
   // native header then shows no back button at all: give it a way home.
-  const orphan = !router.canGoBack();
+  const orphan = !useCanGoBack();
   return (
     <>
       <Stack.Screen
