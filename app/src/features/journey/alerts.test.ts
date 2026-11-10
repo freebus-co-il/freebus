@@ -3,7 +3,11 @@ import { test } from 'node:test';
 
 import type { Itinerary } from '@/api/types';
 
-import { planAlightAlerts, stopCountIsDue } from './alerts';
+import { haversineMeters } from '@/lib/geo';
+
+import {
+  alightRadiusMeters, isNearAlightStop, PASSED_STOP_METERS, planAlightAlerts, rideMetersPerSecond,
+} from './alerts';
 import type { ActiveJourney } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
 
@@ -132,26 +136,55 @@ test('under GPS, a ride the rider has not boarded has no get-off alarm', () => {
   assert.deepEqual(planAlightAlerts(waiting, DEFAULT_ALERT_SETTINGS), []);
 });
 
-test('once GPS has the rider aboard, that ride is armed', () => {
+test('once GPS has the rider aboard, the alarm is left to position, not the clock', () => {
   const aboard = { ...journey(), gpsLegIndex: 1, boardedLegIndex: 1 };
-  assert.ok(planAlightAlerts(aboard, DEFAULT_ALERT_SETTINGS).length > 0);
+  assert.deepEqual(planAlightAlerts(aboard, DEFAULT_ALERT_SETTINGS), []);
+  // With nothing following in the background, the clock is all there is.
+  assert.ok(planAlightAlerts(aboard, DEFAULT_ALERT_SETTINGS, false).length > 0);
 });
 
-test('with nothing following in the background, every ride is armed up front', () => {
-  const waiting = { ...journey(), gpsLegIndex: 1 };
-  assert.ok(planAlightAlerts(waiting, DEFAULT_ALERT_SETTINGS, false).length > 0);
+test('due only past the stop before and close to the rider\'s own', () => {
+  const ride = journey().itinerary.legs[1];
+  if (ride.type !== 'transit') throw new Error('fixture changed');
+  // Mid B, about 730 m out: not passed, and too far.
+  assert.equal(isNearAlightStop(ride, { lat: 32.075, lon: 34.785 }), false);
+  // Past Mid B, about 190 m out.
+  assert.equal(isNearAlightStop(ride, { lat: 32.0787, lon: 34.7887 }), true);
+  // The same spot on a fix too vague to say Mid B is behind it.
+  assert.equal(isNearAlightStop(ride, { lat: 32.0787, lon: 34.7887, accuracyMeters: 700 }), false);
 });
 
-test('a stop count says get off only once the arrival is close too', () => {
-  const now = Date.parse('2026-11-02T15:00:00.000Z');
-  const inMinutes = (minutes: number) => new Date(now + minutes * 60_000).toISOString();
-  const oneStop = { ...DEFAULT_ALERT_SETTINGS, leadStops: 1, leadSeconds: 90 };
-  // The next station is 28 minutes away: too early.
-  assert.equal(stopCountIsDue(inMinutes(28), now, oneStop), false);
-  assert.equal(stopCountIsDue(inMinutes(4), now, oneStop), true);
-  // A late run whose timetabled arrival has passed is close, not held back.
-  assert.equal(stopCountIsDue(inMinutes(-3), now, oneStop), true);
+test('the ring is the warning time at the ride\'s own speed, whatever the vehicle', () => {
+  const ride = journey().itinerary.legs[1];
+  if (ride.type !== 'transit') throw new Error('fixture changed');
+  // Ten kilometres in ten minutes, nonstop: the stop before is far behind, so
+  // only the warning distance counts. 16.7 m/s for 90 s is 1500 m.
+  const fast = {
+    ...ride,
+    intermediateStops: [],
+    from: { ...ride.from, stop: { ...ride.from.stop, lat: 32.08 - 10_000 / 111_195, lon: 34.79 }, departureTime: '2026-08-31T10:20:00.000Z' },
+  };
+  assert.ok(Math.abs(rideMetersPerSecond(fast)! - 10_000 / 600) < 1);
+  assert.ok(Math.abs(alightRadiusMeters(fast) - 1500) < 90);
+  // The route type plays no part.
+  assert.equal(alightRadiusMeters({ ...fast, route: { ...fast.route, type: 2 } }), alightRadiusMeters(fast));
   // Two stops of warning allow twice the time.
-  assert.equal(stopCountIsDue(inMinutes(9), now, { ...oneStop, leadStops: 2 }), true);
-  assert.equal(stopCountIsDue(inMinutes(11), now, { ...oneStop, leadStops: 2 }), false);
+  assert.ok(alightRadiusMeters(fast, { ...DEFAULT_ALERT_SETTINGS, leadStops: 2 }) > alightRadiusMeters(fast));
+});
+
+test('the ring always stays inside the stop before, less the distance to clear it', () => {
+  const ride = journey().itinerary.legs[1];
+  if (ride.type !== 'transit') throw new Error('fixture changed');
+  const quick = { ...ride, from: { ...ride.from, departureTime: '2026-08-31T10:29:00.000Z' } };
+  const gap = haversineMeters(ride.intermediateStops.at(-1)!, ride.to.stop);
+  assert.equal(alightRadiusMeters(quick), gap - PASSED_STOP_METERS);
+});
+
+test('with no usable timetable, the stop before alone decides', () => {
+  const ride = journey().itinerary.legs[1];
+  if (ride.type !== 'transit') throw new Error('fixture changed');
+  const broken = { ...ride, from: { ...ride.from, departureTime: ride.to.arrivalTime } };
+  assert.equal(rideMetersPerSecond(broken), null);
+  const gap = haversineMeters(ride.intermediateStops.at(-1)!, ride.to.stop);
+  assert.equal(alightRadiusMeters(broken), gap - PASSED_STOP_METERS);
 });

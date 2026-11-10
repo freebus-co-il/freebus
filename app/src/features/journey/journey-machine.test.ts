@@ -41,10 +41,29 @@ test('riding with a position counts the stops that are left', () => {
   assert.equal(state.stopsRemaining, 2);
 });
 
-test('one stop out is the alert moment', () => {
-  const state = resolveJourneyState(journey(), near(32.075, 34.785), at('2026-08-31T10:25:00.000Z'));
+test('past the stop before and close to the rider\'s own is the alert moment', () => {
+  // Past Mid B, about 190 m short of Allenby. The fixture's ride averages about
+  // 8 km/h on paper, so 90 seconds of warning is about 210 m.
+  const state = resolveJourneyState(journey(), near(32.0787, 34.7887), at('2026-08-31T10:25:00.000Z'));
   assert.equal(state.phase, 'alight-soon');
+});
+
+test('on a bus, standing at the stop before is not yet the alert moment', () => {
+  // Mid B is about 730 m from Allenby: one stop left, but the bus has not
+  // passed it yet.
+  const state = resolveJourneyState(journey(), near(32.075, 34.785), at('2026-08-31T10:25:00.000Z'));
   assert.equal(state.stopsRemaining, 1);
+  assert.equal(state.phase, 'riding');
+});
+
+test('on a bus, past a far stop before, the alert waits until the rider\'s stop is close', () => {
+  // Just past Mid B, still about 690 m from Allenby: past the stop before,
+  // but farther out than 90 seconds at the ride's speed.
+  const far = resolveJourneyState(journey(), near(32.0753, 34.7853), at('2026-08-31T10:25:00.000Z'));
+  assert.equal(far.stopsRemaining, 1);
+  assert.equal(far.phase, 'riding');
+  const close = resolveJourneyState(journey(), near(32.0787, 34.7887), at('2026-08-31T10:26:00.000Z'));
+  assert.equal(close.phase, 'alight-soon');
 });
 
 test('approaching a stop is not the same as having left it', () => {
@@ -76,10 +95,11 @@ test('at a stop, the count and the name still agree', () => {
   // because the two used `<=` and `<` respectively and a stop is exactly where
   // those two disagree. That pairing -- "get off" beside a stop that is not
   // yours -- is the report this rule exists to answer.
+  // (Not yet the alert itself on a bus: Mid B is far from Allenby, see
+  // `alightRadiusMeters`.)
   const state = resolveJourneyState(journey(), near(32.075, 34.785), at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS);
   assert.equal(state.stopsRemaining, 1);
   assert.equal(state.nextStopName, 'Allenby');
-  assert.equal(state.phase, 'alight-soon');
 });
 
 test('with no position, the alert moment falls back to the clock', () => {
@@ -290,7 +310,7 @@ test('an inaccurate fix gives way to a fresh bus', () => {
 test('a stale fix gives way to a fresh bus, and the bus can raise the alert', () => {
   const state = resolveJourneyState(
     journey(), fix(32.07, 34.78, '2026-08-31T10:00:00.000Z'), at('2026-08-31T10:25:00.000Z'), S,
-    busOn(1, '2026-08-31T10:24:45.000Z', 32.075, 34.785),
+    busOn(1, '2026-08-31T10:24:45.000Z', 32.0787, 34.7887),
   );
   assert.equal(state.phase, 'alight-soon');
   assert.equal(state.stopsSource, 'bus');
@@ -656,19 +676,57 @@ test('field note: a carriage\'s vague fixes still move a journey on, from the st
   assert.ok(onBoard.phase === 'riding' || onBoard.phase === 'alight-soon');
 });
 
-test('one stop out but half an hour away, it is not yet the alert moment', () => {
-  // Reported from the field: on the train, one station out, the Island said
-  // "now" 28 minutes before the station. The same stop count with the arrival
-  // far off stays on riding until the arrival is close.
-  const far = journey();
-  const ride = far.itinerary.legs[1]!;
+/** The fixture with its ride turned into a train arriving at `arrival`. */
+function trainArriving(arrival: string): ReturnType<typeof journey> {
+  const train = journey();
+  const ride = train.itinerary.legs[1]!;
   if (ride.type !== 'transit') throw new Error('fixture changed');
-  far.itinerary.legs[1] = { ...ride, to: { ...ride.to, arrivalTime: '2026-08-31T10:55:00.000Z' } };
+  train.itinerary.legs[1] = { ...ride, route: { ...ride.route, type: 2 }, to: { ...ride.to, arrivalTime: arrival } };
+  return train;
+}
+
+test('one station out is not yet the alert moment on a train either', () => {
+  // Mid B is about 730 m from Allenby and the train is due in 30 minutes.
   const fixAt = (iso: string): RiderPosition => ({ ...near(32.075, 34.785), at: iso });
-  const early = resolveJourneyState(far, fixAt('2026-08-31T10:25:00.000Z'), at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS);
-  assert.equal(early.stopsRemaining, 1);
+  const state = resolveJourneyState(trainArriving('2026-08-31T10:55:00.000Z'), fixAt('2026-08-31T10:25:00.000Z'), at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(state.stopsRemaining, 1);
+  assert.equal(state.phase, 'riding');
+});
+
+test('a late train at the station before still waits to pass it', () => {
+  // Due at 10:20, still at Mid B at 10:35.
+  const fixAt = (iso: string): RiderPosition => ({ ...near(32.075, 34.785), at: iso });
+  const late = trainArriving('2026-08-31T10:20:00.000Z');
+  const waiting = resolveJourneyState(late, fixAt('2026-08-31T10:35:00.000Z'), at('2026-08-31T10:35:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(waiting.phase, 'riding');
+  const past = resolveJourneyState(late, { ...near(32.0775, 34.7875), at: '2026-08-31T10:36:00.000Z' }, at('2026-08-31T10:36:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(past.phase, 'alight-soon');
+});
+
+test('with GPS gone quiet, a live prediction takes over from the last count', () => {
+  // Last fix two stations out, then nothing: a tunnel.
+  const lastFix: RiderPosition = { ...near(32.07, 34.78), at: '2026-08-31T10:20:00.000Z' };
+  const train = trainArriving('2026-08-31T10:30:00.000Z');
+  const predicted = (now: string, arrival: string) => live({ legs: [liveLeg(1, now, { arrival })] });
+  const early = resolveJourneyState(train, lastFix, at('2026-08-31T10:25:00.000Z'), DEFAULT_ALERT_SETTINGS, predicted('2026-08-31T10:25:00.000Z', '2026-08-31T10:30:00.000Z'));
   assert.equal(early.phase, 'riding');
-  const close = resolveJourneyState(far, fixAt('2026-08-31T10:51:00.000Z'), at('2026-08-31T10:51:00.000Z'), DEFAULT_ALERT_SETTINGS);
-  assert.equal(close.stopsRemaining, 1);
-  assert.equal(close.phase, 'alight-soon');
+  const due = resolveJourneyState(train, lastFix, at('2026-08-31T10:29:00.000Z'), DEFAULT_ALERT_SETTINGS, predicted('2026-08-31T10:29:00.000Z', '2026-08-31T10:30:00.000Z'));
+  assert.equal(due.phase, 'alight-soon');
+});
+
+test('with GPS gone quiet and no prediction, the timetable never takes over', () => {
+  // A late train in a tunnel and a bus at a light look the same; the clock
+  // would fire for both.
+  const lastFix: RiderPosition = { ...near(32.07, 34.78), at: '2026-08-31T10:20:00.000Z' };
+  const state = resolveJourneyState(trainArriving('2026-08-31T10:30:00.000Z'), lastFix, at('2026-08-31T10:29:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(state.phase, 'riding');
+});
+
+test('on the street, a quiet fix is a bus standing still, and its count stands', () => {
+  // Same quiet fix two stops out, on a bus: the watch reports only movement,
+  // so the clock must not take over and fire for a late bus.
+  const lastFix: RiderPosition = { ...near(32.07, 34.78), at: '2026-08-31T10:20:00.000Z' };
+  const state = resolveJourneyState(journey(), lastFix, at('2026-08-31T10:29:00.000Z'), DEFAULT_ALERT_SETTINGS);
+  assert.equal(state.stopsRemaining, 2);
+  assert.equal(state.phase, 'riding');
 });

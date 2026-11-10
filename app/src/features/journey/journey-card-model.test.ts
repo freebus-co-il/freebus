@@ -99,7 +99,7 @@ test('the get-off moment is an alert and offers no line switch', () => {
   const journey = sampleJourney();
   const state = resolveJourneyState(
     journey,
-    { lat: 32.075, lon: 34.785, accuracyMeters: 10, at: '2026-08-31T10:28:00.000Z' },
+    { lat: 32.0787, lon: 34.7887, accuracyMeters: 10, at: '2026-08-31T10:28:00.000Z' },
     at('2026-08-31T10:28:00.000Z'),
     DEFAULT_ALERT_SETTINGS,
   );
@@ -193,7 +193,7 @@ test('switchability answers the same for the card and for an open sheet', () => 
 
   const alighting = resolveJourneyState(
     journey,
-    { lat: 32.075, lon: 34.785, accuracyMeters: 10, at: '2026-08-31T10:28:00.000Z' },
+    { lat: 32.0787, lon: 34.7887, accuracyMeters: 10, at: '2026-08-31T10:28:00.000Z' },
     at('2026-08-31T10:28:00.000Z'),
     DEFAULT_ALERT_SETTINGS,
   );

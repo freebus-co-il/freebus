@@ -12,14 +12,14 @@ import { apiGet } from '@/api/client';
 import { useRealtimeAvailable } from '@/api/meta';
 import type { Itinerary, Place, TransitLeg, TripDetail } from '@/api/types';
 import { useColors } from '@/design-system';
-import { readStoredAlertSettings, usePreferences } from '@/features/preferences/preferences-context';
+import { usePreferences } from '@/features/preferences/preferences-context';
 import { useSearch } from '@/features/search/search-context';
 import { withLineChosen } from '@/features/trip/line-options';
 import { useNow } from '@/hooks/use-now';
 import i18n from '@/i18n';
 import { placeToQueryValue, type SelectedPlace } from '@/lib/place';
 
-import { planAlightAlerts, stopCountIsDue } from './alerts';
+import { planAlightAlerts } from './alerts';
 import { boardedEarlierRun, withEarlierRunAtStart } from './earlier-run';
 import { newReminderId, type PendingLeave } from './leave-reminder';
 import {
@@ -277,12 +277,10 @@ TaskManager.defineTask<{ eventType: Location.GeofencingEventType; region: Locati
     // read as information and starts being read as noise.
     if (AppState.currentState === 'active') return;
 
-    // The wake ring is the stop before the rider's, which on a train can be
-    // half an hour out. Too far, it says nothing and leaves the scheduled
-    // alerts, timed to the arrival, to do the waking.
-    const arrival = leg.realtime?.predictedArrival ?? leg.to.arrivalTime;
-    const settings = await readStoredAlertSettings();
-    if (!stopCountIsDue(arrival, Date.now(), settings)) return;
+    // No clock check here: the ring is already drawn close around the rider's
+    // own stop (`alightRadiusMeters`), so entering it is the moment, however
+    // the ride is running against the timetable. Holding it back would lose
+    // it, as Enter fires only once.
 
     // Whichever trigger lands first wins and cancels the other. This one is
     // the accurate one -- it fires because the rider is actually there, not

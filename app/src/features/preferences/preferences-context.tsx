@@ -83,20 +83,6 @@ function parseAlertSettings(raw: unknown): AlertSettings {
   };
 }
 
-/**
- * The rider's alert settings straight from storage, for code that runs with no
- * provider mounted: the geofencing task, which the OS can start with the app
- * terminated. The defaults when nothing usable is stored.
- */
-export async function readStoredAlertSettings(): Promise<AlertSettings> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    return parseAlertSettings(raw ? JSON.parse(raw)?.alertSettings : undefined);
-  } catch {
-    return DEFAULT_ALERT_SETTINGS;
-  }
-}
-
 /** Parsed defensively, like the saved-locations store: an unrecognised or
  *  half-written value should mean "follow the device", never crash on launch. */
 function parseStoredState(raw: string | null): StoredState {
