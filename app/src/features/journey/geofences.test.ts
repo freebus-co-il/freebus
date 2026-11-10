@@ -3,6 +3,9 @@ import { test } from 'node:test';
 
 import type { Itinerary } from '@/api/types';
 
+import { haversineMeters } from '@/lib/geo';
+
+import { alightRadiusMeters, MIN_ALIGHT_RADIUS_METERS, PASSED_STOP_METERS } from './alerts';
 import { buildJourneyRegions, MAX_REGIONS } from './geofences';
 import type { ActiveJourney } from './types';
 
@@ -81,21 +84,55 @@ test('regions cover only decision points', () => {
   assert.deepEqual(kinds, ['board', 'wake', 'alight', 'destination']);
 });
 
-test('the wake ring sits on the stop before the alight stop', () => {
+/** The fixture with its ride turned into a train. */
+function onRail(): ActiveJourney {
+  const base = journey();
+  const leg = base.itinerary.legs[1];
+  if (leg.type !== 'transit') throw new Error('fixture changed');
+  base.itinerary.legs[1] = { ...leg, route: { ...leg.route, type: 2 } };
+  return base;
+}
+
+test('the wake ring is drawn around the alight stop, inside the stop before it', () => {
   const wake = buildJourneyRegions(journey()).find((region) => region.kind === 'wake');
-  // Mid B, the last intermediate stop.
-  assert.equal(wake?.lat, 32.075);
-  assert.equal(wake?.lon, 34.785);
+  // Allenby, sized by the shared get-off rule.
+  assert.equal(wake?.lat, 32.08);
+  assert.equal(wake?.lon, 34.79);
+  const leg = journey().itinerary.legs[1];
+  if (leg.type !== 'transit') throw new Error('fixture changed');
+  assert.equal(wake?.radiusMeters, alightRadiusMeters(leg));
+  assert.ok(wake!.radiusMeters < haversineMeters(leg.intermediateStops.at(-1)!, leg.to.stop));
 });
 
-test('a ride with no intermediate stops falls back to a ring around the alight stop', () => {
+test('a close stop before shrinks the ring so entering it means having passed that stop', () => {
+  const base = journey();
+  const leg = base.itinerary.legs[1];
+  if (leg.type !== 'transit') throw new Error('fixture changed');
+  // About 300 m before Allenby.
+  leg.intermediateStops = [...leg.intermediateStops.slice(0, 1), { type: 'stop', lat: 32.0773, lon: 34.79, stopId: 's3', name: 'Mid B' }];
+  const wake = buildJourneyRegions(base).find((region) => region.kind === 'wake');
+  const gap = haversineMeters(leg.intermediateStops.at(-1)!, leg.to.stop);
+  assert.equal(wake?.radiusMeters, alightRadiusMeters(leg));
+  assert.ok(wake!.radiusMeters <= Math.max(MIN_ALIGHT_RADIUS_METERS, gap - PASSED_STOP_METERS));
+});
+
+test('a train gets the same ring by the same rule', () => {
+  const base = onRail();
+  const leg = base.itinerary.legs[1];
+  if (leg.type !== 'transit') throw new Error('fixture changed');
+  const wake = buildJourneyRegions(base).find((region) => region.kind === 'wake');
+  assert.equal(wake?.lat, 32.08);
+  assert.equal(wake?.radiusMeters, alightRadiusMeters(leg));
+});
+
+test('a ride with no intermediate stops rings the alight stop, inside the boarding stop', () => {
   const base = journey();
   const leg = base.itinerary.legs[1];
   if (leg.type !== 'transit') throw new Error('fixture changed');
   leg.intermediateStops = [];
   const wake = buildJourneyRegions(base).find((region) => region.kind === 'wake');
   assert.equal(wake?.lat, 32.08);
-  assert.equal(wake?.radiusMeters, 1200);
+  assert.ok(wake!.radiusMeters < haversineMeters(leg.from.stop, leg.to.stop));
 });
 
 test('never exceeds the platform region budget', () => {

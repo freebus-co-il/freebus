@@ -1,4 +1,4 @@
-import { isAlarmedRide } from './alerts';
+import { alightRadiusMeters, isAlarmedRide } from './alerts';
 import type { ActiveJourney } from './types';
 
 /**
@@ -11,10 +11,6 @@ export const MAX_REGIONS = 16;
 /** A stop is "arrived at" from this far out -- generous enough for GPS in a
  *  street canyon, tight enough not to trigger from the previous stop. */
 export const STOP_RADIUS_METERS = 150;
-
-/** Used when a ride has no intermediate stop to hang the wake ring on. Sized
- *  to give roughly a minute of warning at urban bus speeds. */
-export const WAKE_RING_FALLBACK_RADIUS_METERS = 1200;
 
 export type JourneyRegion = {
   id: string;
@@ -54,26 +50,16 @@ export function buildJourneyRegions(journey: ActiveJourney, gpsFollowing = true)
     // The wake ring is the alarm: only on a ride whose alarm is armed (see
     // `isAlarmedRide`). The stop regions stay on every ride, as evidence of
     // where the rider has got to.
-    const penultimate = leg.intermediateStops.at(-1);
-    if (isAlarmedRide(journey, legIndex, gpsFollowing)) regions.push(
-      penultimate
-        ? {
-            id: `wake:${legIndex}`,
-            lat: penultimate.lat,
-            lon: penultimate.lon,
-            radiusMeters: STOP_RADIUS_METERS,
-            kind: 'wake',
-            legIndex,
-          }
-        : {
-            id: `wake:${legIndex}`,
-            lat: leg.to.stop.lat,
-            lon: leg.to.stop.lon,
-            radiusMeters: WAKE_RING_FALLBACK_RADIUS_METERS,
-            kind: 'wake',
-            legIndex,
-          },
-    );
+    // Drawn around the alight stop by the get-off rule (`alightRadiusMeters`),
+    // so entering it means the stop before is passed and the rider's is close.
+    if (isAlarmedRide(journey, legIndex, gpsFollowing)) regions.push({
+      id: `wake:${legIndex}`,
+      lat: leg.to.stop.lat,
+      lon: leg.to.stop.lon,
+      radiusMeters: alightRadiusMeters(leg),
+      kind: 'wake',
+      legIndex,
+    });
 
     regions.push({
       id: `alight:${legIndex}`,

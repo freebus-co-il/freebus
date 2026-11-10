@@ -3,7 +3,7 @@ import { FADE_AFTER_SECONDS } from '@/features/results/vehicle-markers';
 import { hasLeftStop, haversineMeters } from '@/lib/geo';
 
 import { distanceToPathMeters, hasLeftBoarding, isTrackingFix, legPath, OFF_PATH_METERS, ON_PATH_METERS, trackLegIndex } from './journey-progress';
-import { stopCountIsDue } from './alerts';
+import { isNearAlightStop, warningSeconds } from './alerts';
 import { buildLegSchedule } from './journey-rail';
 import type { ActiveJourney, AlertSettings, JourneyState, LiveBus, LiveJourneyInput, LiveLeg, OffPlanReason, RiderPosition } from './types';
 import { DEFAULT_ALERT_SETTINGS } from './types';
@@ -40,6 +40,11 @@ export const WEAK_FIX_ACCURACY_METERS = 150;
 /** A fix older than this is where the rider WAS -- in a tunnel, or with the
  *  watch starved of updates. */
 export const WEAK_FIX_AGE_SECONDS = 60;
+
+/** How long a fix may go quiet on a ride before the rider may be out of GPS's
+ *  sight. Longer than a train stands at a station, since the watch reports
+ *  nothing while it is not moving. */
+export const GPS_LOST_SECONDS = 120;
 
 /** How long past its arrival a journey GPS is following keeps running when
  *  the rider never reaches the destination -- they finished somewhere else,
@@ -471,14 +476,18 @@ export function resolveJourneyState(
     let stopsRemaining: number | null = null;
     let stopsSource: JourneyState['stopsSource'] = null;
     let nextStopName: string | null = null;
+    /** Whichever of the bus and the rider the count was read off. */
+    let countedFrom: { lat: number; lon: number; accuracyMeters?: number } | null = null;
     if (busCounts && busCounts.progress?.kind === 'toAlighting') {
       stopsRemaining = busCounts.progress.stops;
       stopsSource = 'bus';
       nextStopName = nextStopFrom(leg, busCounts);
+      countedFrom = busCounts;
     } else if (position) {
       stopsRemaining = stopsRemainingFrom(leg, position);
       stopsSource = 'rider';
       nextStopName = nextStopFrom(leg, position);
+      countedFrom = position;
     }
 
     // Stops when the rider asked for stops AND a fix can count them; the clock
@@ -498,13 +507,21 @@ export function resolveJourneyState(
     // late.
     // The arrival the bus is actually heading for: live when a prediction is
     // usable, so a "minutes before" alarm on a late bus does not go off early.
-    const arrival = usableLiveLeg(live, legIndex, nowMs)?.predictedArrival ?? leg.to.arrivalTime;
-    const countStops = settings.leadStops > 0 && stopsRemaining !== null;
-    // A stop count alone is not enough: one stop on a train can be half an
-    // hour, so it also waits for the arrival to be close (see `stopCountIsDue`).
+    const predictedArrival = usableLiveLeg(live, legIndex, nowMs)?.predictedArrival ?? null;
+    const arrival = predictedArrival ?? leg.to.arrivalTime;
+    // A fix quiet for `GPS_LOST_SECONDS` is a vehicle standing still (the
+    // watch reports only movement) or one in a tunnel, and nothing tells them
+    // apart. Only a live prediction is right for both, so only it takes over
+    // from the last count; the timetable would fire for a late bus at a light.
+    const gpsLost = stopsSource === 'rider' && predictedArrival !== null
+      && position !== null && nowMs - ms(position.at) > GPS_LOST_SECONDS * 1000;
+    const countStops = settings.leadStops > 0 && stopsRemaining !== null && !gpsLost;
+    // "One stop left" is true from the instant the vehicle pulls into the stop
+    // before, which can be kilometres out: the count also waits for the
+    // get-off rule (`alightRadiusMeters`).
     const dueToAlight = countStops
-      ? stopsRemaining! <= settings.leadStops && stopCountIsDue(arrival, nowMs, settings)
-      : ms(arrival) - nowMs <= settings.leadSeconds * 1000;
+      ? stopsRemaining! <= settings.leadStops && isNearAlightStop(leg, countedFrom!, settings)
+      : ms(arrival) - nowMs <= (settings.leadStops > 0 ? warningSeconds(settings) : settings.leadSeconds) * 1000;
     const alreadyAcknowledged = journey.acknowledgedAlightLegIndex === legIndex;
 
     return {
