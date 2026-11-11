@@ -644,5 +644,16 @@
     "reorder": "Reordenar {{name}}",
     "position": "{{index}} de {{count}}",
     "unknown": "Este widget no tiene opciones."
+  },
+  "feedback": {
+    "title": "Comentarios",
+    "intro": "FreeBus es un proyecto comunitario sin fines de lucro. ¡Nos encanta recibir tus comentarios! Escríbenos sobre cualquier tema: ideas, problemas, preguntas o simplemente para saludar.",
+    "contact": "Escríbenos",
+    "developersTitle": "¿Eres desarrollador?",
+    "developersBody": "¡Ayúdanos a desarrollar FreeBus! Visita nuestro repositorio en GitHub y lee la guía de contribución para configurar el proyecto. Después, elige una tarea o propón una mejora y abre una solicitud de cambios (pull request).",
+    "repository": "Ver repositorio",
+    "contributing": "Guía de contribución",
+    "linkErrorTitle": "No se pudo abrir el enlace",
+    "linkErrorBody": "Inténtalo de nuevo. Para contactarnos, envía un correo a contactfreebus@gmail.com desde tu aplicación de correo."
   }
 }
