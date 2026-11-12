@@ -3,7 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { LegacyScrollView } from 'react-native-gesture-handler';
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useRouteShape } from '@/api/lines';
@@ -521,9 +521,10 @@ function StationScreenContent() {
   // A fixed, short header however many lines call here: a busy stop serves
   // dozens, and wrapped badges pushed the departures below the drawer's peek.
   // The badges scroll sideways instead, edge to edge, their first one lined up
-  // with the name. Gesture-handler's ScrollView, not React Native's: inside
-  // the drawer, Android only lets a sideways swipe reach the strip when both
-  // gestures go through the same handler system.
+  // with the name. Gesture Handler's legacy ScrollView, not React Native's:
+  // inside the drawer, Android only lets a sideways swipe reach the strip when
+  // both gestures go through the same handler system, and the drawer
+  // (@gorhom/bottom-sheet) uses the legacy one.
   const header = (
     <View style={styles.sheetHeader}>
       <View style={styles.titleRow}>
@@ -538,7 +539,7 @@ function StationScreenContent() {
         onClear={() => applyDestination(null)}
       />
       {lines.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineStrip}>
+        <LegacyScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineStrip}>
           {lines.map((line) => {
             const key = lineKey(line);
             const isSelected = highlight?.key === key;
@@ -564,7 +565,7 @@ function StationScreenContent() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </LegacyScrollView>
       )}
     </View>
   );

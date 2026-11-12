@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { StyleProp, View, ViewStyle } from 'react-native';
+import type { StyleProp, ViewInstance, ViewStyle } from 'react-native';
 
 import { IconButton } from '@/design-system';
 
@@ -9,7 +9,7 @@ import { IconButton } from '@/design-system';
  * an alternative to. A glass circle, so it reads as the same floating chrome
  * as the glass "Where to?" capsule next to it rather than as page content.
  */
-export const MapPickButton = forwardRef<View, { onPress: () => void; style?: StyleProp<ViewStyle> }>(function MapPickButton(
+export const MapPickButton = forwardRef<ViewInstance, { onPress: () => void; style?: StyleProp<ViewStyle> }>(function MapPickButton(
   { onPress, style },
   ref,
 ) {

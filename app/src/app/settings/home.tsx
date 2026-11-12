@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import type { ScrollView } from 'react-native-gesture-handler';
+import type { LegacyScrollView } from 'react-native-gesture-handler';
 
 import { Icon, IconButton, LeadingIcon, ListRow, ListSection, Space } from '@/design-system';
 import {
@@ -36,7 +36,7 @@ export default function HomeSettingsScreen() {
   const available = homeWidgets().filter((widget) => !ids.includes(widget.id));
   // The page holds still while a row is dragged, or it scrolls with the finger.
   const [dragging, setDragging] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<LegacyScrollView>(null);
 
   /** A widget with options says what it is set to; the others describe
    *  themselves. */

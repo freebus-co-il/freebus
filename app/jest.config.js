@@ -4,6 +4,9 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  // Reanimated 4.7's own resolver: its mock loads Reanimated's sources, and some
+  // of those only work in Jest through their web build.
+  resolver: 'react-native-reanimated/jest/resolver',
   testMatch: ['<rootDir>/src/**/*.test.tsx'],
   moduleNameMapper: {
     '^@/assets/(.*)$': '<rootDir>/assets/$1',
