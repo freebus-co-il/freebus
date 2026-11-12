@@ -134,6 +134,7 @@ function App() {
                 <Stack.Screen name="settings/home" />
                 <Stack.Screen name="settings/home-widget/[id]" />
                 <Stack.Screen name="settings/alerts" />
+                <Stack.Screen name="settings/feedback" />
                 {/* Same reasoning, plus one of its own: the journey screen is what
                     the docked bar EXPANDS into, so it has to cover the bar. */}
                 <Stack.Screen name="journey" options={{ animation: 'slide_from_bottom' }} />

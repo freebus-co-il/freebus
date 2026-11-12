@@ -103,6 +103,7 @@ export default function SettingsScreen() {
             </ListSection>
 
             <ListSection>
+              <PageRow icon="info" title={t('feedback.title')} href="/settings/feedback" />
               <PageRow icon="info" title={t('settings.aboutRow')} href="/about" />
             </ListSection>
           </View>
