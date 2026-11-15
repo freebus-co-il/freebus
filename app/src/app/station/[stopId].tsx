@@ -1,6 +1,6 @@
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from '@gorhom/bottom-sheet';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackHandler, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -20,8 +20,13 @@ import { StationIcon, stationKindOf } from '@/components/station-icon';
 import { MapScreen } from '@/components/map-screen';
 import { useMapSheetEdgePadding } from '@/components/map-sheet';
 import {
-  Border, Chip, EmptyState, IconButton, Layout, Loading, Opacity, Radius, Separator, Size, Space, Text, useColors,
+  Border, Chip, EmptyState, Icon, IconButton, Layout, Loading, Opacity, Radius, Separator, Size, Space, Text, useColors,
 } from '@/design-system';
+import {
+  favoriteLineKeysAt, favoritesFirst, isFavoriteDeparture, type FavoriteStation, type FavoriteStopLine,
+} from '@/features/favorites/favorites';
+import { useFavorites } from '@/features/favorites/favorites-context';
+import { useFavoriteToggle } from '@/features/favorites/use-favorite-toggle';
 import { firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { usePreferences } from '@/features/preferences/preferences-context';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
@@ -134,7 +139,7 @@ function RunStops(
 /** One departure on the board. Tapping it opens it in place -- its stops
  *  below it, its line's path on the map -- and tapping it again closes it. */
 function DepartureRow(
-  { departure, showLive, now, expanded, stationId, bus, fastest, onPress }: {
+  { departure, showLive, now, expanded, stationId, bus, fastest, favorite, onPress }: {
     departure: Departure;
     showLive: boolean;
     now: Date;
@@ -144,6 +149,9 @@ function DepartureRow(
     /** This run reaches the filtered destination before every other row on
      *  the board, and is not the first to leave -- see `fastestArrivalKey`. */
     fastest: boolean;
+    /** This run's line is one of the rider's favorites here; see
+     *  `isFavoriteDeparture`. */
+    favorite: boolean;
     onPress: () => void;
   },
 ) {
@@ -205,9 +213,16 @@ function DepartureRow(
           {/* Through `formatHeadsign`, same as every other surface that shows
               one -- this board was rendering the raw feed value, underscore
               separator and all. */}
-          <Text variant={expanded ? 'headline' : 'body'} numberOfLines={1}>
-            {formatHeadsign(departure.headsign)}
-          </Text>
+          <View style={styles.headsignLine}>
+            {/* Marked, not moved: the board stays in time order, and the star
+                is what lets the rider's own line be picked out of it. */}
+            {favorite && (
+              <Icon name="starFill" size="xs" color="accent" accessibilityLabel={t('favorites.favorite')} />
+            )}
+            <Text variant={expanded ? 'headline' : 'body'} numberOfLines={1} style={styles.headsignText}>
+              {formatHeadsign(departure.headsign)}
+            </Text>
+          </View>
           {secondary !== '' && (
             <Text variant="subheadline" color="textSecondary" numberOfLines={1} numeric>
               {secondary}
@@ -303,6 +318,28 @@ function EmptyBoard({ next, destinationName }: {
 type Highlight = { key: string; departureKey: string | null };
 
 /**
+ * Pins the line in focus, going the way its departure goes, at this stop: the
+ * home page's Favorites widget then counts down to it with no taps. Shown only
+ * while a line is in focus, because that is the one moment the screen knows
+ * which line and which way the rider means.
+ */
+function PinLineChip({ favorite }: { favorite: FavoriteStopLine }) {
+  const { t } = useTranslation();
+  const { saved, toggle } = useFavoriteToggle(favorite);
+  return (
+    <View style={styles.filterRow}>
+      <Chip
+        icon={saved ? 'starFill' : 'star'}
+        label={t(saved ? 'favorites.linePinned' : 'favorites.pinLine', { line: favorite.shortName ?? '' })}
+        selected={saved}
+        onPress={toggle}
+        style={styles.filterFill}
+      />
+    </View>
+  );
+}
+
+/**
  * The board's destination filter: the one control on this screen that
  * changes WHICH buses are listed rather than which one is in focus.
  *
@@ -375,7 +412,9 @@ export default function StationScreen() {
 function StationScreenContent() {
   const { t, i18n } = useTranslation();
   const colors = useColors();
-  const { stopId, name } = useLocalSearchParams<{ stopId?: string; name?: string }>();
+  // `line` opens the board with that line in focus (a `lineKey`): how a
+  // pinned line on the home page opens its stop.
+  const { stopId, name, line: focusLine } = useLocalSearchParams<{ stopId?: string; name?: string; line?: string }>();
   const showLive = useRealtimeAvailable();
   // ONE clock for the whole board, not one per row -- a countdown must keep
   // counting even when the data behind it does not change. React Query hands
@@ -409,16 +448,25 @@ function StationScreenContent() {
   // Filtered, the strip is built from the BOARD rather than from the stop:
   // a strip still offering every line that calls here would put badges above
   // a board that cannot show a single one of their departures.
+  // The rider's favorite lines lead the strip, so they are found without
+  // scanning a busy stop's dozens of badges.
+  const { items: favoriteItems, refresh } = useFavorites();
+  const favoriteKeys = useMemo(() => favoriteLineKeysAt(favoriteItems, stopId ?? ''), [favoriteItems, stopId]);
   const lines = useMemo(
-    () => (destination === null
-      ? stationLines(stop?.routes ?? [])
-      : stationLines(departures.map((d) => d.route))),
-    [stop, departures, destination],
+    () => favoritesFirst(
+      destination === null
+        ? stationLines(stop?.routes ?? [])
+        : stationLines(departures.map((d) => d.route)),
+      (line) => favoriteKeys.has(lineKey(line)),
+    ),
+    [stop, departures, destination, favoriteKeys],
   );
 
   // --- The line in focus ----------------------------------------------------
 
-  const [highlight, setHighlight] = useState<Highlight | null>(null);
+  const [highlight, setHighlight] = useState<Highlight | null>(
+    () => (focusLine ? { key: focusLine, departureKey: null } : null),
+  );
 
   /** Changing the destination changes which lines exist on this board, so a
    *  line held in focus from the previous one has to let go. */
@@ -518,6 +566,43 @@ function StationScreenContent() {
   });
   const title = name || stop?.name || stopId || '';
 
+  // --- Favorites --------------------------------------------------------------
+
+  const stationFavorite = useMemo<FavoriteStation | null>(
+    () => (stopId ? {
+      kind: 'station', stopId, name: stop?.name ?? title,
+      // Absent, not false, until the stop has loaded: a snapshot must not
+      // claim a train station is a bus stop because it was saved early.
+      ...(stop ? {
+        rail: stop.routes.some((r) => r.type === RAIL_ROUTE_TYPE),
+        ...(stop.stationKind ? { stationKind: stop.stationKind } : {}),
+      } : {}),
+    } : null),
+    [stopId, stop, title],
+  );
+  const station = useFavoriteToggle(stationFavorite);
+  const pinnable = useMemo<FavoriteStopLine | null>(
+    () => (stopId && pathDeparture ? {
+      kind: 'stopLine',
+      stopId,
+      stopName: stop?.name ?? title,
+      lineCode: pathDeparture.lineCode,
+      lineDirection: pathDeparture.lineDirection,
+      shortName: pathDeparture.route.shortName,
+      agencyId: pathDeparture.route.agencyId,
+      type: pathDeparture.route.type,
+      headsign: pathDeparture.headsign,
+    } : null),
+    [stopId, stop, title, pathDeparture],
+  );
+  // A saved station's name as the feed now has it, once the stop has loaded.
+  useEffect(() => {
+    if (stop && stationFavorite) refresh(stationFavorite);
+    // `refresh` is rebuilt every render by the provider; the snapshot is what
+    // changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stop, stationFavorite]);
+
   // A fixed, short header however many lines call here: a busy stop serves
   // dozens, and wrapped badges pushed the departures below the drawer's peek.
   // The badges scroll sideways instead, edge to edge, their first one lined up
@@ -529,6 +614,13 @@ function StationScreenContent() {
       <View style={styles.titleRow}>
         <StationIcon kind={stationKind} />
         <Text variant="title2" numberOfLines={2} style={styles.title}>{title}</Text>
+        <IconButton
+          icon={station.saved ? 'starFill' : 'star'}
+          variant="plain"
+          color={station.saved ? 'accent' : 'textSecondary'}
+          accessibilityLabel={t(station.saved ? 'favorites.removeStation' : 'favorites.saveStation')}
+          onPress={station.toggle}
+        />
       </View>
       {/* Above the line strip, because it governs it: with a destination set
           the strip below lists only the lines that actually go there. */}
@@ -537,6 +629,7 @@ function StationScreenContent() {
         onPick={() => router.push('/station/destination-picker')}
         onClear={() => applyDestination(null)}
       />
+      {pinnable !== null && <PinLineChip favorite={pinnable} />}
       {lines.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineStrip}>
           {lines.map((line) => {
@@ -560,7 +653,12 @@ function StationScreenContent() {
                   pressed && Platform.OS === 'ios' && { opacity: Opacity.pressed },
                 ]}
               >
-                <LineBadge route={line} size="small" />
+                <View style={styles.badgeContent}>
+                  {favoriteKeys.has(key) && (
+                    <Icon name="starFill" size="xs" color="accent" accessibilityLabel={t('favorites.favorite')} />
+                  )}
+                  <LineBadge route={line} size="small" />
+                </View>
               </Pressable>
             );
           })}
@@ -594,7 +692,8 @@ function StationScreenContent() {
         // By run, not trip: an unscheduled bus shares its template trip's id.
         // Still paired with the time: the API can list one run twice on a board.
         keyExtractor={(item) => departureKey(item)}
-        extraData={highlight}
+        // The favorites too: starring a line must re-mark rows already drawn.
+        extraData={[highlight, favoriteItems]}
         ListHeaderComponent={header}
         ListEmptyComponent={
           isLoading ? (
@@ -622,6 +721,7 @@ function StationScreenContent() {
               // stops on screen while it shrinks, and they must not re-fold.
               bus={live?.vehicles.find((v) => v.tripId === item.tripId) ?? null}
               fastest={fastestKey !== null && departureKey(item) === fastestKey}
+              favorite={isFavoriteDeparture(favoriteItems, stopId ?? '', item)}
               onPress={() => toggleDeparture(item)}
             />
           );
@@ -685,6 +785,11 @@ const styles = StyleSheet.create({
   // selected, so choosing a line does not shift the strip. The strip's inset
   // above is trimmed by the ring and its gap, so the badges themselves line
   // up with the name.
+  badgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.xxs,
+  },
   badgeSlot: {
     borderWidth: Border.selected,
     borderRadius: Radius.sm,
@@ -729,6 +834,15 @@ const styles = StyleSheet.create({
   headsign: {
     flex: 1,
     gap: Space.xxs,
+  },
+  headsignLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.xs,
+  },
+  // Shrinks so a long destination truncates beside the star, not past it.
+  headsignText: {
+    flexShrink: 1,
   },
   timeColumn: {
     alignItems: 'flex-end',

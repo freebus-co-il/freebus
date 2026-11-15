@@ -38,6 +38,8 @@ import {
 } from '@/features/lines/filter-interlock';
 import { groupRoutes, type Line } from '@/features/lines/group-routes';
 import { LineFilterChip } from '@/features/lines/line-filter-chip';
+import type { FavoriteLine } from '@/features/favorites/favorites';
+import { useFavorites } from '@/features/favorites/favorites-context';
 import { useRecents } from '@/features/recents/recents-context';
 import { useSearch } from '@/features/search/search-context';
 import { formatDistanceMeters } from '@/lib/format';
@@ -119,6 +121,7 @@ export default function LinesScreen() {
   const tabBarInset = useTabBarInset();
   const scrollHeader = useScrollHeader();
   const { lines: recents, recordLine } = useRecents();
+  const favorites = useFavorites().items.filter((item): item is FavoriteLine => item.kind === 'line');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   // The rider's OWN two selections. Everything the filters show is derived
@@ -283,6 +286,15 @@ export default function LinesScreen() {
   // recents and nearby would bury the ones the rider actually asked for.
   const header = searching ? null : (
     <View style={styles.header}>
+      {/* Above recents: these were chosen, recents only happened. */}
+      {favorites.length > 0 && (
+        <ListSection title={t('favorites.title')} style={styles.groupedSection}>
+          {favorites.map((line) => (
+            <LineRow key={line.lineCode} line={line} onPress={() => openLine(line)} />
+          ))}
+        </ListSection>
+      )}
+
       {recents.length > 0 && (
         <ListSection title={t('lines.recent')} style={styles.groupedSection}>
           {recents.map((line) => (

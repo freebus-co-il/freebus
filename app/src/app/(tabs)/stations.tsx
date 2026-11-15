@@ -23,6 +23,8 @@ import {
   useGroupedItemStyle,
   useScrollHeader,
 } from '@/design-system';
+import type { FavoriteStation } from '@/features/favorites/favorites';
+import { useFavorites } from '@/features/favorites/favorites-context';
 import { JourneyDock, useJourneyDockInset } from '@/features/journey/journey-bar';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { NearbyStops } from '@/features/nearby/nearby-stops';
@@ -106,6 +108,7 @@ export default function StationsScreen() {
   const tabBarInset = useTabBarInset();
   const scrollHeader = useScrollHeader();
   const { stations: recents, recordStation } = useRecents();
+  const favorites = useFavorites().items.filter((item): item is FavoriteStation => item.kind === 'station');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -134,6 +137,21 @@ export default function StationsScreen() {
   // recents and nearby would bury the ones the rider actually asked for.
   const header = searching ? null : (
     <View style={styles.header}>
+      {/* Above recents: these were chosen, recents only happened. */}
+      {favorites.length > 0 && (
+        <ListSection title={t('favorites.title')} style={styles.groupedSection}>
+          {favorites.map((station) => (
+            <StationRow
+              key={station.stopId}
+              name={station.name}
+              rail={station.rail}
+              stationKind={station.stationKind}
+              onPress={() => openStation(station.stopId, station.name, station.rail === true, station.stationKind)}
+            />
+          ))}
+        </ListSection>
+      )}
+
       {recents.length > 0 && (
         <ListSection title={t('stations.recent')} style={styles.groupedSection}>
           {recents.map((station) => (

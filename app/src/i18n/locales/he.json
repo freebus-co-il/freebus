@@ -670,7 +670,9 @@
     },
     "reorder": "שינוי הסדר של {{name}}",
     "position": "{{index}} מתוך {{count}}",
-    "unknown": "לווידג׳ט הזה אין אפשרויות."
+    "unknown": "לווידג׳ט הזה אין אפשרויות.",
+    "favoritesTitle": "מועדפים",
+    "favoritesDescription": "התחנות והקווים ששמרתם, עם היציאות הקרובות"
   },
   "feedback": {
     "title": "משוב",
@@ -682,5 +684,20 @@
     "contributing": "מדריך תרומה",
     "linkErrorTitle": "לא ניתן לפתוח את הקישור",
     "linkErrorBody": "נסו שוב. ליצירת קשר, שלחו מייל לכתובת contactfreebus@gmail.com דרך אפליקציית הדואר שלכם."
+  },
+  "favorites": {
+    "title": "מועדפים",
+    "emptyHome": "סמנו תחנה בכוכב, או הצמידו קו בתחנה, והיציאות הקרובות שלהם יופיעו כאן.",
+    "removeHint": "לחיצה ארוכה על מועדף מסירה אותו.",
+    "removeTitle": "להסיר את {{name}} מהמועדפים?",
+    "remove": "הסרה",
+    "noneSoon": "אין בקרוב",
+    "pinLine": "הצמדת קו {{line}} כאן",
+    "linePinned": "קו {{line}} מוצמד כאן",
+    "saveStation": "הוספת התחנה למועדפים",
+    "removeStation": "הסרת התחנה מהמועדפים",
+    "saveLine": "הוספת הקו למועדפים",
+    "removeLine": "הסרת הקו מהמועדפים",
+    "favorite": "מועדף"
   }
 }

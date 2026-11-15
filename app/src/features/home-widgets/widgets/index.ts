@@ -1,6 +1,7 @@
 import { registerHomeWidget } from '../registry';
 
 import { commuteWidget } from './commute';
+import { favoritesWidget } from './favorites';
 import { nearbyWidget } from './nearby';
 
 /**
@@ -11,3 +12,4 @@ import { nearbyWidget } from './nearby';
  */
 registerHomeWidget(nearbyWidget);
 registerHomeWidget(commuteWidget);
+registerHomeWidget(favoritesWidget);

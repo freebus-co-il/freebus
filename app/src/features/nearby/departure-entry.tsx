@@ -23,6 +23,19 @@ function secondsUntil(iso: string, now: Date): number {
 export function DepartureEntry(
   { departure, showLive, now }: { departure: Departure; showLive: boolean; now: Date },
 ) {
+  return (
+    <View style={styles.departure}>
+      <LineBadge route={departure.route} size="small" />
+      <DepartureCountdown departure={departure} showLive={showLive} now={now} />
+    </View>
+  );
+}
+
+/** When one departure goes, in the rider's time format: a countdown, or a
+ *  clock time, in the live colour (with its mark) when it is a prediction. */
+export function DepartureCountdown(
+  { departure, showLive, now }: { departure: Departure; showLive: boolean; now: Date },
+) {
   const colors = useColors();
   const { timeFormat } = usePreferences();
   const time = departureTime(departure.departureTime, departure.realtime);
@@ -30,7 +43,6 @@ export function DepartureEntry(
 
   return (
     <View style={styles.departure}>
-      <LineBadge route={departure.route} size="small" />
       {live && <LiveIndicator color={colors.live} size={Size.icon.xs} />}
       <Text variant="footnote" numeric color={live ? 'live' : 'textSecondary'}>
         {timeFormat === 'clock' ? formatClockTime(time.iso) : formatDurationMinutes(secondsUntil(time.iso, now))}
