@@ -19,7 +19,7 @@
   "dependencies": {
     "@fastify/sensible": "^6.0.7",
     "better-sqlite3": "^13.0.3",
-    "croner": "^10.0.1",
+    "croner": "^11.0.0",
     "csv-parse": "^7.0.3",
     "fastify": "^5.12.7",
     "unzipper": "^0.12.5"
