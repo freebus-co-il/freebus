@@ -733,7 +733,9 @@
     },
     "reorder": "إعادة ترتيب {{name}}",
     "position": "{{index}} من {{count}}",
-    "unknown": "لا توجد خيارات لهذه الأداة."
+    "unknown": "لا توجد خيارات لهذه الأداة.",
+    "favoritesTitle": "المفضلة",
+    "favoritesDescription": "المحطات والخطوط التي حفظتها، مع رحلاتها القادمة"
   },
   "feedback": {
     "title": "ملاحظاتكم",
@@ -745,5 +747,20 @@
     "contributing": "دليل المساهمة",
     "linkErrorTitle": "تعذر فتح الرابط",
     "linkErrorBody": "يرجى المحاولة مجددًا. للتواصل معنا، أرسلوا رسالة إلى contactfreebus@gmail.com باستخدام تطبيق البريد."
+  },
+  "favorites": {
+    "title": "المفضلة",
+    "emptyHome": "ضع نجمة على محطة، أو ثبّت خطًا في محطة، وستظهر رحلاته القادمة هنا.",
+    "removeHint": "اضغط مطولًا على عنصر مفضل لإزالته.",
+    "removeTitle": "إزالة {{name}} من المفضلة؟",
+    "remove": "إزالة",
+    "noneSoon": "لا شيء قريبًا",
+    "pinLine": "تثبيت الخط {{line}} هنا",
+    "linePinned": "الخط {{line}} مثبّت هنا",
+    "saveStation": "إضافة المحطة إلى المفضلة",
+    "removeStation": "إزالة المحطة من المفضلة",
+    "saveLine": "إضافة الخط إلى المفضلة",
+    "removeLine": "إزالة الخط من المفضلة",
+    "favorite": "مفضل"
   }
 }

@@ -13,7 +13,10 @@ import type { LineDetail, LineDirection, Place, RouteRun } from '@/api/types';
 import { LineBadge } from '@/components/line-badge';
 import { MapScreen } from '@/components/map-screen';
 import { useMapSheetEdgePadding } from '@/components/map-sheet';
-import { Chip, EmptyState, Layout, Loading, SegmentedControl, Space, Text, useColors } from '@/design-system';
+import { Chip, EmptyState, IconButton, Layout, Loading, SegmentedControl, Space, Text, useColors } from '@/design-system';
+import type { FavoriteLine } from '@/features/favorites/favorites';
+import { useFavorites } from '@/features/favorites/favorites-context';
+import { useFavoriteToggle } from '@/features/favorites/use-favorite-toggle';
 import { LineMap, type MapPin } from '@/features/lines/line-map';
 import { alignStopTimesToRun, firstRelevantStopIndex } from '@/features/lines/first-relevant-stop';
 import { PreviousStopsRow } from '@/features/lines/previous-stops-row';
@@ -44,9 +47,30 @@ function directionName(direction: LineDirection | null): string {
   return headsign === '' ? '' : formatHeadsign(headsign);
 }
 
+function favoriteOf(line: LineDetail): FavoriteLine {
+  return {
+    kind: 'line',
+    lineCode: line.lineCode,
+    shortName: line.shortName,
+    longName: line.longName,
+    agencyId: line.agencyId,
+    type: line.type,
+  };
+}
+
 function LineHeader({ line, direction }: { line: LineDetail; direction: LineDirection | null }) {
   const { t } = useTranslation();
   const towards = directionName(direction);
+  const favorite = useMemo(() => favoriteOf(line), [line]);
+  const { saved, toggle } = useFavoriteToggle(favorite);
+  // A saved line's names as the feed now has them.
+  const { refresh } = useFavorites();
+  useEffect(() => {
+    refresh(favorite);
+    // `refresh` is rebuilt every render by the provider; the snapshot is what
+    // changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favorite]);
 
   return (
     <View style={styles.lineHeader}>
@@ -59,6 +83,13 @@ function LineHeader({ line, direction }: { line: LineDetail; direction: LineDire
           {t('line.stopCount', { count: direction?.stops.length ?? 0 })}
         </Text>
       </View>
+      <IconButton
+        icon={saved ? 'starFill' : 'star'}
+        variant="plain"
+        color={saved ? 'accent' : 'textSecondary'}
+        accessibilityLabel={t(saved ? 'favorites.removeLine' : 'favorites.saveLine')}
+        onPress={toggle}
+      />
     </View>
   );
 }

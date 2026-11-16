@@ -643,7 +643,9 @@
     },
     "reorder": "Reordenar {{name}}",
     "position": "{{index}} de {{count}}",
-    "unknown": "Este widget no tiene opciones."
+    "unknown": "Este widget no tiene opciones.",
+    "favoritesTitle": "Favoritos",
+    "favoritesDescription": "Tus estaciones guardadas y líneas fijadas, con sus próximas salidas"
   },
   "feedback": {
     "title": "Comentarios",
@@ -655,5 +657,20 @@
     "contributing": "Guía de contribución",
     "linkErrorTitle": "No se pudo abrir el enlace",
     "linkErrorBody": "Inténtalo de nuevo. Para contactarnos, envía un correo a contactfreebus@gmail.com desde tu aplicación de correo."
+  },
+  "favorites": {
+    "title": "Favoritos",
+    "emptyHome": "Marca una estación con una estrella, o fija una línea en una estación, y sus próximas salidas aparecerán aquí.",
+    "removeHint": "Mantén pulsado un favorito para quitarlo.",
+    "removeTitle": "¿Quitar {{name}} de favoritos?",
+    "remove": "Quitar",
+    "noneSoon": "Ninguna pronto",
+    "pinLine": "Fijar la línea {{line}} aquí",
+    "linePinned": "Línea {{line}} fijada aquí",
+    "saveStation": "Añadir estación a favoritos",
+    "removeStation": "Quitar estación de favoritos",
+    "saveLine": "Añadir línea a favoritos",
+    "removeLine": "Quitar línea de favoritos",
+    "favorite": "Favorito"
   }
 }

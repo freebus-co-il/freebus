@@ -612,7 +612,9 @@
     },
     "reorder": "Reorder {{name}}",
     "position": "{{index}} of {{count}}",
-    "unknown": "This widget has no options."
+    "unknown": "This widget has no options.",
+    "favoritesTitle": "Favorites",
+    "favoritesDescription": "Your saved stations and pinned lines, with their next departures"
   },
   "feedback": {
     "title": "Feedback",
@@ -624,5 +626,20 @@
     "contributing": "Contribution guide",
     "linkErrorTitle": "Could not open the link",
     "linkErrorBody": "Please try again. To contact us, email contactfreebus@gmail.com using your mail app."
+  },
+  "favorites": {
+    "title": "Favorites",
+    "emptyHome": "Star a station, or pin a line at a station, and its next departures show up here.",
+    "removeHint": "Touch and hold a favorite to remove it.",
+    "removeTitle": "Remove {{name}} from favorites?",
+    "remove": "Remove",
+    "noneSoon": "None soon",
+    "pinLine": "Pin line {{line}} here",
+    "linePinned": "Line {{line}} pinned here",
+    "saveStation": "Add station to favorites",
+    "removeStation": "Remove station from favorites",
+    "saveLine": "Add line to favorites",
+    "removeLine": "Remove line from favorites",
+    "favorite": "Favorite"
   }
 }

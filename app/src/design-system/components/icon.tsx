@@ -69,6 +69,8 @@ const GLYPHS = {
   layers: { ios: 'square.3.layers.3d', android: 'layers' },
   history: { ios: 'clock.arrow.circlepath', android: 'history' },
   star: { ios: 'star', android: 'star' },
+  /** A saved favorite: the outline `star` is the control to save one. */
+  starFill: { ios: 'star.fill', android: 'star' },
   heart: { ios: 'heart', android: 'favorite' },
   school: { ios: 'graduationcap', android: 'school' },
   fitness: { ios: 'dumbbell', android: 'fitness_center' },

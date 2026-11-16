@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ShareIntentProvider } from 'expo-share-intent';
 
 import { CustomJourneysProvider } from '@/features/custom-journeys/custom-journeys-context';
+import { FavoritesProvider } from '@/features/favorites/favorites-context';
 import { JourneyProvider } from '@/features/journey/journey-context';
 import { LeaveReminderGate } from '@/features/journey/leave-reminder-gate';
 import { UpdateSnackbar } from '@/features/updates/update-snackbar';
@@ -88,6 +89,7 @@ function App() {
         <SavedLocationsProvider>
           <CustomJourneysProvider>
           <RecentsProvider>
+          <FavoritesProvider>
             {/* Above the navigator, not inside it: a running journey outlives the
                 screen that started it, so nothing about it may be owned by a
                 route the rider can pop. */}
@@ -150,6 +152,7 @@ function App() {
                   until an update is downloaded. */}
               <UpdateSnackbar />
             </JourneyProvider>
+          </FavoritesProvider>
           </RecentsProvider>
           </CustomJourneysProvider>
         </SavedLocationsProvider>
