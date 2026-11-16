@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
-import { Gesture, GestureDetector, type PanGesture, type ScrollView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, type LegacyPanGesture, type LegacyScrollView } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -76,7 +76,7 @@ export function ReorderableRows<T>({
   /** The page's (Gesture Handler) scroll view. A drag from the grip blocks
    *  it; without this the scroll claims the vertical swipe and cancels the
    *  drag before it has moved. */
-  scrollRef?: RefObject<ScrollView | null>;
+  scrollRef?: RefObject<LegacyScrollView | null>;
 }) {
   const heights = useSharedValue<number[]>([]);
   const active = useSharedValue(-1);
@@ -169,14 +169,14 @@ function ReorderableRow({
   onDrop: (from: number, to: number) => void;
   handleLabel: string;
   positionLabel: string;
-  scrollRef?: RefObject<ScrollView | null>;
+  scrollRef?: RefObject<LegacyScrollView | null>;
   children: (grip: ReactNode) => ReactNode;
 }) {
   const colors = useColors();
   const reduceMotion = useReduceMotion();
   const { heights, active, target, dy, owner } = drag;
 
-  function pan(longPress: boolean): PanGesture {
+  function pan(longPress: boolean): LegacyPanGesture {
     const me = longPress ? 2 : 1;
     const gesture = Gesture.Pan()
       .onStart(() => {

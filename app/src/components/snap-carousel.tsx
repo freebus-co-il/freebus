@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactElement } from 'react';
-import { FlatList, StyleSheet, View, useWindowDimensions, type ViewToken } from 'react-native';
+import { FlatList, StyleSheet, View, useWindowDimensions, type ListViewToken } from 'react-native';
 
 import { Layout, Space } from '@/design-system';
 import { hapticSelected } from '@/lib/haptics';
@@ -81,7 +81,7 @@ function SnapCarouselInner<T>(
   // Held in lazy `useState`, not `useRef().current` -- both give one stable
   // value for the component's lifetime, but reading a ref during render is a
   // lint error (and unsafe under concurrent rendering).
-  const [handleViewableChanged] = useState(() => ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const [handleViewableChanged] = useState(() => ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const index = viewableItems[0]?.index;
     if (index == null) return;
     const previous = lastIndex.current;

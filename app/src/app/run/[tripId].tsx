@@ -198,13 +198,13 @@ function RunScreenContent() {
               <PreviousStopsRow count={hiddenCount} color={color} onPress={() => setUnfoldedTripId(tripId ?? null)} />
             )}
           </View>
-        ) : null}
+        ) : undefined}
         ListEmptyComponent={
           isLoading ? (
             <Loading />
           ) : isError || !trip ? (
             <EmptyState icon="error" title={t('run.error')} />
-          ) : null
+          ) : undefined
         }
         contentContainerStyle={styles.listContent}
         renderItem={({ item, index: visibleIndex }) => {

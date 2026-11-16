@@ -284,7 +284,7 @@ export default function LinesScreen() {
 
   // Only while browsing: a search is a list of answers, and prefixing it with
   // recents and nearby would bury the ones the rider actually asked for.
-  const header = searching ? null : (
+  const header = searching ? undefined : (
     <View style={styles.header}>
       {/* Above recents: these were chosen, recents only happened. */}
       {favorites.length > 0 && (
@@ -361,7 +361,7 @@ export default function LinesScreen() {
             if (hasNextPage && !isFetching) fetchNextPage();
           }}
           ListEmptyComponent={
-            !searching ? null : isFetching ? (
+            !searching ? undefined : isFetching ? (
               <Loading />
             ) : (
               <EmptyState icon="search" title={t('lines.empty')} />

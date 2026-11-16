@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { LegacyScrollView } from 'react-native-gesture-handler';
 
 import { MapSchemeScope } from '@/components/map-scheme-scope';
 import { useLine, useRouteRuns, useRouteShape } from '@/api/lines';
@@ -359,7 +359,7 @@ function LineScreenContent() {
     [boardingStop],
   );
 
-  const header = line === undefined ? null : (
+  const header = line === undefined ? undefined : (
     <View>
       <LineHeader line={line} direction={selected} />
 
@@ -390,10 +390,11 @@ function LineScreenContent() {
           <Text variant="subheadline" emphasized color="textSecondary" accessibilityRole="header" style={styles.sectionTitle}>
             {t('line.runs')}
           </Text>
-          {/* Gesture-handler's ScrollView, not React Native's: inside the
-              drawer, Android only lets a sideways swipe reach the strip when
-              both gestures go through the same handler system. */}
-          <ScrollView
+          {/* Gesture Handler's legacy ScrollView, not React Native's: inside
+              the drawer, Android only lets a sideways swipe reach the strip
+              when both gestures go through the same handler system, and the
+              drawer (@gorhom/bottom-sheet) uses the legacy one. */}
+          <LegacyScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.runStrip}
@@ -418,7 +419,7 @@ function LineScreenContent() {
                 />
               );
             })}
-          </ScrollView>
+          </LegacyScrollView>
         </View>
       )}
 
@@ -468,7 +469,7 @@ function LineScreenContent() {
             <Loading />
           ) : !line || isError ? (
             <EmptyState icon="error" title={t('line.error')} />
-          ) : null
+          ) : undefined
         }
         contentContainerStyle={styles.listContent}
         renderItem={({ item, index: visibleIndex }) => {

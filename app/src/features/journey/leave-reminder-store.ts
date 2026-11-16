@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import i18n from '@/i18n';
@@ -64,7 +65,7 @@ export async function scheduleLeaveReminders(pending: PendingLeave, now: Date = 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
         name: i18n.t('journey.reminder.leaveTitle'),
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: AndroidImportance.HIGH,
         sound: 'default',
         showBadge: false,
       });

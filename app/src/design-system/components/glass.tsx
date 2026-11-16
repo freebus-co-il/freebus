@@ -1,6 +1,6 @@
 import { GlassContainer, GlassView } from 'expo-glass-effect';
 import { requireNativeView } from 'expo';
-import type { ComponentProps, ComponentType, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 
@@ -94,12 +94,14 @@ export function GlassGroup({ spacing = 8, style, children }: { spacing?: number;
  * native view takes the same props, so the morph animates that directly.
  * iOS only -- there is no native glass view anywhere else.
  */
-const AnimatedNativeGlass: ComponentType<ComponentProps<typeof Animated.View> & {
+type NativeGlassProps = ViewProps & {
   glassEffectStyle?: 'regular' | 'clear';
   colorScheme?: 'light' | 'dark';
-}> | null =
+};
+
+const AnimatedNativeGlass =
   Platform.OS === 'ios'
-    ? Animated.createAnimatedComponent(requireNativeView('ExpoGlassEffect', 'GlassView') as ComponentType<ViewProps>)
+    ? Animated.createAnimatedComponent(requireNativeView<NativeGlassProps>('ExpoGlassEffect', 'GlassView'))
     : null;
 
 /**

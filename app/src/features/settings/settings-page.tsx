@@ -2,8 +2,10 @@ import type { ReactNode, RefObject } from 'react';
 import { StyleSheet } from 'react-native';
 // Gesture Handler's, not React Native's: a drag inside the page (the Home
 // screen editor's grips) and the page's own scroll then settle which one
-// owns a touch, instead of the native scroll cancelling the drag.
-import { ScrollView } from 'react-native-gesture-handler';
+// owns a touch, instead of the native scroll cancelling the drag. The legacy
+// component, because those grips are legacy builder gestures, and Gesture
+// Handler 3 sets no relation between the builder API and its hook API.
+import { LegacyScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Layout, NativeHeader, Space, Surface } from '@/design-system';
@@ -21,14 +23,14 @@ export function SettingsPage({ title, children, scrollEnabled = true, scrollRef 
   scrollEnabled?: boolean;
   /** The page's scroll view, for a gesture inside the page that must win
    *  over it (`blocksExternalGesture`). */
-  scrollRef?: RefObject<ScrollView | null>;
+  scrollRef?: RefObject<LegacyScrollView | null>;
 }) {
   return (
     <Surface level="bgGrouped" style={styles.container}>
       <NativeHeader title={title} />
       {/* Bottom edge only: the native header already clears the top. */}
       <SafeAreaView edges={['bottom']} style={styles.container}>
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>{children}</ScrollView>
+        <LegacyScrollView ref={scrollRef} contentContainerStyle={styles.content} scrollEnabled={scrollEnabled}>{children}</LegacyScrollView>
       </SafeAreaView>
     </Surface>
   );

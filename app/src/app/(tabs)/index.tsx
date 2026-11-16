@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type ViewInstance } from 'react-native';
 
 import {
   Button,
@@ -40,9 +40,9 @@ import { hapticWarned } from '@/lib/haptics';
 // both sides to show.
 export default function SearchScreen() {
   const { t } = useTranslation();
-  const searchRef = useRef<View>(null);
-  const mapRef = useRef<View>(null);
-  const chipsRef = useRef<View>(null);
+  const searchRef = useRef<ViewInstance>(null);
+  const mapRef = useRef<ViewInstance>(null);
+  const chipsRef = useRef<ViewInstance>(null);
   // While the picker draws these two controls in flight, their slots here
   // are held empty -- unmounted, not faded, since glass faded to nothing never
   // draws again. The chips under them are hidden too, while the picker's own
@@ -60,7 +60,7 @@ export default function SearchScreen() {
       router.push('/location-picker');
       return;
     }
-    const measure = (ref: RefObject<View | null>, then: (frame: MorphFrame | null) => void) => {
+    const measure = (ref: RefObject<ViewInstance | null>, then: (frame: MorphFrame | null) => void) => {
       if (!ref.current) then(null);
       else ref.current.measureInWindow((x, y, width, height) => then({ x, y, width, height }));
     };
